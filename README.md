@@ -1,12 +1,10 @@
 # Project: NoteShare
 _สร้างพื้นที่ให้นักศึกษาแบ่งปันสรุปเลกเชอร์และโน้ตซึ่งกันและกัน เพื่อให้ทุกคนเข้าถึงความรู้ได้ง่ายและเรียนรู้ร่วมกันเป็นชุมชน_
 
-## Team: [ชื่อทีมของคุณ]
-- [ชื่อ-นามสกุล], GitHub: `[github_username]`
-- [ชื่อ-นามสกุล], GitHub: `[github_username]`
-- [ชื่อ-นามสกุล], GitHub: `[github_username]`
-- [ชื่อ-นามสกุล], GitHub: `[github_username]`
-- [ชื่อ-นามสกุล], GitHub: `[github_username]`
+## Team: The Builders
+- นายอติชาติ ผาแสนเถิน (67026168) — หัวหน้ากลุ่ม, GitHub: `@Felsau`
+- วชิรวิทย์ ศรีทอง (67021219), GitHub: `@Washi-cloud`
+- กฤตเมธ ป้องตัน (67020746), GitHub: `@KITTAMETPONGTAN`
 
 ---
 
