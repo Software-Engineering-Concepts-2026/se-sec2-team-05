@@ -1,10 +1,10 @@
-# Project: [ชื่อโปรเจกต์ของคุณ]
-_A brief, one-sentence description of what your project does._
+# Project: NoteShare
+_สร้างพื้นที่ให้นักศึกษาแบ่งปันสรุปเลกเชอร์และโน้ตซึ่งกันและกัน เพื่อให้ทุกคนเข้าถึงความรู้ได้ง่ายและเรียนรู้ร่วมกันเป็นชุมชน_
 
-## Team: [ชื่อทีมของคุณ]
-- [ชื่อ-นามสกุล], GitHub: `[github_username]`
-- [ชื่อ-นามสกุล], GitHub: `[github_username]`
-- [ชื่อ-นามสกุล], GitHub: `[github_username]`
+## Team: The Builders
+- นายอติชาติ ผาแสนเถิน (67026168) — หัวหน้ากลุ่ม, GitHub: `@Felsau`
+- วชิรวิทย์ ศรีทอง (67021219), GitHub: `@Washi-cloud`
+- กฤตเมธ ป้องตัน (67020746), GitHub: `@KITTAMETPONGTAN`
 
 ---
 
@@ -22,8 +22,8 @@ This section explains how to get a local copy of the project up and running for 
 
 1.  **Clone the repository:**
     ```bash
-    git clone [your-repository-url]
-    cd [your-project-folder]
+    git clone https://github.com/Software-Engineering-Concepts-2026/se-sec2-team-05.git
+    cd se-sec2-team-05
     ```
 
 2.  **Run the services:**
@@ -34,6 +34,39 @@ This section explains how to get a local copy of the project up and running for 
     docker build -t your-team/stats-service .
     docker run -p 5001:5000 your-team/stats-service
     ```
+
+---
+
+## 🤝 Ways of Working (Project Charter)
+
+ข้อตกลงร่วมกันของทีมเพื่อให้การทำงานราบรื่นและลดปัญหาที่พบบ่อย
+
+### 1. Meeting Cadence
+| Meeting | ความถี่ | ระยะเวลา | จุดประสงค์ |
+| --- | --- | --- | --- |
+| Sprint Planning | ต้นสัปดาห์ (สัปดาห์ละครั้ง) | 45–60 นาที | วางแผนงานและเป้าหมายของ Sprint |
+| Daily Stand-up | ทุกวันทำงาน / 2–3 ครั้งต่อสัปดาห์ | 10–15 นาที | อัปเดตความคืบหน้า, สิ่งที่ติดขัด |
+| Sprint Review / Retrospective | ปลายสัปดาห์ (สัปดาห์ละครั้ง) | 30–45 นาที | ทบทวนผลงานและปรับปรุงวิธีการทำงาน |
+
+### 2. Communication Rules
+- **ช่องทางหลัก:** กลุ่ม Instagram (IG)
+- **เวลาตอบกลับ (Response time):** ตอบกลับภายใน 24 ชั่วโมงในวันทำงาน
+- **การใช้ Thread:** ใช้ thread แยกตามหัวข้อ เพื่อให้สนทนาเป็นระเบียบ
+- **DM vs. Public:** เรื่องที่เกี่ยวข้องกับทีมให้คุยในช่องสาธารณะ (public channel) เพื่อความโปร่งใส; ใช้ DM เฉพาะเรื่องส่วนตัว
+- **การแจ้งลา/ติดปัญหา:** แจ้งทีมล่วงหน้าหากไม่สามารถเข้าร่วมประชุมหรือทำงานตามกำหนด
+
+### 3. Git Workflow
+- **Branching:** แตก branch จาก `main` เสมอ ตั้งชื่อตามรูปแบบ `type/short-description` เช่น `feature/upload-note`, `fix/login-bug`, `docs/initial-charter`
+- **Commit Messages:** ใช้รูปแบบ [Conventional Commits] เช่น `feat: add note upload`, `fix: correct search query`
+- **Pull Request:** ทุกการเปลี่ยนแปลงเข้าผ่าน PR เท่านั้น ห้าม push ตรงเข้า `main`
+- **Code Review:** ต้องมีสมาชิกอย่างน้อย **1 คน** review และ approve ก่อน merge
+- **หลัง Merge:** ลบ branch ที่ merge แล้วเพื่อความเป็นระเบียบ
+
+### 4. Decision Making
+- พยายามหา **ฉันทามติ (consensus)** เป็นอันดับแรก
+- หากเห็นต่างกัน ใช้การ **โหวต (majority vote)** โดยทุกคนมีหนึ่งเสียง
+- หากเสียงเท่ากันหรือยังตัดสินใจไม่ได้ ให้ **หัวหน้าทีม (Team Lead)** เป็นผู้ตัดสินใจขั้นสุดท้าย
+- บันทึกการตัดสินใจสำคัญไว้ใน `/docs/architecture/adr/`
 
 ---
 
