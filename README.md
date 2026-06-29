@@ -83,3 +83,17 @@ User personas and key scenarios that drive our development are located in the `/
 
 - **[User Personas](./docs/requirements/personas/)**
 - **[Main User Scenario](./docs/requirements/main_scenario.md)**
+---
+
+## 📌 Future Enhancements
+
+The following features may be considered in future iterations of the project:
+
+- Note rating and feedback system to help students identify high-quality learning materials.
+- Advanced search and filtering by subject, course, and keywords.
+- Bookmark favorite notes for quick and convenient access.
+- Notification system for newly shared notes and updates.
+- Mobile-friendly user interface improvements for better accessibility on different devices.
+- User profile pages that showcase contributions and shared resources.
+- Collaborative note editing to encourage teamwork and knowledge sharing.
+These enhancements aim to improve collaboration, increase engagement within the learning community, and provide a better learning experience for students.
