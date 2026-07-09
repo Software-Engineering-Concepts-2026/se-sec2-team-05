@@ -90,7 +90,7 @@ body {
   margin-bottom: 18px;
 }
 
-/* โซนดาวให้คะแนน - ขยายใหญ่และจัดสเปซ */
+/* โซนดาวให้คะแนน - ปรับปรุงให้ Hover ไล่จากซ้ายมาขวา */
 .star-rating {
   font-size: 2.4rem;
   margin-bottom: 24px;
@@ -99,6 +99,7 @@ body {
   justify-content: center;
   gap: 14px;
   user-select: none;
+  flex-direction: row; /* จัดเรียงจากซ้ายไปขวา */
 }
 
 .star {
@@ -106,12 +107,22 @@ body {
   transition: transform 0.1s ease, color 0.15s ease;
 }
 
-/* ใส่ความดึ๋งเวลาเอาเมาส์ชี้ดาว */
-.star:hover {
-  transform: scale(1.15);
+/* เวลาเมาส์ชี้ดวงไหน ให้ดวงนั้นและดวงก่อนหน้า (ทางซ้าย) สว่างทั้งหมด */
+.star-rating:hover .star {
+  color: #ff9800;
+  text-shadow: 0 0 10px rgba(255, 152, 0, 0.3);
 }
 
-.star.selected, .star:hover {
+.star:hover ~ .star {
+  color: #444444;
+  text-shadow: none;
+}
+
+.star:hover {
+  transform: scale(1.2);
+}
+
+.star.selected {
   color: #ff9800;
   text-shadow: 0 0 10px rgba(255, 152, 0, 0.3);
 }
