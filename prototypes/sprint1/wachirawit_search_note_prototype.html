@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>NoteShare - ค้นหาโน้ต</title>
+<link rel="stylesheet" href="wachirawit_search_note_prototype.css">
+</head>
+<body>
+
+<div class="search-card">
+
+  <label for="searchInput" style="position:absolute; width:1px; height:1px; overflow:hidden;">ค้นหาโน้ต</label>
+  <input type="text" id="searchInput" class="search-input" placeholder="Search...">
+
+  <div class="filter-row">
+    <label for="facultyFilter" style="position:absolute; width:1px; height:1px; overflow:hidden;">กรองตามคณะ</label>
+    <select id="facultyFilter" class="filter-btn">
+      <option value="">คณะ/สาขา</option>
+      <option value="eng">วิศวกรรมศาสตร์</option>
+      <option value="sci">วิทยาศาสตร์</option>
+      <option value="biz">บริหารธุรกิจ</option>
+    </select>
+
+    <label for="yearFilter" style="position:absolute; width:1px; height:1px; overflow:hidden;">กรองตามปีการศึกษา</label>
+    <select id="yearFilter" class="filter-btn">
+      <option value="">ปีการศึกษา</option>
+      <option value="2566">2566</option>
+      <option value="2567">2567</option>
+      <option value="2568">2568</option>
+    </select>
+
+    <label for="typeFilter" style="position:absolute; width:1px; height:1px; overflow:hidden;">กรองตามประเภทไฟล์</label>
+    <select id="typeFilter" class="filter-btn">
+      <option value="">ประเภทไฟล์</option>
+      <option value="pdf">PDF</option>
+      <option value="docx">DOCX</option>
+      <option value="img">รูปภาพ</option>
+    </select>
+
+    <label for="sortFilter" style="position:absolute; width:1px; height:1px; overflow:hidden;">จัดเรียงข้อมูล</label>
+    <select id="sortFilter" class="filter-btn">
+      <option value="new">จัดเรียง: ล่าสุด</option>
+      <option value="rating">คะแนนสูงสุด</option>
+      <option value="download">ดาวน์โหลดมากสุด</option>
+    </select>
+  </div>
+
+  <div class="results-header">
+    <span id="resultsCount" class="results-count">ผลการค้นหา 0 รายการ</span>
+    <a href="#" id="historyLink" class="history-link">↻ ประวัติการค้นหา</a>
+  </div>
+
+  <div id="historyPanel" class="history-panel"></div>
+  <div id="resultsList" class="results-list"></div>
+  <div id="noResults" class="no-results">ไม่พบผลลัพธ์</div>
+  <div class="scroll-indicator">⌄</div>
+
+</div>
+
+<script>
+// 1. ฐานข้อมูลจำลอง
+const notes = [
+  { title: 'Data Structures Summary', subtitle: 'CS101 • วิศวกรรมคอมพิวเตอร์', faculty: 'eng', year: '2567', type: 'pdf', rating: 4.8, downloads: 182, createdAt: 3 },
+  { title: 'Organic Chemistry Notes', subtitle: 'CHEM201 • วิทยาศาสตร์', faculty: 'sci', year: '2566', type: 'docx', rating: 4.3, downloads: 94, createdAt: 2 },
+  { title: 'Marketing Plan Template', subtitle: 'MKT301 • บริหารธุรกิจ', faculty: 'biz', year: '2568', type: 'img', rating: 4.6, downloads: 132, createdAt: 4 },
+  { title: 'Circuit Lab Report', subtitle: 'ELEC210 • วิศวกรรมศาสตร์', faculty: 'eng', year: '2568', type: 'pdf', rating: 4.9, downloads: 221, createdAt: 5 },
+  { title: 'Physics Formula Sheet', subtitle: 'PHY110 • วิทยาศาสตร์', faculty: 'sci', year: '2567', type: 'pdf', rating: 4.2, downloads: 71, createdAt: 1 },
+];
+
+const searchInput = document.getElementById('searchInput');
+const historyPanel = document.getElementById('historyPanel');
+const historyLink = document.getElementById('historyLink');
+const resultsList = document.getElementById('resultsList');
+const resultsCount = document.getElementById('resultsCount');
+const noResults = document.getElementById('noResults');
+
+const facultyFilter = document.getElementById('facultyFilter');
+const yearFilter = document.getElementById('yearFilter');
+const typeFilter = document.getElementById('typeFilter');
+const sortFilter = document.getElementById('sortFilter');
+
+let searchHistory = JSON.parse(localStorage.getItem('noteshare_history')) || [];
+
+// escape ค่าที่มาจากข้อมูล กันแทรก HTML/สคริปต์ (XSS) ตอนใช้ template literal
+const esc = str => {
+  const div = document.createElement('div');
+  div.textContent = str ?? '';
+  return div.innerHTML;
+};
+
+function saveHistory(term) {
+  if (!term || term.length < 2) return;
+
+  searchHistory = searchHistory.filter(h => h !== term);
+
+  if (searchHistory.length > 0 && term.startsWith(searchHistory[0])) {
+    searchHistory[0] = term;
+  } else {
+    searchHistory.unshift(term);
+  }
+
+  searchHistory = searchHistory.slice(0, 8);
+  localStorage.setItem('noteshare_history', JSON.stringify(searchHistory));
+
+  if (historyPanel.classList.contains('open')) renderHistory();
+}
+
+function renderHistory() {
+  historyPanel.innerHTML = '';
+
+  if (searchHistory.length === 0) {
+    const emptySpan = document.createElement('span');
+    emptySpan.className = 'history-empty';
+    emptySpan.textContent = 'ยังไม่มีประวัติการค้นหา';
+    historyPanel.appendChild(emptySpan);
+    return;
+  }
+
+  searchHistory.forEach(term => {
+    const btn = document.createElement('button');
+    btn.className = 'history-item';
+    btn.dataset.term = term;
+    btn.textContent = term;
+    historyPanel.appendChild(btn);
+  });
+}
+
+const icons = { pdf: '📄', docx: '📝', img: '🖼️' };
+const stars = r => {
+  const safeR = Math.max(0, Math.min(5, Math.round(Number(r) || 0)));
+  return '★'.repeat(safeR) + '☆'.repeat(5 - safeR);
+};
+
+function render() {
+  const q = searchInput.value.trim().toLowerCase();
+
+  const filtered = notes
+    .filter(n =>
+      (!q || `${n.title} ${n.subtitle}`.toLowerCase().includes(q)) &&
+      (!facultyFilter.value || n.faculty === facultyFilter.value) &&
+      (!yearFilter.value || n.year === yearFilter.value) &&
+      (!typeFilter.value || n.type === typeFilter.value)
+    )
+    .sort((a, b) =>
+      sortFilter.value === 'rating' ? b.rating - a.rating :
+      sortFilter.value === 'download' ? b.downloads - a.downloads :
+      b.createdAt - a.createdAt
+    );
+
+  resultsList.innerHTML = filtered.map(n => `
+    <div class="note-card">
+      <div class="thumbnail">${icons[n.type] || '📄'}</div>
+      <div class="note-info">
+        <div class="note-title">${esc(n.title)}</div>
+        <div class="note-sub">${esc(n.subtitle)}</div>
+      </div>
+      <div class="note-meta">
+        <div class="rating">${stars(n.rating)}</div>
+        <div class="downloads">⬇ ${n.downloads}</div>
+      </div>
+      <button class="preview-link" type="button">Preview</button>
+    </div>
+  `).join('');
+
+  resultsCount.textContent = `ผลการค้นหา ${filtered.length} รายการ`;
+  noResults.style.display = filtered.length ? 'none' : 'block';
+}
+
+let typingTimer;
+searchInput.addEventListener('input', () => {
+  render();
+  clearTimeout(typingTimer);
+  typingTimer = setTimeout(() => saveHistory(searchInput.value.trim()), 1500);
+});
+
+searchInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    clearTimeout(typingTimer);
+    saveHistory(searchInput.value.trim());
+  }
+});
+
+// select ทั้งหมดใช้ event 'change' (ตรง semantic กว่า 'input')
+[facultyFilter, yearFilter, typeFilter, sortFilter].forEach(el =>
+  el.addEventListener('change', render)
+);
+
+historyLink.addEventListener('click', e => {
+  e.preventDefault();
+  historyPanel.classList.toggle('open');
+  if (historyPanel.classList.contains('open')) renderHistory();
+});
+
+historyPanel.addEventListener('click', e => {
+  const btn = e.target.closest('.history-item');
+  if (!btn) return;
+  searchInput.value = btn.dataset.term;
+  historyPanel.classList.remove('open');
+  render();
+});
+
+render();
+</script>
+
+</body>
+</html>
