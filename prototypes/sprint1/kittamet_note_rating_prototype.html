@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NoteShare - Note Rating</title>
+  <link rel="stylesheet" href="kittamet_note_rating_style.css">
+</head>
+<body>
+
+  <div class="rating-card">
+    <header class="brand-box">NoteShare</header>
+    
+    <main class="content">
+      <p class="subtitle">Note Details</p>
+      <h1 class="note-title">Data Structure Lecture 5</h1>
+      
+      <div class="average-rating">
+        <p>Average Rating</p>
+        <div class="stars-display">★★★★☆ <span class="rating-num">(4.2)</span></div>
+      </div>
+      
+      <hr class="wireframe-divider">
+      
+      <div class="user-rate-section">
+        <p class="section-title">Rate this note</p>
+        <!-- ดาว 5 ดวงสำหรับให้คลิกเลือกคะแนน -->
+        <div class="star-rating" id="starRating">
+          <span class="star" data-value="1">☆</span>
+          <span class="star" data-value="2">☆</span>
+          <span class="star" data-value="3">☆</span>
+          <span class="star" data-value="4">☆</span>
+          <span class="star" data-value="5">☆</span>
+        </div>
+        <button class="btn-submit" id="submitBtn">[ Submit Rating ]</button>
+      </div>
+      
+      <hr class="wireframe-divider">
+      
+      <a href="#" class="btn-back">Back to Notes</a>
+    </main>
+  </div>
+
+  <!-- JavaScript จาก ChatGPT สำหรับจัดการ Event การคลิกและแจ้งเตือน -->
+  <script>
+    let selectedRating = 0;
+    const stars = document.querySelectorAll('#starRating .star');
+    const submitBtn = document.getElementById('submitBtn');
+
+    // ระบบสลับสีดาวเมื่อผู้ใช้คลิกเลือก (Interactive Selection)
+    stars.forEach(star => {
+      star.addEventListener('click', function() {
+        selectedRating = parseInt(this.getAttribute('data-value'));
+        
+        // อัปเดตดาวทึบ (★) และดาวโปร่ง (☆) ตามคะแนนที่เลือก
+        stars.forEach(s => {
+          const value = parseInt(s.getAttribute('data-value'));
+          if (value <= selectedRating) {
+            s.textContent = '★';
+            s.classList.add('selected');
+          } else {
+            s.textContent = '☆';
+            s.classList.remove('selected');
+          }
+        });
+      });
+    });
+
+    // ตรวจสอบเงื่อนไขเมื่อกดปุ่ม [ Submit Rating ]
+    submitBtn.addEventListener('click', function() {
+      // 1. ถ้ายังไม่ได้เลือกดาวเลย
+      if (selectedRating === 0) {
+        alert("Please select a rating before submitting.");
+        return;
+      }
+
+      // 2. ถ้าเลือกดาวแล้ว ให้แสดง Alert สำเร็จ
+      alert(`Thank you for rating! You gave this note ${selectedRating} stars. (This is a prototype)`);
+    });
+  </script>
+</body>
+</html>
