@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NoteShare - อัปโหลดโน้ต</title>
+  <link rel="stylesheet" href="atichat_upload_note_style.css">
+</head>
+<body>
+  <!--
+    A centered card for an "upload note" form.
+    It should contain:
+    - A main title: "แบ่งปันโน้ต"
+    - An input field for the note title
+    - An input field for the subject / course code
+    - A file input that accepts a PDF or an image file
+    - A textarea for an optional description
+    - A primary submit button with the text "อัปโหลด"
+  -->
+  <div class="card">
+    <h1>แบ่งปันโน้ต</h1>
+    <p class="subtitle">อัปโหลดไฟล์สรุป (PDF หรือรูปภาพ) เพื่อแบ่งปันให้เพื่อนในกลุ่ม</p>
+
+    <form id="upload-form">
+      <label for="note-title">ชื่อโน้ต</label>
+      <input type="text" id="note-title" placeholder="เช่น สรุป Calculus บทที่ 3">
+
+      <label for="subject">ชื่อวิชา / รหัสวิชา</label>
+      <input type="text" id="subject" placeholder="เช่น 01418112 Calculus">
+
+      <label for="note-file">เลือกไฟล์ (PDF หรือรูปภาพ)</label>
+      <input type="file" id="note-file" accept=".pdf,.png,.jpg,.jpeg">
+
+      <label for="description">คำอธิบาย (ไม่บังคับ)</label>
+      <textarea id="description" rows="3" placeholder="อธิบายเนื้อหาสั้นๆ"></textarea>
+
+      <button type="submit">อัปโหลด</button>
+    </form>
+  </div>
+
+  <script>
+    const form = document.getElementById("upload-form");
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+
+      const title = document.getElementById("note-title").value.trim();
+      const subject = document.getElementById("subject").value.trim();
+      const file = document.getElementById("note-file").files[0];
+
+      // ต้องกรอกให้ครบและเลือกไฟล์
+      if (title === "" || subject === "" || !file) {
+        alert("กรุณากรอกข้อมูลให้ครบและเลือกไฟล์");
+        return;
+      }
+
+      // รับเฉพาะ pdf กับรูปภาพ
+      const okTypes = ["application/pdf", "image/png", "image/jpeg"];
+      if (!okTypes.includes(file.type)) {
+        alert("รองรับเฉพาะไฟล์ PDF หรือรูปภาพเท่านั้น");
+        return;
+      }
+
+      alert("อัปโหลดสำเร็จ! (ตัวอย่าง prototype)");
+      form.reset();
+    });
+  </script>
+</body>
+</html>
