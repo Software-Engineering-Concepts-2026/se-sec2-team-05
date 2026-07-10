@@ -1,0 +1,162 @@
+/* รีเซ็ตค่าพื้นฐาน */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+  background-color: #0d0d0d; /* ปรับพื้นหลังให้มืดสนิทเพื่อขับตัวการ์ด */
+  color: #ffffff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+/* การ์ดหลัก - เพิ่มเงาฟุ้งๆ และขอบให้ดูนุ่มนวลขึ้น */
+.rating-card {
+  background-color: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 420px;
+  padding: 35px;
+  text-align: center;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 20px rgba(255, 152, 0, 0.03);
+}
+
+/* กล่องข้อความแบรนด์ StudySphere ด้านบน */
+.brand-box {
+  border: 1.5px dashed #ff9800;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #ff9800;
+  letter-spacing: 1.5px;
+  margin-bottom: 30px;
+  background-color: rgba(255, 152, 0, 0.02);
+}
+
+.subtitle {
+  font-size: 0.85rem;
+  color: #888888;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+
+.note-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 24px;
+}
+
+.average-rating p {
+  font-size: 0.85rem;
+  color: #aaaaaa;
+  margin-bottom: 6px;
+}
+
+.stars-display {
+  font-size: 1.4rem;
+  color: #ffb74d;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+}
+
+.rating-num {
+  font-size: 0.95rem;
+  color: #888888;
+  margin-left: 6px;
+  font-weight: 600;
+}
+
+/* เส้นคั่นประดูสะอาดตาขึ้น */
+.wireframe-divider {
+  border: 0;
+  border-top: 1px dashed #333333;
+  margin: 28px 0;
+}
+
+.section-title {
+  font-size: 0.9rem;
+  color: #aaaaaa;
+  margin-bottom: 18px;
+}
+
+/* โซนดาวให้คะแนน - ปรับปรุงให้ Hover ไล่จากซ้ายมาขวา */
+.star-rating {
+  font-size: 2.4rem;
+  margin-bottom: 24px;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  user-select: none;
+  flex-direction: row; /* จัดเรียงจากซ้ายไปขวา */
+}
+
+.star {
+  color: #444444;
+  transition: transform 0.1s ease, color 0.15s ease;
+}
+
+/* เวลาเมาส์ชี้ดวงไหน ให้ดวงนั้นและดวงก่อนหน้า (ทางซ้าย) สว่างทั้งหมด */
+.star-rating:hover .star {
+  color: #ff9800;
+  text-shadow: 0 0 10px rgba(255, 152, 0, 0.3);
+}
+
+.star:hover ~ .star {
+  color: #444444;
+  text-shadow: none;
+}
+
+.star:hover {
+  transform: scale(1.2);
+}
+
+.star.selected {
+  color: #ff9800;
+  text-shadow: 0 0 10px rgba(255, 152, 0, 0.3);
+}
+
+/* ปุ่มกด Submit - ทำให้ดูเป็นปุ่มกดที่โมเดิร์นและชัดเจนขึ้น */
+.btn-submit {
+  background-color: transparent;
+  color: #ff9800;
+  border: 1.5px solid #ff9800;
+  padding: 12px 28px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  letter-spacing: 0.5px;
+}
+
+.btn-submit:hover {
+  background-color: #ff9800;
+  color: #0d0d0d;
+  box-shadow: 0 0 15px rgba(255, 152, 0, 0.3);
+}
+
+/* ลิงก์ย้อนกลับ */
+.btn-back {
+  display: inline-block;
+  color: #666666;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.btn-back:hover {
+  color: #ff9800;
+}
