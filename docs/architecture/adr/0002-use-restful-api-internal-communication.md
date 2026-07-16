@@ -1,5 +1,7 @@
 # ADR-002: Use RESTful APIs for Internal Service Communication
 
+🌐 **English** · [ภาษาไทย](./0002-use-restful-api-internal-communication.th.md)
+
 **Status:** Accepted
 
 **Context:**

@@ -1,5 +1,7 @@
 # ADR-001: Selection of Core Technology Stack
 
+🌐 **English** · [ภาษาไทย](./0001-tech-stack-selection.th.md)
+
 **Status:** Accepted
 
 **Context:**

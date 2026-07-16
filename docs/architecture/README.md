@@ -1,39 +1,40 @@
 # 🏛️ NoteShare — Architecture
 
-พิมพ์เขียวทางสถาปัตยกรรมของ **NoteShare** เว็บแพลตฟอร์มให้นักศึกษาอัปโหลด ค้นหา และแบ่งปันสรุปเลกเชอร์
-เราอธิบายระบบด้วย [C4 model](https://c4model.com/) (Level 1 และ 2) และบันทึกเหตุผลของการตัดสินใจสำคัญไว้เป็น [ADR](./adr/)
+🌐 **English** · [ภาษาไทย](./README.th.md)
+
+The architectural blueprint for **NoteShare**, a web platform where university students upload, search, and share lecture notes. We describe the system with the [C4 model](https://c4model.com/) (Level 1 & 2) and record the reasoning behind key decisions as [ADRs](./adr/).
 
 ## C4 Level 1 — System Context
 
-ภาพรวมว่าใครใช้ NoteShare และระบบไปพึ่งพาบริการภายนอกอะไรบ้าง
+Who uses NoteShare and which external systems it depends on.
 
 ![C4 Level 1 – System Context diagram for NoteShare](diagrams/c4-level-1-context.png)
 
-| ความสัมพันธ์ | คำอธิบาย |
+| Relationship | Description |
 | --- | --- |
-| James (Note Seeker) → NoteShare | ค้นหา ดูตัวอย่าง และดาวน์โหลดโน้ต แล้วให้เครดิตเจ้าของโน้ต |
-| Pim (Note Contributor) → NoteShare | อัปโหลดและจัดระเบียบโน้ต ดูการยอมรับ/สถิติการใช้งานโน้ตของตัวเอง |
-| NoteShare → Email Service | ส่งอีเมลยืนยันบัญชีและอีเมลแจ้งเตือน |
+| James (Note Seeker) → NoteShare | Searches, previews & downloads notes; gives credit to authors |
+| Pim (Note Contributor) → NoteShare | Uploads & organizes notes; views recognition/usage of her notes |
+| NoteShare → Email Service | Sends account-verification and notification emails |
 
 ## C4 Level 2 — Containers
 
-ซูมเข้าไปในระบบ NoteShare เพื่อดูส่วนประกอบที่ deploy แยกกันได้ และการสื่อสารระหว่างกัน
+Zooming into NoteShare: the runnable/deployable units and how they talk to each other.
 
 ![C4 Level 2 – Container diagram for NoteShare](diagrams/c4-level-2-container.png)
 
-| Container | เทคโนโลยี | หน้าที่ |
+| Container | Tech | Responsibility |
 | --- | --- | --- |
-| Single-Page App | React + Vite | UI ทั้งหมดในเบราว์เซอร์: ค้นหา กรอง ดูตัวอย่าง อัปโหลด และให้เครดิต |
-| API Gateway | Python + Flask | ทางเข้าเดียวของระบบ กระจาย request ไปยัง service และตรวจสอบ token (JWT) |
-| User & Auth Service | Python + Flask | สมัครสมาชิก เข้าสู่ระบบ (เก็บรหัสผ่านแบบ hash) ออก JWT และจัดการโปรไฟล์ |
-| Notes Service | Python + Flask | ข้อมูลโน้ต ค้นหา/กรอง จัดการอัปโหลด–ดาวน์โหลด และเครดิต |
-| Stats Service | Python + Flask | รวมสถิติยอดดาวน์โหลดและการใช้งานโน้ต เพื่อการยอมรับของผู้แบ่งปัน |
-| PostgreSQL Database | PostgreSQL | เก็บข้อมูลผู้ใช้ metadata ของโน้ต รายวิชา และเครดิต |
-| Object Storage | S3-compatible | เก็บไฟล์โน้ตที่อัปโหลด (PDF/รูปภาพ) |
+| Single-Page App | React + Vite | All user-facing UI in the browser: search, filter, preview, upload, credit |
+| API Gateway | Python + Flask | Single entry point; routes requests to services and verifies tokens (JWT) |
+| User & Auth Service | Python + Flask | Registration, login (hashed passwords), JWT issuance, profiles |
+| Notes Service | Python + Flask | Note metadata, search/filter, upload/download, credits |
+| Stats Service | Python + Flask | Aggregates download and usage stats for contributor recognition |
+| PostgreSQL Database | PostgreSQL | Users, note metadata, courses, and credit records |
+| Object Storage | S3-compatible | Uploaded note files (PDF/images) |
 
 ## Technology Stack
 
-| ส่วน | ที่เลือกใช้ |
+| Layer | Choice |
 | --- | --- |
 | Frontend | React (SPA) + Vite |
 | Backend | Python + Flask (microservices) |
@@ -41,16 +42,15 @@
 | Database | PostgreSQL |
 | File storage | S3-compatible object storage |
 | Packaging | Docker + Docker Compose |
-| Deployment | backend รันเป็น container บน cloud host, frontend บน Vercel |
+| Deployment | Backend as containers on a cloud host; frontend on Vercel |
 
-เหตุผลและ trade-off ทั้งหมดอยู่ใน [ADR-001: Core Technology Stack](./adr/0001-tech-stack-selection.md)
+Full rationale and trade-offs are in [ADR-001: Core Technology Stack](./adr/0001-tech-stack-selection.md).
 
 ## Architecture Decision Records
 
 - [ADR-001 — Selection of Core Technology Stack](./adr/0001-tech-stack-selection.md)
 - [ADR-002 — Use RESTful APIs for Internal Service Communication](./adr/0002-use-restful-api-internal-communication.md)
 
-## แก้ไขแผนภาพ
+## Editing the diagrams
 
-แผนภาพเขียนเป็นไฟล์ SVG (`diagrams/*.svg`) เป็นต้นฉบับ และ export เป็น `.png` สำหรับแสดงผลในหน้านี้
-แก้ที่ไฟล์ `.svg` แล้ว export เป็น PNG ชื่อเดิมทับไฟล์เก่าเมื่อมีการเปลี่ยนแปลง
+Diagrams are authored as SVG (`diagrams/*.svg`) and exported to PNG for display here. Each diagram has an English and a Thai version (`*.th.svg` / `*.th.png`). Edit the `.svg` and re-export to a PNG of the same name.
