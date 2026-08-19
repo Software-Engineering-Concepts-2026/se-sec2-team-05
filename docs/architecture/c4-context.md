@@ -1,4 +1,4 @@
-# 🏛️ C4 Level 1 — System Context (Mermaid Source)
+# C4 Level 1 — System Context (Mermaid Source)
 
 ไฟล์นี้คือต้นฉบับ Mermaid ของแผนภาพ C4 Level 1 (System Context) สำหรับ NoteShare ใช้แทน/คู่กับรูป PNG ที่แสดงอยู่ใน [README.md](./README.md#c4-level-1--system-context) เนื้อหาของ entity และความสัมพันธ์ตรงกับตารางใน README ทุกประการ — ถ้าจะแก้ไขแผนภาพ ให้แก้ที่ไฟล์นี้ก่อน แล้วค่อยพิจารณาว่าจะ re-export เป็น SVG/PNG หรือไม่
 

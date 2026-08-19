@@ -1,4 +1,4 @@
-# 🏛️ Technology Stack — Rationale & Alternatives
+# Technology Stack — Rationale & Alternatives
 
 ตารางนี้ขยายความจากตาราง "Technology Stack" ใน [README.md](./README.md#technology-stack) โดยเพิ่มเหตุผลของแต่ละการเลือก (ดึงมาจาก Consequences ของ [ADR-001](./adr/0001-tech-stack-selection.md) และ [ADR-002](./adr/0002-use-restful-api-internal-communication.md)) และทางเลือกอื่นที่ทีมเคยชั่งใจก่อนตัดสินใจ
 

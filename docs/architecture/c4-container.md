@@ -1,4 +1,4 @@
-# 🏛️ C4 Level 2 — Containers (Mermaid Source)
+# C4 Level 2 — Containers (Mermaid Source)
 
 ไฟล์นี้คือต้นฉบับ Mermaid ของแผนภาพ C4 Level 2 (Container) สำหรับ NoteShare ใช้คู่กับรูป PNG ใน [README.md](./README.md#c4-level-2--containers) container, เทคโนโลยี, และ responsibility ทั้งหมดตรงกับตารางใน README ทุกประการ
 
