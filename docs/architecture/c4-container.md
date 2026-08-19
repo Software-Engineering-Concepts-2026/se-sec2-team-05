@@ -1,43 +1,21 @@
-# C4 Level 2 — Containers (Mermaid Source)
+# C4 Level 2 — Containers (Diagram Source)
 
-แผนภาพ C4 Level 2 (Container) ของ NoteShare ในรูปแบบ Mermaid — container, เทคโนโลยี และ responsibility ทั้งหมดตรงกับตารางใน [README.md](./README.md#c4-level-2--containers) ทุกประการ
+แผนภาพ C4 Level 2 (Container) ของ NoteShare — container, เทคโนโลยี และ responsibility ทั้งหมดตรงกับตารางใน [README.md](./README.md#c4-level-2--containers) ทุกประการ
 
-ต้นฉบับที่ใช้ render จริงอยู่ที่ [`diagrams/c4-level-2-container.mmd`](diagrams/c4-level-2-container.mmd) (ฉบับไทย: [`.th.mmd`](diagrams/c4-level-2-container.th.mmd)) — ถ้าจะแก้แผนภาพ ให้แก้ที่ไฟล์ `.mmd` แล้ว render รูปใหม่ตามขั้นตอนใน [README.md](./README.md#editing-the-diagrams)
+ต้นฉบับอยู่ที่ [`diagrams/c4-level-2-container.svg`](diagrams/c4-level-2-container.svg) (ฉบับไทย: [`.th.svg`](diagrams/c4-level-2-container.th.svg)) — ถ้าจะแก้แผนภาพ ให้แก้ที่ไฟล์ `.svg` แล้ว export `.png` ใหม่ตามขั้นตอนใน [README.md](./README.md#editing-the-diagrams)
 
-แผนภาพนี้เขียนด้วย `flowchart` ไม่ใช่ `C4Container` เพราะตัว renderer ของ `C4Container` เรียงกล่องทั้ง 7 ต่อกันเป็นแถวตั้งยาวและวางป้ายกำกับเส้นทับกันจนอ่านไม่ออก ส่วน `flowchart` วาง 3 service แตกออกด้านข้างได้ตามที่ต้องการ เนื้อหาที่สื่อยังเป็น Container diagram ตาม C4 เหมือนเดิม (กล่อง = container, มีเทคโนโลยีและหน้าที่กำกับ, มีขอบเขตระบบ, เส้นมีโพรโทคอล)
+## ทำไม Level 2 ไม่ได้ใช้ Mermaid
+
+Level 1 ใช้ `C4Context` ของ Mermaid ได้ตามปกติ แต่ Level 2 ต้องวาดเป็น SVG เอง เพราะ renderer ของ `C4Container` มีปัญหา 2 ข้อที่แก้จากในไฟล์ต้นฉบับไม่ได้ (ลองแล้วด้วยแผนภาพเปล่าที่มีแค่ 2 container ก็ยังเจอเหมือนกัน)
+
+1. **ป้ายชื่อขอบเขตระบบทับกับป้ายกำกับเส้น** — ข้อความ `NoteShare [Software System]` ถูกวางที่ตำแหน่งคงที่เหนือกรอบ ซึ่งเป็นจุดเดียวกับที่เส้นจากเจมส์และพิมพาดผ่าน
+2. **container เรียงได้ประมาณ 2 ตัวต่อแถวเท่านั้น** — ค่า `$c4ShapeInRow` ไม่มีผล เพราะ renderer คิดความกว้างจาก `screen.availWidth` ของเบราว์เซอร์ตอน render ไม่ใช่จากค่าใน config ทำให้ 3 service ที่ต่อจาก API Gateway ถูกเรียงเป็นแถวตั้ง แล้วเส้นตัดกันไปมา
+
+การวาด SVG เองทำให้คุมตำแหน่งได้ และยังคงใช้สัญลักษณ์ตามมาตรฐาน C4 ครบ: กล่อง `«Person»` / `«Container»`, ชื่อ + `[เทคโนโลยี]` + หน้าที่ในทุกกล่อง, รูปทรงกระบอกสำหรับที่เก็บข้อมูล, กรอบเส้นประของขอบเขตระบบ และเส้นความสัมพันธ์ที่มีทั้งคำอธิบายและโพรโทคอล
 
 ## Diagram
 
-```mermaid
-flowchart TB
-    james["<b>James</b><br/>Note Seeker"]
-    pim["<b>Pim</b><br/>Note Contributor"]
-
-    subgraph noteshare["NoteShare"]
-        spa["<b>Single-Page App</b><br/><i>React + Vite</i><br/>Search, filter, preview,<br/>upload, credit UI"]
-        gateway["<b>API Gateway</b><br/><i>Python + Flask</i><br/>Single entry point;<br/>verifies JWT"]
-
-        auth["<b>User &amp; Auth Service</b><br/><i>Python + Flask</i><br/>Registration, login,<br/>JWT issuance, profiles"]
-        notes["<b>Notes Service</b><br/><i>Python + Flask</i><br/>Note metadata, search/filter,<br/>upload/download, credits"]
-        stats["<b>Stats Service</b><br/><i>Python + Flask</i><br/>Download &amp; usage stats"]
-
-        db[("<b>PostgreSQL Database</b><br/><i>PostgreSQL</i><br/>Users, note metadata,<br/>courses, credits")]
-        storage[("<b>Object Storage</b><br/><i>S3-compatible</i><br/>Uploaded note files")]
-    end
-
-    james -->|"Uses<br/><i>HTTPS</i>"| spa
-    pim -->|"Uses<br/><i>HTTPS</i>"| spa
-    spa -->|"Makes calls to<br/><i>REST/JSON over HTTPS</i>"| gateway
-
-    gateway -->|"<i>REST/JSON</i>"| auth
-    gateway -->|"<i>REST/JSON</i>"| notes
-    gateway -->|"<i>REST/JSON</i>"| stats
-
-    auth -->|"<i>SQL</i>"| db
-    notes -->|"<i>SQL</i>"| db
-    stats -->|"<i>SQL</i>"| db
-    notes -->|"Note files<br/><i>S3 API</i>"| storage
-```
+![C4 Level 2 – Container diagram for NoteShare](diagrams/c4-level-2-container.png)
 
 ## Containers (อ้างอิงจาก README.md)
 

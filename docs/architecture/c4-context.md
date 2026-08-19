@@ -1,30 +1,14 @@
-# C4 Level 1 — System Context (Mermaid Source)
+# C4 Level 1 — System Context (Diagram Source)
 
-แผนภาพ C4 Level 1 (System Context) ของ NoteShare ในรูปแบบ Mermaid
+แผนภาพ C4 Level 1 (System Context) ของ NoteShare
 
-ต้นฉบับที่ใช้ render จริงอยู่ที่ [`diagrams/c4-level-1-context.mmd`](diagrams/c4-level-1-context.mmd) (ฉบับไทย: [`.th.mmd`](diagrams/c4-level-1-context.th.mmd)) — ถ้าจะแก้แผนภาพ ให้แก้ที่ไฟล์ `.mmd` แล้ว render รูปใหม่ตามขั้นตอนใน [README.md](./README.md#editing-the-diagrams) จากนั้นอัปเดตบล็อกด้านล่างนี้กับใน README ให้ตรงกัน
+ต้นฉบับอยู่ที่ [`diagrams/c4-level-1-context.svg`](diagrams/c4-level-1-context.svg) (ฉบับไทย: [`.th.svg`](diagrams/c4-level-1-context.th.svg)) — ถ้าจะแก้แผนภาพ ให้แก้ที่ไฟล์ `.svg` แล้ว export `.png` ใหม่ตามขั้นตอนใน [README.md](./README.md#editing-the-diagrams)
 
 ## Diagram
 
-```mermaid
-C4Context
-    title System Context diagram for NoteShare
+![C4 Level 1 – System Context diagram for NoteShare](diagrams/c4-level-1-context.png)
 
-    Person(james, "James", "Note Seeker")
-    Person(pim, "Pim", "Note Contributor")
-
-    System(noteshare, "NoteShare", "Web platform where university students upload, search, and share lecture notes")
-
-    System_Ext(email, "Email Service", "External email provider")
-
-    Rel(james, noteshare, "Searches & downloads notes")
-    Rel(pim, noteshare, "Uploads notes, views credit")
-    Rel(noteshare, email, "Sends verification emails")
-
-    UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")
-```
-
-## Relationships (อ้างอิงจาก README.md)
+## Relationships
 
 | Relationship | Description |
 | --- | --- |
@@ -32,4 +16,10 @@ C4Context
 | Pim (Note Contributor) → NoteShare | Uploads & organizes notes; views recognition/usage of her notes |
 | NoteShare → Email Service | Sends account-verification and notification emails |
 
-ตารางด้านบนคือคำอธิบายความสัมพันธ์ฉบับเต็ม เหมือนกับตารางในหัวข้อ "C4 Level 1 — System Context" ของ [README.md](./README.md) ทุกประการ ส่วนป้ายกำกับเส้นในแผนภาพย่อให้สั้นลง เพราะถ้าใส่ข้อความเต็มลงไป Mermaid จะวางป้ายของเส้นสองเส้นทับกันจนอ่านไม่ออก — ไม่ได้เพิ่มหรือลด entity/ความสัมพันธ์ใด ๆ
+ตารางนี้ตรงกับป้ายกำกับเส้นในแผนภาพทุกคำ — ก่อนหน้านี้แผนภาพย่อข้อความให้สั้นลงเพราะ Mermaid วางป้ายของสองเส้นทับกัน ตอนนี้วาด SVG เองแล้วจึงใส่ข้อความเต็มลงในแผนภาพได้
+
+## ทำไมไม่ได้ใช้ Mermaid
+
+ทั้ง Level 1 และ Level 2 วาดเป็น SVG เอง เพื่อให้สองแผนภาพใช้สัญลักษณ์และรูปแบบชุดเดียวกัน — Level 2 จำเป็นต้องวาดเองเพราะ renderer ของ `C4Container` มีบั๊กเรื่องการจัดวาง (ดู [c4-container.md](./c4-container.md)) ถ้าปล่อยให้ Level 1 ยังเป็น Mermaid ต่อ สองระดับจะหน้าตาไม่เหมือนกัน และ Level 1 ก็ยังติดปัญหาป้ายกำกับเส้นทับกันอยู่
+
+สัญลักษณ์ที่ใช้เป็นไปตามมาตรฐาน C4: กล่อง `«Person»` สำหรับผู้ใช้, `«Software System»` สีน้ำเงินสำหรับระบบที่พิจารณา, `«External System»` สีเทาสำหรับระบบภายนอก และเส้นความสัมพันธ์ที่มีคำอธิบายกำกับ ส่วนรายละเอียดเทคโนโลยีและโพรโทคอลอยู่ที่ Level 2 ตามที่ C4 model กำหนดว่าเป็นเรื่องของ container diagram

@@ -16,25 +16,7 @@ Who uses NoteShare and which external systems it depends on.
 | Pim (Note Contributor) → NoteShare | Uploads & organizes notes; views recognition/usage of her notes |
 | NoteShare → Email Service | Sends account-verification and notification emails |
 
-```mermaid
-C4Context
-    title System Context diagram for NoteShare
-
-    Person(james, "James", "Note Seeker")
-    Person(pim, "Pim", "Note Contributor")
-
-    System(noteshare, "NoteShare", "Web platform where university students upload, search, and share lecture notes")
-
-    System_Ext(email, "Email Service", "External email provider")
-
-    Rel(james, noteshare, "Searches & downloads notes")
-    Rel(pim, noteshare, "Uploads notes, views credit")
-    Rel(noteshare, email, "Sends verification emails")
-
-    UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")
-```
-
-Mermaid source: [`diagrams/c4-level-1-context.mmd`](diagrams/c4-level-1-context.mmd) · notes in [c4-context.md](./c4-context.md)
+Diagram source: [`diagrams/c4-level-1-context.svg`](diagrams/c4-level-1-context.svg) · notes in [c4-context.md](./c4-context.md)
 
 ## C4 Level 2 — Containers
 
@@ -52,38 +34,9 @@ Zooming into NoteShare: the runnable/deployable units and how they talk to each 
 | PostgreSQL Database | PostgreSQL | Users, note metadata, courses, and credit records |
 | Object Storage | S3-compatible | Uploaded note files (PDF/images) |
 
-```mermaid
-flowchart TB
-    james["<b>James</b><br/>Note Seeker"]
-    pim["<b>Pim</b><br/>Note Contributor"]
+All calls from the SPA through the API Gateway to the services are REST/JSON over HTTP (see [ADR-002](./adr/0002-use-restful-api-internal-communication.md)). Each service talks to PostgreSQL directly over SQL, and the Notes Service is the only container that touches Object Storage.
 
-    subgraph noteshare["NoteShare"]
-        spa["<b>Single-Page App</b><br/><i>React + Vite</i><br/>Search, filter, preview,<br/>upload, credit UI"]
-        gateway["<b>API Gateway</b><br/><i>Python + Flask</i><br/>Single entry point;<br/>verifies JWT"]
-
-        auth["<b>User &amp; Auth Service</b><br/><i>Python + Flask</i><br/>Registration, login,<br/>JWT issuance, profiles"]
-        notes["<b>Notes Service</b><br/><i>Python + Flask</i><br/>Note metadata, search/filter,<br/>upload/download, credits"]
-        stats["<b>Stats Service</b><br/><i>Python + Flask</i><br/>Download &amp; usage stats"]
-
-        db[("<b>PostgreSQL Database</b><br/><i>PostgreSQL</i><br/>Users, note metadata,<br/>courses, credits")]
-        storage[("<b>Object Storage</b><br/><i>S3-compatible</i><br/>Uploaded note files")]
-    end
-
-    james -->|"Uses<br/><i>HTTPS</i>"| spa
-    pim -->|"Uses<br/><i>HTTPS</i>"| spa
-    spa -->|"Makes calls to<br/><i>REST/JSON over HTTPS</i>"| gateway
-
-    gateway -->|"<i>REST/JSON</i>"| auth
-    gateway -->|"<i>REST/JSON</i>"| notes
-    gateway -->|"<i>REST/JSON</i>"| stats
-
-    auth -->|"<i>SQL</i>"| db
-    notes -->|"<i>SQL</i>"| db
-    stats -->|"<i>SQL</i>"| db
-    notes -->|"Note files<br/><i>S3 API</i>"| storage
-```
-
-Mermaid source: [`diagrams/c4-level-2-container.mmd`](diagrams/c4-level-2-container.mmd) · notes in [c4-container.md](./c4-container.md)
+Diagram source: [`diagrams/c4-level-2-container.svg`](diagrams/c4-level-2-container.svg) · notes in [c4-container.md](./c4-container.md)
 
 ## Technology Stack
 
@@ -97,7 +50,7 @@ Mermaid source: [`diagrams/c4-level-2-container.mmd`](diagrams/c4-level-2-contai
 | Packaging | Docker + Docker Compose |
 | Deployment | Backend as containers on a cloud host; frontend on Vercel |
 
-Full rationale and trade-offs are in [ADR-001: Core Technology Stack](./adr/0001-tech-stack-selection.md).
+Per-layer rationale and the alternatives we weighed are in [tech_stack.md](./tech_stack.md). Full trade-offs are in [ADR-001: Core Technology Stack](./adr/0001-tech-stack-selection.md).
 
 ## Architecture Decision Records
 
@@ -106,11 +59,8 @@ Full rationale and trade-offs are in [ADR-001: Core Technology Stack](./adr/0001
 
 ## Editing the diagrams
 
-Diagrams are authored as Mermaid (`diagrams/*.mmd`) and rendered to SVG + PNG. Each diagram has an English and a Thai version (`*.th.mmd`). Edit the `.mmd`, then re-render both formats with the same basename:
+Both diagrams are authored directly as SVG in `diagrams/`, each with an English and a Thai version (`*.th.svg`). The `.svg` is the source; the `.png` next to it is an export used by this README.
 
-```bash
-npx @mermaid-js/mermaid-cli -i diagrams/c4-level-1-context.mmd -o diagrams/c4-level-1-context.svg -b white
-npx @mermaid-js/mermaid-cli -i diagrams/c4-level-1-context.mmd -o diagrams/c4-level-1-context.png -w 1600 -b white
-```
+To change a diagram, edit the `.svg` and then export the `.png` at 1600px wide (open the SVG in a browser and export, or use any SVG-to-PNG tool). Keep the same basename. Both language versions share identical geometry, so a layout change made in one can be copied straight into the other.
 
-The Mermaid blocks embedded in this README are the same diagrams, kept in sync with the `.mmd` files so GitHub renders them inline without needing the image files.
+We do not use Mermaid for these. Mermaid's `C4Container` renderer overlaps the boundary label with the relationship labels and ignores the shapes-per-row setting, which made Level 2 unreadable; Level 1 is hand-authored too so that both levels use one consistent notation and style. See [c4-container.md](./c4-container.md) for the details.

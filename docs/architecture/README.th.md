@@ -17,25 +17,7 @@
 | พิม (ผู้แบ่งปันโน้ต) → NoteShare | อัปโหลดและจัดระเบียบโน้ต ดูการยอมรับ/สถิติการใช้งานโน้ตของตัวเอง |
 | NoteShare → บริการอีเมล | ส่งอีเมลยืนยันบัญชีและอีเมลแจ้งเตือน |
 
-```mermaid
-C4Context
-    title แผนภาพบริบทของระบบ NoteShare
-
-    Person(james, "เจมส์", "ผู้ค้นหาโน้ต")
-    Person(pim, "พิม", "ผู้แบ่งปันโน้ต")
-
-    System(noteshare, "NoteShare", "เว็บแพลตฟอร์มให้นักศึกษาอัปโหลด ค้นหา และแบ่งปันสรุปเลกเชอร์")
-
-    System_Ext(email, "บริการอีเมล", "ผู้ให้บริการอีเมลภายนอก")
-
-    Rel(james, noteshare, "ค้นหาและดาวน์โหลดโน้ต")
-    Rel(pim, noteshare, "อัปโหลดโน้ต ดูเครดิต")
-    Rel(noteshare, email, "ส่งอีเมลยืนยันบัญชี")
-
-    UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")
-```
-
-ต้นฉบับ Mermaid: [`diagrams/c4-level-1-context.th.mmd`](diagrams/c4-level-1-context.th.mmd) · ดูคำอธิบายเพิ่มเติมที่ [c4-context.md](./c4-context.md)
+ต้นฉบับแผนภาพ: [`diagrams/c4-level-1-context.th.svg`](diagrams/c4-level-1-context.th.svg) · ดูคำอธิบายเพิ่มเติมที่ [c4-context.md](./c4-context.md)
 
 ## C4 Level 2 — Container
 
@@ -53,38 +35,9 @@ C4Context
 | PostgreSQL Database | PostgreSQL | เก็บข้อมูลผู้ใช้ metadata ของโน้ต รายวิชา และเครดิต |
 | Object Storage | S3-compatible | เก็บไฟล์โน้ตที่อัปโหลด (PDF/รูปภาพ) |
 
-```mermaid
-flowchart TB
-    james["<b>เจมส์</b><br/>ผู้ค้นหาโน้ต"]
-    pim["<b>พิม</b><br/>ผู้แบ่งปันโน้ต"]
+การเรียกทั้งหมดจาก SPA ผ่าน API Gateway ไปยัง service เป็น REST/JSON over HTTP (ดู [ADR-002](./adr/0002-use-restful-api-internal-communication.th.md)) ส่วน service แต่ละตัวคุยกับ PostgreSQL ด้วย SQL ตรง ๆ และ Notes Service เป็น container เดียวที่ต่อกับ Object Storage
 
-    subgraph noteshare["NoteShare"]
-        spa["<b>Single-Page App</b><br/><i>React + Vite</i><br/>UI ค้นหา กรอง ดูตัวอย่าง<br/>อัปโหลด และให้เครดิต"]
-        gateway["<b>API Gateway</b><br/><i>Python + Flask</i><br/>ทางเข้าเดียวของระบบ<br/>ตรวจสอบ JWT"]
-
-        auth["<b>User &amp; Auth Service</b><br/><i>Python + Flask</i><br/>สมัครสมาชิก เข้าสู่ระบบ<br/>ออก JWT จัดการโปรไฟล์"]
-        notes["<b>Notes Service</b><br/><i>Python + Flask</i><br/>ข้อมูลโน้ต ค้นหา/กรอง<br/>อัปโหลด–ดาวน์โหลด เครดิต"]
-        stats["<b>Stats Service</b><br/><i>Python + Flask</i><br/>สถิติยอดดาวน์โหลด<br/>และการใช้งาน"]
-
-        db[("<b>PostgreSQL Database</b><br/><i>PostgreSQL</i><br/>ผู้ใช้ metadata ของโน้ต<br/>รายวิชา และเครดิต")]
-        storage[("<b>Object Storage</b><br/><i>S3-compatible</i><br/>ไฟล์โน้ตที่อัปโหลด")]
-    end
-
-    james -->|"ใช้งาน<br/><i>HTTPS</i>"| spa
-    pim -->|"ใช้งาน<br/><i>HTTPS</i>"| spa
-    spa -->|"เรียกผ่าน<br/><i>REST/JSON over HTTPS</i>"| gateway
-
-    gateway -->|"<i>REST/JSON</i>"| auth
-    gateway -->|"<i>REST/JSON</i>"| notes
-    gateway -->|"<i>REST/JSON</i>"| stats
-
-    auth -->|"<i>SQL</i>"| db
-    notes -->|"<i>SQL</i>"| db
-    stats -->|"<i>SQL</i>"| db
-    notes -->|"ไฟล์โน้ต<br/><i>S3 API</i>"| storage
-```
-
-ต้นฉบับ Mermaid: [`diagrams/c4-level-2-container.th.mmd`](diagrams/c4-level-2-container.th.mmd) · ดูคำอธิบายเพิ่มเติมที่ [c4-container.md](./c4-container.md)
+ต้นฉบับแผนภาพ: [`diagrams/c4-level-2-container.th.svg`](diagrams/c4-level-2-container.th.svg) · ดูคำอธิบายเพิ่มเติมที่ [c4-container.md](./c4-container.md)
 
 ## Technology Stack
 
@@ -98,7 +51,7 @@ flowchart TB
 | Packaging | Docker + Docker Compose |
 | Deployment | backend รันเป็น container บน cloud host, frontend บน Vercel |
 
-เหตุผลและ trade-off ทั้งหมดอยู่ใน [ADR-001: Core Technology Stack](./adr/0001-tech-stack-selection.th.md)
+เหตุผลของแต่ละ layer และทางเลือกอื่นที่ชั่งใจดูที่ [tech_stack.md](./tech_stack.md) ส่วน trade-off ทั้งหมดอยู่ใน [ADR-001: Core Technology Stack](./adr/0001-tech-stack-selection.th.md)
 
 ## Architecture Decision Records
 
@@ -107,12 +60,8 @@ flowchart TB
 
 ## แก้ไขแผนภาพ
 
-แผนภาพใช้ Mermaid (`diagrams/*.mmd`) เป็นต้นฉบับ แล้ว render ออกเป็น SVG และ PNG
-แต่ละแผนภาพมีเวอร์ชันอังกฤษและไทย (`*.th.mmd`) แก้ที่ไฟล์ `.mmd` แล้ว render ใหม่ทั้งสองฟอร์แมตโดยใช้ชื่อไฟล์เดิม:
+แผนภาพทั้งสองวาดเป็น SVG โดยตรงในโฟลเดอร์ `diagrams/` แต่ละแผนภาพมีเวอร์ชันอังกฤษและไทย (`*.th.svg`) ไฟล์ `.svg` คือต้นฉบับ ส่วนไฟล์ `.png` ที่อยู่ข้างกันคือรูปที่ export ออกมาใช้ใน README
 
-```bash
-npx @mermaid-js/mermaid-cli -i diagrams/c4-level-1-context.th.mmd -o diagrams/c4-level-1-context.th.svg -b white
-npx @mermaid-js/mermaid-cli -i diagrams/c4-level-1-context.th.mmd -o diagrams/c4-level-1-context.th.png -w 1600 -b white
-```
+ถ้าจะแก้แผนภาพ ให้แก้ที่ไฟล์ `.svg` แล้ว export `.png` ใหม่ที่ความกว้าง 1600px (เปิด SVG ในเบราว์เซอร์แล้ว export หรือใช้เครื่องมือแปลง SVG เป็น PNG อะไรก็ได้) ใช้ชื่อไฟล์เดิม ทั้งสองภาษาใช้พิกัดชุดเดียวกัน ถ้าขยับ layout ที่ภาษาหนึ่งก็ก๊อปไปใช้อีกภาษาได้ตรง ๆ
 
-บล็อก Mermaid ที่ฝังอยู่ในหน้านี้คือแผนภาพเดียวกัน ต้องแก้ให้ตรงกับไฟล์ `.mmd` ด้วย เพื่อให้ GitHub render ให้เห็นในหน้าได้เลยโดยไม่ต้องพึ่งไฟล์รูป
+เราไม่ใช้ Mermaid กับแผนภาพชุดนี้ เพราะ renderer ของ `C4Container` วางป้ายชื่อขอบเขตระบบทับกับป้ายกำกับเส้น และไม่สนใจค่าจำนวนกล่องต่อแถว ทำให้ Level 2 อ่านไม่ออก ส่วน Level 1 ก็วาดเองด้วยเพื่อให้ทั้งสองระดับใช้สัญลักษณ์และรูปแบบชุดเดียวกัน — ดูรายละเอียดที่ [c4-container.md](./c4-container.md)
