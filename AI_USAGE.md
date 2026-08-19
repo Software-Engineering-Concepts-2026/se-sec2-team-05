@@ -56,7 +56,9 @@ prompt จริงที่พิมพ์ในรอบ session นี้ ว
 
 ### Prompt 3 — หน้า note-rating (กฤตเมธ)
 
-_TODO — กฤตเมธ: ในไฟล์ `kittamet_note_rating_prototype.html` บรรทัด 44 มี comment เขียนว่า "JavaScript จาก ChatGPT" แต่ในตาราง Log ด้านบนระบุเครื่องมือเป็น Copilot กับ Gemini ช่วยยืนยันว่าจริง ๆ ใช้ตัวไหน แล้ววาง prompt ที่ใช้ขอ JS ส่วนดาวมาไว้ตรงนี้_
+เครื่องมือที่ใช้จริงคือ **Gemini** (กฤตเมธยืนยันเมื่อ 2026-08-19) ส่วน comment ในไฟล์ `kittamet_note_rating_prototype.html` ที่เคยเขียนว่า "JavaScript จาก ChatGPT" เป็นข้อความที่ระบุที่มาผิด และแก้ให้ตรงแล้วใน PR #41
+
+_TODO — กฤตเมธ: วาง prompt ที่ใช้ขอ JS ส่วนคลิกดาวจาก Gemini มาไว้ตรงนี้_
 
 ### Prompt 4 — หน้าค้นหาโน้ต (วชิรวิทย์)
 
@@ -72,7 +74,7 @@ _TODO — วชิรวิทย์: วาง prompt ที่ใช้ขอ
 | หัวข้อ "Next step (Sprint 2)" ใน `prototypes/sprint1/README.md` | Claude Code (2026-08-19) | AI ร่างโดยอ้างเนื้อหา ADR-001 อติชาติตรวจว่าลำดับงานตรงกับที่ทีมคุยกันไว้ ไม่ได้แก้เนื้อหา |
 | script เซ็ต state ก่อนถ่าย screenshot (อยู่ใน scratchpad ไม่ commit) | Claude Code (2026-08-19) | รับมาทั้งก้อน ใช้ครั้งเดียวเพื่อถ่ายภาพ ไม่ได้เข้า repo |
 | C4 diagram (SVG) และเนื้อหา ADR-001/ADR-002 | Claude Code | AI ร่าง อติชาติแก้ถ้อยคำและตัวเลือกใน Alternatives บางส่วน จึงไม่ใช่ "ไม่แก้" ทั้งก้อน |
-| ตัวจัดการคลิกดาวใน `kittamet_note_rating_prototype.html` | comment ในไฟล์บรรทัด 44 ระบุว่า "JavaScript จาก ChatGPT" | _รอกฤตเมธยืนยันว่ารับมาตรง ๆ หรือแก้ไปแล้วบ้าง_ |
+| ตัวจัดการคลิกดาวใน `kittamet_note_rating_prototype.html` | Gemini (กฤตเมธยืนยัน 2026-08-19) | _รอกฤตเมธยืนยันว่ารับมาตรง ๆ หรือแก้ไปแล้วบ้าง_ |
 
 ส่วนที่ตามหลักฐานแล้วน่าจะเป็นงานที่คนเขียน/แก้เอง ไม่ใช่รับจาก AI ตรง ๆ: ฟังก์ชัน `esc()` กัน XSS และการ clamp ค่าใน `stars()` ของหน้าค้นหา (เข้ามาในรอบที่ PR #37 ถูก CHANGES_REQUESTED จึงเป็นผลจากรีวิวของคนในทีม), การตัดสินใจเรื่อง Tracer vs Prototype, และเนื้อหา reflection รายบุคคลทั้งสามไฟล์
 
