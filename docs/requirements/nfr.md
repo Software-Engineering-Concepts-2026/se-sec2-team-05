@@ -1,4 +1,4 @@
-# 🧩 Non-Functional Requirements (NFR)
+# Non-Functional Requirements (NFR)
 
 เอกสารนี้ขยายหัวข้อ "Non-Functional Requirements" ใน [srs.md](./srs.md) ให้เป็นข้อกำหนดที่ตรวจสอบได้ (testable) โดยอิงจากสถาปัตยกรรมจริงที่ระบุใน [architecture/README.md](../architecture/README.md) และ [ADR-001](../architecture/adr/0001-tech-stack-selection.md): SPA (React + Vite) เรียก Flask microservices ผ่าน API Gateway ที่ตรวจ JWT, ข้อมูลอยู่ใน PostgreSQL, ไฟล์โน้ตอยู่ใน S3-compatible object storage, แพ็กเป็น Docker แล้ว deploy backend บน Render/Railway (free tier) และ frontend บน Vercel
 

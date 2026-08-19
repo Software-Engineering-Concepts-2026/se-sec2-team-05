@@ -1,4 +1,4 @@
-# 📝 User Stories
+# User Stories
 
 แหล่งข้อมูลจริงของเอกสารนี้คือ GitHub Issues ของ repo (`Software-Engineering-Concepts-2026/se-sec2-team-05`) issue #5–#20, #26, #28, #31 ทีมนำมาจัดรูปแบบใหม่ให้อยู่ในรูป user story ที่มี Acceptance Criteria และ Priority ชัดเจน เพื่อใช้เป็น input ของ Lab 3 (Requirements) ส่วน issue #25, #27, #29, #30, #32 ถูกปิดไปแล้วเพราะเป็นเรื่องซ้ำกับ story ที่มีอยู่แล้ว (ดู footnote ท้ายไฟล์)
 
