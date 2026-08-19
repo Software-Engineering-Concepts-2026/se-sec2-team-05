@@ -82,4 +82,6 @@ Key architectural decisions and diagrams are documented in the `/docs/architectu
 User personas and key scenarios that drive our development are located in the `/docs/requirements` directory.
 
 - **[User Personas](./docs/requirements/personas/)**
-- **[Main User Scenario](./docs/requirements/main_scenario.md)**
+- **[User Scenarios](./docs/requirements/main_scenario.md)**
+- **[User Stories](./docs/requirements/user-stories.md)**
+- **[Non-functional Requirements](./docs/requirements/nfr.md)**
