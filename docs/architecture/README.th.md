@@ -19,23 +19,23 @@
 
 ```mermaid
 C4Context
-    title System Context diagram for NoteShare
+    title แผนภาพบริบทของระบบ NoteShare
 
-    Person(james, "James", "Note Seeker")
-    Person(pim, "Pim", "Note Contributor")
+    Person(james, "เจมส์", "ผู้ค้นหาโน้ต")
+    Person(pim, "พิม", "ผู้แบ่งปันโน้ต")
 
-    System(noteshare, "NoteShare", "Web platform where university students upload, search, and share lecture notes")
+    System(noteshare, "NoteShare", "เว็บแพลตฟอร์มให้นักศึกษาอัปโหลด ค้นหา และแบ่งปันสรุปเลกเชอร์")
 
-    System_Ext(email, "Email Service", "External email provider")
+    System_Ext(email, "บริการอีเมล", "ผู้ให้บริการอีเมลภายนอก")
 
-    Rel(james, noteshare, "Searches, previews & downloads notes; gives credit to authors")
-    Rel(pim, noteshare, "Uploads & organizes notes; views recognition/usage of her notes")
-    Rel(noteshare, email, "Sends account-verification and notification emails")
+    Rel(james, noteshare, "ค้นหาและดาวน์โหลดโน้ต")
+    Rel(pim, noteshare, "อัปโหลดโน้ต ดูเครดิต")
+    Rel(noteshare, email, "ส่งอีเมลยืนยันบัญชี")
 
-    UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
+    UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")
 ```
 
-ต้นฉบับ Mermaid แก้ไขได้ที่ [c4-context.md](./c4-context.md) (มีเวอร์ชันเดียว ใช้ร่วมกับหน้าอังกฤษ)
+ต้นฉบับ Mermaid: [`diagrams/c4-level-1-context.th.mmd`](diagrams/c4-level-1-context.th.mmd) · ดูคำอธิบายเพิ่มเติมที่ [c4-context.md](./c4-context.md)
 
 ## C4 Level 2 — Container
 
@@ -54,41 +54,37 @@ C4Context
 | Object Storage | S3-compatible | เก็บไฟล์โน้ตที่อัปโหลด (PDF/รูปภาพ) |
 
 ```mermaid
-C4Container
-    title Container diagram for NoteShare
+flowchart TB
+    james["<b>เจมส์</b><br/>ผู้ค้นหาโน้ต"]
+    pim["<b>พิม</b><br/>ผู้แบ่งปันโน้ต"]
 
-    Person(james, "James", "Note Seeker")
-    Person(pim, "Pim", "Note Contributor")
+    subgraph noteshare["NoteShare"]
+        spa["<b>Single-Page App</b><br/><i>React + Vite</i><br/>UI ค้นหา กรอง ดูตัวอย่าง<br/>อัปโหลด และให้เครดิต"]
+        gateway["<b>API Gateway</b><br/><i>Python + Flask</i><br/>ทางเข้าเดียวของระบบ<br/>ตรวจสอบ JWT"]
 
-    System_Boundary(noteshare, "NoteShare") {
-        Container(spa, "Single-Page App", "React + Vite", "All user-facing UI in the browser: search, filter, preview, upload, credit")
-        Container(gateway, "API Gateway", "Python + Flask", "Single entry point; routes requests to services and verifies tokens (JWT)")
-        Container(auth, "User & Auth Service", "Python + Flask", "Registration, login (hashed passwords), JWT issuance, profiles")
-        Container(notes, "Notes Service", "Python + Flask", "Note metadata, search/filter, upload/download, credits")
-        Container(stats, "Stats Service", "Python + Flask", "Aggregates download and usage stats for contributor recognition")
-        ContainerDb(db, "PostgreSQL Database", "PostgreSQL", "Users, note metadata, courses, and credit records")
-        ContainerDb(storage, "Object Storage", "S3-compatible", "Uploaded note files (PDF/images)")
-    }
+        auth["<b>User &amp; Auth Service</b><br/><i>Python + Flask</i><br/>สมัครสมาชิก เข้าสู่ระบบ<br/>ออก JWT จัดการโปรไฟล์"]
+        notes["<b>Notes Service</b><br/><i>Python + Flask</i><br/>ข้อมูลโน้ต ค้นหา/กรอง<br/>อัปโหลด–ดาวน์โหลด เครดิต"]
+        stats["<b>Stats Service</b><br/><i>Python + Flask</i><br/>สถิติยอดดาวน์โหลด<br/>และการใช้งาน"]
 
-    Rel(james, spa, "Uses", "HTTPS")
-    Rel(pim, spa, "Uses", "HTTPS")
+        db[("<b>PostgreSQL Database</b><br/><i>PostgreSQL</i><br/>ผู้ใช้ metadata ของโน้ต<br/>รายวิชา และเครดิต")]
+        storage[("<b>Object Storage</b><br/><i>S3-compatible</i><br/>ไฟล์โน้ตที่อัปโหลด")]
+    end
 
-    Rel(spa, gateway, "Makes calls to", "REST/JSON over HTTPS")
+    james -->|"ใช้งาน<br/><i>HTTPS</i>"| spa
+    pim -->|"ใช้งาน<br/><i>HTTPS</i>"| spa
+    spa -->|"เรียกผ่าน<br/><i>REST/JSON over HTTPS</i>"| gateway
 
-    Rel(gateway, auth, "Routes requests to", "REST/JSON")
-    Rel(gateway, notes, "Routes requests to", "REST/JSON")
-    Rel(gateway, stats, "Routes requests to", "REST/JSON")
+    gateway -->|"<i>REST/JSON</i>"| auth
+    gateway -->|"<i>REST/JSON</i>"| notes
+    gateway -->|"<i>REST/JSON</i>"| stats
 
-    Rel(auth, db, "Reads/writes", "SQL")
-    Rel(notes, db, "Reads/writes", "SQL")
-    Rel(stats, db, "Reads/writes", "SQL")
-
-    Rel(notes, storage, "Stores/retrieves note files", "S3 API")
-
-    UpdateLayoutConfig($c4ShapeInRow="4", $c4BoundaryInRow="1")
+    auth -->|"<i>SQL</i>"| db
+    notes -->|"<i>SQL</i>"| db
+    stats -->|"<i>SQL</i>"| db
+    notes -->|"ไฟล์โน้ต<br/><i>S3 API</i>"| storage
 ```
 
-ต้นฉบับ Mermaid แก้ไขได้ที่ [c4-container.md](./c4-container.md) (มีเวอร์ชันเดียว ใช้ร่วมกับหน้าอังกฤษ)
+ต้นฉบับ Mermaid: [`diagrams/c4-level-2-container.th.mmd`](diagrams/c4-level-2-container.th.mmd) · ดูคำอธิบายเพิ่มเติมที่ [c4-container.md](./c4-container.md)
 
 ## Technology Stack
 
@@ -111,5 +107,12 @@ C4Container
 
 ## แก้ไขแผนภาพ
 
-แผนภาพเขียนเป็นไฟล์ SVG (`diagrams/*.svg`) เป็นต้นฉบับ และ export เป็น `.png` สำหรับแสดงผล
-แต่ละแผนภาพมีเวอร์ชันอังกฤษและไทย (`*.th.svg` / `*.th.png`) แก้ที่ไฟล์ `.svg` แล้ว export เป็น PNG ชื่อเดิมทับ
+แผนภาพใช้ Mermaid (`diagrams/*.mmd`) เป็นต้นฉบับ แล้ว render ออกเป็น SVG และ PNG
+แต่ละแผนภาพมีเวอร์ชันอังกฤษและไทย (`*.th.mmd`) แก้ที่ไฟล์ `.mmd` แล้ว render ใหม่ทั้งสองฟอร์แมตโดยใช้ชื่อไฟล์เดิม:
+
+```bash
+npx @mermaid-js/mermaid-cli -i diagrams/c4-level-1-context.th.mmd -o diagrams/c4-level-1-context.th.svg -b white
+npx @mermaid-js/mermaid-cli -i diagrams/c4-level-1-context.th.mmd -o diagrams/c4-level-1-context.th.png -w 1600 -b white
+```
+
+บล็อก Mermaid ที่ฝังอยู่ในหน้านี้คือแผนภาพเดียวกัน ต้องแก้ให้ตรงกับไฟล์ `.mmd` ด้วย เพื่อให้ GitHub render ให้เห็นในหน้าได้เลยโดยไม่ต้องพึ่งไฟล์รูป

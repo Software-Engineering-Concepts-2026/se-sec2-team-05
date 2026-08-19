@@ -1,0 +1,15 @@
+C4Context
+    title System Context diagram for NoteShare
+
+    Person(james, "James", "Note Seeker")
+    Person(pim, "Pim", "Note Contributor")
+
+    System(noteshare, "NoteShare", "Web platform where university students upload, search, and share lecture notes")
+
+    System_Ext(email, "Email Service", "External email provider")
+
+    Rel(james, noteshare, "Searches & downloads notes")
+    Rel(pim, noteshare, "Uploads notes, views credit")
+    Rel(noteshare, email, "Sends verification emails")
+
+    UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")

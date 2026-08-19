@@ -1,6 +1,8 @@
 # C4 Level 1 — System Context (Mermaid Source)
 
-ไฟล์นี้คือต้นฉบับ Mermaid ของแผนภาพ C4 Level 1 (System Context) สำหรับ NoteShare ใช้แทน/คู่กับรูป PNG ที่แสดงอยู่ใน [README.md](./README.md#c4-level-1--system-context) เนื้อหาของ entity และความสัมพันธ์ตรงกับตารางใน README ทุกประการ — ถ้าจะแก้ไขแผนภาพ ให้แก้ที่ไฟล์นี้ก่อน แล้วค่อยพิจารณาว่าจะ re-export เป็น SVG/PNG หรือไม่
+แผนภาพ C4 Level 1 (System Context) ของ NoteShare ในรูปแบบ Mermaid
+
+ต้นฉบับที่ใช้ render จริงอยู่ที่ [`diagrams/c4-level-1-context.mmd`](diagrams/c4-level-1-context.mmd) (ฉบับไทย: [`.th.mmd`](diagrams/c4-level-1-context.th.mmd)) — ถ้าจะแก้แผนภาพ ให้แก้ที่ไฟล์ `.mmd` แล้ว render รูปใหม่ตามขั้นตอนใน [README.md](./README.md#editing-the-diagrams) จากนั้นอัปเดตบล็อกด้านล่างนี้กับใน README ให้ตรงกัน
 
 ## Diagram
 
@@ -15,11 +17,11 @@ C4Context
 
     System_Ext(email, "Email Service", "External email provider")
 
-    Rel(james, noteshare, "Searches, previews & downloads notes; gives credit to authors")
-    Rel(pim, noteshare, "Uploads & organizes notes; views recognition/usage of her notes")
-    Rel(noteshare, email, "Sends account-verification and notification emails")
+    Rel(james, noteshare, "Searches & downloads notes")
+    Rel(pim, noteshare, "Uploads notes, views credit")
+    Rel(noteshare, email, "Sends verification emails")
 
-    UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
+    UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")
 ```
 
 ## Relationships (อ้างอิงจาก README.md)
@@ -30,4 +32,4 @@ C4Context
 | Pim (Note Contributor) → NoteShare | Uploads & organizes notes; views recognition/usage of her notes |
 | NoteShare → Email Service | Sends account-verification and notification emails |
 
-ตารางด้านบนเหมือนกับตารางในหัวข้อ "C4 Level 1 — System Context" ของ [README.md](./README.md) ทุกประการ ไม่ได้เพิ่ม entity หรือความสัมพันธ์ใหม่ — เป้าหมายของไฟล์นี้คือให้มี source ที่แก้ไขเป็น text/diff ได้ง่ายกว่าไฟล์ SVG
+ตารางด้านบนคือคำอธิบายความสัมพันธ์ฉบับเต็ม เหมือนกับตารางในหัวข้อ "C4 Level 1 — System Context" ของ [README.md](./README.md) ทุกประการ ส่วนป้ายกำกับเส้นในแผนภาพย่อให้สั้นลง เพราะถ้าใส่ข้อความเต็มลงไป Mermaid จะวางป้ายของเส้นสองเส้นทับกันจนอ่านไม่ออก — ไม่ได้เพิ่มหรือลด entity/ความสัมพันธ์ใด ๆ

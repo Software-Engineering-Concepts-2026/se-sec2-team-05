@@ -27,14 +27,14 @@ C4Context
 
     System_Ext(email, "Email Service", "External email provider")
 
-    Rel(james, noteshare, "Searches, previews & downloads notes; gives credit to authors")
-    Rel(pim, noteshare, "Uploads & organizes notes; views recognition/usage of her notes")
-    Rel(noteshare, email, "Sends account-verification and notification emails")
+    Rel(james, noteshare, "Searches & downloads notes")
+    Rel(pim, noteshare, "Uploads notes, views credit")
+    Rel(noteshare, email, "Sends verification emails")
 
-    UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
+    UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")
 ```
 
-Editable Mermaid source: [c4-context.md](./c4-context.md)
+Mermaid source: [`diagrams/c4-level-1-context.mmd`](diagrams/c4-level-1-context.mmd) · notes in [c4-context.md](./c4-context.md)
 
 ## C4 Level 2 — Containers
 
@@ -53,41 +53,37 @@ Zooming into NoteShare: the runnable/deployable units and how they talk to each 
 | Object Storage | S3-compatible | Uploaded note files (PDF/images) |
 
 ```mermaid
-C4Container
-    title Container diagram for NoteShare
+flowchart TB
+    james["<b>James</b><br/>Note Seeker"]
+    pim["<b>Pim</b><br/>Note Contributor"]
 
-    Person(james, "James", "Note Seeker")
-    Person(pim, "Pim", "Note Contributor")
+    subgraph noteshare["NoteShare"]
+        spa["<b>Single-Page App</b><br/><i>React + Vite</i><br/>Search, filter, preview,<br/>upload, credit UI"]
+        gateway["<b>API Gateway</b><br/><i>Python + Flask</i><br/>Single entry point;<br/>verifies JWT"]
 
-    System_Boundary(noteshare, "NoteShare") {
-        Container(spa, "Single-Page App", "React + Vite", "All user-facing UI in the browser: search, filter, preview, upload, credit")
-        Container(gateway, "API Gateway", "Python + Flask", "Single entry point; routes requests to services and verifies tokens (JWT)")
-        Container(auth, "User & Auth Service", "Python + Flask", "Registration, login (hashed passwords), JWT issuance, profiles")
-        Container(notes, "Notes Service", "Python + Flask", "Note metadata, search/filter, upload/download, credits")
-        Container(stats, "Stats Service", "Python + Flask", "Aggregates download and usage stats for contributor recognition")
-        ContainerDb(db, "PostgreSQL Database", "PostgreSQL", "Users, note metadata, courses, and credit records")
-        ContainerDb(storage, "Object Storage", "S3-compatible", "Uploaded note files (PDF/images)")
-    }
+        auth["<b>User &amp; Auth Service</b><br/><i>Python + Flask</i><br/>Registration, login,<br/>JWT issuance, profiles"]
+        notes["<b>Notes Service</b><br/><i>Python + Flask</i><br/>Note metadata, search/filter,<br/>upload/download, credits"]
+        stats["<b>Stats Service</b><br/><i>Python + Flask</i><br/>Download &amp; usage stats"]
 
-    Rel(james, spa, "Uses", "HTTPS")
-    Rel(pim, spa, "Uses", "HTTPS")
+        db[("<b>PostgreSQL Database</b><br/><i>PostgreSQL</i><br/>Users, note metadata,<br/>courses, credits")]
+        storage[("<b>Object Storage</b><br/><i>S3-compatible</i><br/>Uploaded note files")]
+    end
 
-    Rel(spa, gateway, "Makes calls to", "REST/JSON over HTTPS")
+    james -->|"Uses<br/><i>HTTPS</i>"| spa
+    pim -->|"Uses<br/><i>HTTPS</i>"| spa
+    spa -->|"Makes calls to<br/><i>REST/JSON over HTTPS</i>"| gateway
 
-    Rel(gateway, auth, "Routes requests to", "REST/JSON")
-    Rel(gateway, notes, "Routes requests to", "REST/JSON")
-    Rel(gateway, stats, "Routes requests to", "REST/JSON")
+    gateway -->|"<i>REST/JSON</i>"| auth
+    gateway -->|"<i>REST/JSON</i>"| notes
+    gateway -->|"<i>REST/JSON</i>"| stats
 
-    Rel(auth, db, "Reads/writes", "SQL")
-    Rel(notes, db, "Reads/writes", "SQL")
-    Rel(stats, db, "Reads/writes", "SQL")
-
-    Rel(notes, storage, "Stores/retrieves note files", "S3 API")
-
-    UpdateLayoutConfig($c4ShapeInRow="4", $c4BoundaryInRow="1")
+    auth -->|"<i>SQL</i>"| db
+    notes -->|"<i>SQL</i>"| db
+    stats -->|"<i>SQL</i>"| db
+    notes -->|"Note files<br/><i>S3 API</i>"| storage
 ```
 
-Editable Mermaid source: [c4-container.md](./c4-container.md)
+Mermaid source: [`diagrams/c4-level-2-container.mmd`](diagrams/c4-level-2-container.mmd) · notes in [c4-container.md](./c4-container.md)
 
 ## Technology Stack
 
@@ -110,4 +106,11 @@ Full rationale and trade-offs are in [ADR-001: Core Technology Stack](./adr/0001
 
 ## Editing the diagrams
 
-Diagrams are authored as SVG (`diagrams/*.svg`) and exported to PNG for display here. Each diagram has an English and a Thai version (`*.th.svg` / `*.th.png`). Edit the `.svg` and re-export to a PNG of the same name.
+Diagrams are authored as Mermaid (`diagrams/*.mmd`) and rendered to SVG + PNG. Each diagram has an English and a Thai version (`*.th.mmd`). Edit the `.mmd`, then re-render both formats with the same basename:
+
+```bash
+npx @mermaid-js/mermaid-cli -i diagrams/c4-level-1-context.mmd -o diagrams/c4-level-1-context.svg -b white
+npx @mermaid-js/mermaid-cli -i diagrams/c4-level-1-context.mmd -o diagrams/c4-level-1-context.png -w 1600 -b white
+```
+
+The Mermaid blocks embedded in this README are the same diagrams, kept in sync with the `.mmd` files so GitHub renders them inline without needing the image files.
