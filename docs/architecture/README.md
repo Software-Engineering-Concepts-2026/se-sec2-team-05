@@ -16,6 +16,8 @@ Who uses NoteShare and which external systems it depends on.
 | Pim (Note Contributor) → NoteShare | Uploads & organizes notes; views recognition/usage of her notes |
 | NoteShare → Email Service | Sends account-verification and notification emails |
 
+Mermaid source: [c4-context.md](./c4-context.md)
+
 ## C4 Level 2 — Containers
 
 Zooming into NoteShare: the runnable/deployable units and how they talk to each other.
@@ -31,6 +33,8 @@ Zooming into NoteShare: the runnable/deployable units and how they talk to each 
 | Stats Service | Python + Flask | Aggregates download and usage stats for contributor recognition |
 | PostgreSQL Database | PostgreSQL | Users, note metadata, courses, and credit records |
 | Object Storage | S3-compatible | Uploaded note files (PDF/images) |
+
+Mermaid source: [c4-container.md](./c4-container.md)
 
 ## Technology Stack
 

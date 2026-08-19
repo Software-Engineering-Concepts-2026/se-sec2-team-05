@@ -29,6 +29,12 @@ NoteShare เป็นเว็บแอปพลิเคชันที่ใ�
     - Free tier ของ host อย่าง Render และ Vercel อาจมี cold start และข้อจำกัดทรัพยากรที่ต้องวางแผนรับมือตอน demo
     - เราเริ่มด้วย PostgreSQL อินสแตนซ์เดียวที่ใช้ร่วมกัน (แยก schema ต่อ service) แทน database-per-service เต็มรูปแบบ เพื่อแลกความเรียบง่ายกับการแยกข้อมูลที่ไม่เข้มงวดนัก และสามารถแยกฐานข้อมูลภายหลังได้หาก service ใดต้องการ
 
+**ทางเลือกอื่นที่พิจารณา (Alternatives):**
+
+*   **Monolith vs. Microservices:**
+    - เราพิจารณาสร้าง NoteShare เป็น monolithic Flask application เดียว ซึ่งจะง่ายกว่าสำหรับทีม 3 คนในการพัฒนา ทดสอบ และ deploy เป็นหน่วยเดียว
+    - แต่เราเลือกแยกเป็น microservices อยู่ดี เพื่อฝึกการทำ service decomposition เป็นเป้าหมายการเรียนรู้ โดยยอมรับภาระด้านการดูแลที่ระบุไว้แล้วในข้อ "ข้อเสีย/ข้อแลกเปลี่ยน (Negative)" ข้างต้น (หลาย service, การเรียกข้าม service, และชิ้นส่วนที่ต้องดูแลมากขึ้นสำหรับทีม 3 คน)
+
 **การตัดสินใจที่เกี่ยวข้อง (Related decisions):**
 
 - [ADR-002: ใช้ RESTful API สำหรับการสื่อสารระหว่าง Service](./0002-use-restful-api-internal-communication.th.md)
