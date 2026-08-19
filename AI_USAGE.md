@@ -1,4 +1,4 @@
-# 🤖 AI Usage Log
+# AI Usage Log
 
 บันทึกการใช้เครื่องมือ AI (GitHub Copilot, ChatGPT, Claude, Gemini ฯลฯ) ในการทำโปรเจกต์ NoteShare ของทีม The Builders
 

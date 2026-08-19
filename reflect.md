@@ -1,4 +1,4 @@
-# 📝 Team Reflection
+# Team Reflection
 
 เอกสารนี้เป็นการสรุปภาพรวมระดับทีม แยกจาก reflection รายบุคคลแบบ essay ที่ตอบคำถามเรื่อง Software Entropy / Broken Window Theory และ Take Responsibility / Provide Options, Don't Make Lame Excuses ซึ่งอยู่ที่ [`docs/reflections/atichat.md`](docs/reflections/atichat.md), [`docs/reflections/kittamet.md`](docs/reflections/kittamet.md) และ [`docs/reflections/wachirawit_1.md`](docs/reflections/wachirawit_1.md) — ใครอยากอ่านคำตอบเต็ม ๆ ของแต่ละคนให้ไปดูที่ไฟล์เหล่านั้น
 
