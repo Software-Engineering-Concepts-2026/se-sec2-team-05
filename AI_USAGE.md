@@ -11,7 +11,7 @@
 | Date/PR | Contributor | Tool(s) | What it was used for | How output was reviewed/edited |
 | --- | --- | --- | --- | --- |
 | 2026-07-10, PR #35 | อติชาติ ผาแสนเถิน | GitHub Copilot, ChatGPT | สร้าง interactive prototype หน้าอัปโหลดโน้ต (commit `cca0aa0` — "implement interactive upload-note mockup using copilot/chatgpt") | อติชาติตรวจและแก้ HTML/CSS ที่ generate มาก่อน commit |
-| 2026-07-10, ส่วนหนึ่งของ PR #37 | วชิรวิทย์ ศรีทอง | GitHub Copilot, Claude | สร้าง interactive mockup หน้าลงทะเบียน + prototype หน้าค้นหาโน้ต และแก้ชื่อไฟล์ wireframe (commits `e75dba8`, `7a455c6`, `0ea55bd`) | _(TODO — วชิรวิทย์ กรอกรายละเอียดว่า prompt/ผลลัพธ์จาก AI ตรวจและแก้ตรงไหนบ้าง)_ |
+| 2026-07-10, ส่วนหนึ่งของ PR #37 | วชิรวิทย์ ศรีทอง | GitHub Copilot, Claude | สร้าง interactive mockup หน้าลงทะเบียน + prototype หน้าค้นหาโน้ต และแก้ชื่อไฟล์ wireframe (commits `e75dba8`, `7a455c6`, `0ea55bd`) | มีการใช้ AI ช่วยในการตรวจและแก้ไขเรื่องช่องโหว่ด้านความปลอดภัย XSS  |
 | 2026-07-10, PR #36 | กฤตเมธ ป้องตัน | GitHub Copilot, Gemini | สร้าง interactive prototype หน้า note-rating และแก้ brand/wireframe (commits `856e6ee`, `35aca15`, `a7321ba`) | _(TODO — กฤตเมธ กรอกรายละเอียดว่า prompt/ผลลัพธ์จาก AI ตรวจและแก้ตรงไหนบ้าง)_ |
 | 2026-07 ~ 2026-08 (ongoing sessions) | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | ใช้หลายรอบ session สำหรับ: เอกสาร architecture (เขียน C4 diagrams, ร่าง ADR-001/002 รวม Alternatives section), จัด GitHub issue labels/milestones/acceptance criteria ให้ 19 user stories, `docs/requirements/user-stories.md`, `nfr.md`, เพิ่ม Frequency-of-Use ใน persona, ขยาย `main_scenario.md`, `prototypes/sprint1/README.md`, `tech_stack.md`, `docs/project-proposal.md`, `docs/definition-of-done.md` | อติชาติอ่าน ตรวจ และแก้เนื้อหาทั้งหมดก่อน commit ทุกครั้ง |
 
