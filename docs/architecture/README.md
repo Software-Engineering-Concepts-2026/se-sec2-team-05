@@ -1,4 +1,4 @@
-# 🏛️ NoteShare — Architecture
+# NoteShare — Architecture
 
 🌐 **English** · [ภาษาไทย](./README.th.md)
 
@@ -16,7 +16,25 @@ Who uses NoteShare and which external systems it depends on.
 | Pim (Note Contributor) → NoteShare | Uploads & organizes notes; views recognition/usage of her notes |
 | NoteShare → Email Service | Sends account-verification and notification emails |
 
-Mermaid source: [c4-context.md](./c4-context.md)
+```mermaid
+C4Context
+    title System Context diagram for NoteShare
+
+    Person(james, "James", "Note Seeker")
+    Person(pim, "Pim", "Note Contributor")
+
+    System(noteshare, "NoteShare", "Web platform where university students upload, search, and share lecture notes")
+
+    System_Ext(email, "Email Service", "External email provider")
+
+    Rel(james, noteshare, "Searches, previews & downloads notes; gives credit to authors")
+    Rel(pim, noteshare, "Uploads & organizes notes; views recognition/usage of her notes")
+    Rel(noteshare, email, "Sends account-verification and notification emails")
+
+    UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
+```
+
+Editable Mermaid source: [c4-context.md](./c4-context.md)
 
 ## C4 Level 2 — Containers
 
@@ -34,7 +52,42 @@ Zooming into NoteShare: the runnable/deployable units and how they talk to each 
 | PostgreSQL Database | PostgreSQL | Users, note metadata, courses, and credit records |
 | Object Storage | S3-compatible | Uploaded note files (PDF/images) |
 
-Mermaid source: [c4-container.md](./c4-container.md)
+```mermaid
+C4Container
+    title Container diagram for NoteShare
+
+    Person(james, "James", "Note Seeker")
+    Person(pim, "Pim", "Note Contributor")
+
+    System_Boundary(noteshare, "NoteShare") {
+        Container(spa, "Single-Page App", "React + Vite", "All user-facing UI in the browser: search, filter, preview, upload, credit")
+        Container(gateway, "API Gateway", "Python + Flask", "Single entry point; routes requests to services and verifies tokens (JWT)")
+        Container(auth, "User & Auth Service", "Python + Flask", "Registration, login (hashed passwords), JWT issuance, profiles")
+        Container(notes, "Notes Service", "Python + Flask", "Note metadata, search/filter, upload/download, credits")
+        Container(stats, "Stats Service", "Python + Flask", "Aggregates download and usage stats for contributor recognition")
+        ContainerDb(db, "PostgreSQL Database", "PostgreSQL", "Users, note metadata, courses, and credit records")
+        ContainerDb(storage, "Object Storage", "S3-compatible", "Uploaded note files (PDF/images)")
+    }
+
+    Rel(james, spa, "Uses", "HTTPS")
+    Rel(pim, spa, "Uses", "HTTPS")
+
+    Rel(spa, gateway, "Makes calls to", "REST/JSON over HTTPS")
+
+    Rel(gateway, auth, "Routes requests to", "REST/JSON")
+    Rel(gateway, notes, "Routes requests to", "REST/JSON")
+    Rel(gateway, stats, "Routes requests to", "REST/JSON")
+
+    Rel(auth, db, "Reads/writes", "SQL")
+    Rel(notes, db, "Reads/writes", "SQL")
+    Rel(stats, db, "Reads/writes", "SQL")
+
+    Rel(notes, storage, "Stores/retrieves note files", "S3 API")
+
+    UpdateLayoutConfig($c4ShapeInRow="4", $c4BoundaryInRow="1")
+```
+
+Editable Mermaid source: [c4-container.md](./c4-container.md)
 
 ## Technology Stack
 

@@ -1,4 +1,4 @@
-# 🏛️ NoteShare — สถาปัตยกรรม
+# NoteShare — สถาปัตยกรรม
 
 🌐 [English](./README.md) · **ภาษาไทย**
 
@@ -17,6 +17,26 @@
 | พิม (ผู้แบ่งปันโน้ต) → NoteShare | อัปโหลดและจัดระเบียบโน้ต ดูการยอมรับ/สถิติการใช้งานโน้ตของตัวเอง |
 | NoteShare → บริการอีเมล | ส่งอีเมลยืนยันบัญชีและอีเมลแจ้งเตือน |
 
+```mermaid
+C4Context
+    title System Context diagram for NoteShare
+
+    Person(james, "James", "Note Seeker")
+    Person(pim, "Pim", "Note Contributor")
+
+    System(noteshare, "NoteShare", "Web platform where university students upload, search, and share lecture notes")
+
+    System_Ext(email, "Email Service", "External email provider")
+
+    Rel(james, noteshare, "Searches, previews & downloads notes; gives credit to authors")
+    Rel(pim, noteshare, "Uploads & organizes notes; views recognition/usage of her notes")
+    Rel(noteshare, email, "Sends account-verification and notification emails")
+
+    UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
+```
+
+ต้นฉบับ Mermaid แก้ไขได้ที่ [c4-context.md](./c4-context.md) (มีเวอร์ชันเดียว ใช้ร่วมกับหน้าอังกฤษ)
+
 ## C4 Level 2 — Container
 
 ซูมเข้าไปในระบบ NoteShare เพื่อดูส่วนประกอบที่ deploy แยกกันได้ และการสื่อสารระหว่างกัน
@@ -32,6 +52,43 @@
 | Stats Service | Python + Flask | รวมสถิติยอดดาวน์โหลดและการใช้งานโน้ต เพื่อการยอมรับของผู้แบ่งปัน |
 | PostgreSQL Database | PostgreSQL | เก็บข้อมูลผู้ใช้ metadata ของโน้ต รายวิชา และเครดิต |
 | Object Storage | S3-compatible | เก็บไฟล์โน้ตที่อัปโหลด (PDF/รูปภาพ) |
+
+```mermaid
+C4Container
+    title Container diagram for NoteShare
+
+    Person(james, "James", "Note Seeker")
+    Person(pim, "Pim", "Note Contributor")
+
+    System_Boundary(noteshare, "NoteShare") {
+        Container(spa, "Single-Page App", "React + Vite", "All user-facing UI in the browser: search, filter, preview, upload, credit")
+        Container(gateway, "API Gateway", "Python + Flask", "Single entry point; routes requests to services and verifies tokens (JWT)")
+        Container(auth, "User & Auth Service", "Python + Flask", "Registration, login (hashed passwords), JWT issuance, profiles")
+        Container(notes, "Notes Service", "Python + Flask", "Note metadata, search/filter, upload/download, credits")
+        Container(stats, "Stats Service", "Python + Flask", "Aggregates download and usage stats for contributor recognition")
+        ContainerDb(db, "PostgreSQL Database", "PostgreSQL", "Users, note metadata, courses, and credit records")
+        ContainerDb(storage, "Object Storage", "S3-compatible", "Uploaded note files (PDF/images)")
+    }
+
+    Rel(james, spa, "Uses", "HTTPS")
+    Rel(pim, spa, "Uses", "HTTPS")
+
+    Rel(spa, gateway, "Makes calls to", "REST/JSON over HTTPS")
+
+    Rel(gateway, auth, "Routes requests to", "REST/JSON")
+    Rel(gateway, notes, "Routes requests to", "REST/JSON")
+    Rel(gateway, stats, "Routes requests to", "REST/JSON")
+
+    Rel(auth, db, "Reads/writes", "SQL")
+    Rel(notes, db, "Reads/writes", "SQL")
+    Rel(stats, db, "Reads/writes", "SQL")
+
+    Rel(notes, storage, "Stores/retrieves note files", "S3 API")
+
+    UpdateLayoutConfig($c4ShapeInRow="4", $c4BoundaryInRow="1")
+```
+
+ต้นฉบับ Mermaid แก้ไขได้ที่ [c4-container.md](./c4-container.md) (มีเวอร์ชันเดียว ใช้ร่วมกับหน้าอังกฤษ)
 
 ## Technology Stack
 
