@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NoteShare - Sprint 1 Prototypes</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>NoteShare — Sprint 1 Prototypes</h1>
+    <p>เลือกแท็บเพื่อดู prototype แต่ละหน้า ทั้งสามหน้าเป็น mockup ฝั่ง front-end ข้อมูลเป็น mock ไม่มี backend</p>
+  </header>
+
+  <main>
+    <nav class="tabs" id="tabs">
+      <button class="tab" data-src="atichat_upload_note_prototype.html">อัปโหลดโน้ต</button>
+      <button class="tab" data-src="kittamet_note_rating_prototype.html">ให้คะแนนโน้ต</button>
+      <button class="tab" data-src="wachirawit_search_note_prototype.html">ค้นหาโน้ต</button>
+    </nav>
+
+    <section class="stage">
+      <p class="owner" id="owner"></p>
+      <iframe id="frame" title="prototype preview"></iframe>
+      <p class="open-link"><a id="openLink" href="#" target="_blank">เปิดหน้านี้ในแท็บใหม่</a></p>
+    </section>
+  </main>
+
+  <script>
+    const owners = {
+      "atichat_upload_note_prototype.html": "อติชาติ ผาแสนเถิน · Story #7 อัปโหลดโน้ต (PR #35)",
+      "kittamet_note_rating_prototype.html": "กฤตเมธ ป้องตัน · ให้คะแนนโน้ต (PR #36)",
+      "wachirawit_search_note_prototype.html": "วชิรวิทย์ ศรีทอง · ค้นหาโน้ต (PR #37)"
+    };
+
+    const tabs = document.querySelectorAll("#tabs .tab");
+    const frame = document.getElementById("frame");
+    const owner = document.getElementById("owner");
+    const openLink = document.getElementById("openLink");
+
+    function show(tab) {
+      const src = tab.dataset.src;
+      frame.src = src;
+      owner.textContent = owners[src];
+      openLink.href = src;
+      tabs.forEach(t => t.classList.toggle("active", t === tab));
+    }
+
+    tabs.forEach(tab => tab.addEventListener("click", () => show(tab)));
+
+    show(tabs[0]);
+  </script>
+</body>
+</html>
