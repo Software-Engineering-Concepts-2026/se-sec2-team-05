@@ -1,4 +1,4 @@
-# 🎯 Project Proposal — NoteShare
+# Project Proposal — NoteShare
 
 **NoteShare** เว็บแอปสำหรับนักศึกษามหาวิทยาลัยในการอัปโหลด ค้นหา และแชร์โน้ตเลกเชอร์ระหว่างกัน
 (ธีม: *Tools for Modern Learners*)

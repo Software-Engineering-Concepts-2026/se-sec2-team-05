@@ -1,4 +1,4 @@
-# ✅ Definition of Done — NoteShare
+# Definition of Done — NoteShare
 
 นิยาม "เสร็จ" ของทีม The Builders มีสองระดับ: ระดับ User Story/PR เดียว และระดับ Sprint ทั้งก้อน อ้างอิงตาม Git Workflow ที่ตกลงกันไว้ใน [README.md](../README.md#3-git-workflow)
 
