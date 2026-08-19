@@ -59,8 +59,11 @@ Per-layer rationale and the alternatives we weighed are in [tech_stack.md](./tec
 
 ## Editing the diagrams
 
-Both diagrams are authored directly as SVG in `diagrams/`, each with an English and a Thai version (`*.th.svg`). The `.svg` is the source; the `.png` next to it is an export used by this README.
+Each diagram is kept in two forms in `diagrams/`, both with an English and a Thai version:
 
-To change a diagram, edit the `.svg` and then export the `.png` at 1600px wide (open the SVG in a browser and export, or use any SVG-to-PNG tool). Keep the same basename. Both language versions share identical geometry, so a layout change made in one can be copied straight into the other.
+- `*.mmd` — the Mermaid text source (`C4Context` for Level 1, `C4Container` for Level 2), reviewable as a diff in a PR. Both are also embedded in [c4-context.md](./c4-context.md) and [c4-container.md](./c4-container.md).
+- `*.svg` — a hand-positioned drawing of the same content, and the `.png` next to it is the export shown in this README.
 
-We do not use Mermaid for these. Mermaid's `C4Container` renderer overlaps the boundary label with the relationship labels and ignores the shapes-per-row setting, which made Level 2 unreadable; Level 1 is hand-authored too so that both levels use one consistent notation and style. See [c4-container.md](./c4-container.md) for the details.
+To change a diagram, update **both** forms so they keep saying the same thing, then export the `.png` at 1600px wide (open the SVG in a browser and export, or use any SVG-to-PNG tool). Keep the same basename. Both language versions share identical geometry, so a layout change made in one can be copied straight into the other.
+
+The rendered images come from the SVG rather than from Mermaid because Mermaid's `C4Container` renderer overlaps the boundary label with the relationship labels and ignores the shapes-per-row setting, which makes Level 2 unreadable; Level 1 crowds its full-length relationship labels for the same reason. The Mermaid sources still parse cleanly (checked with `mermaid-cli`). See [c4-container.md](./c4-container.md) for the details.

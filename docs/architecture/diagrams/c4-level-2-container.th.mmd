@@ -1,0 +1,33 @@
+C4Container
+    title แผนภาพคอนเทนเนอร์ของระบบ NoteShare
+
+    Person(james, "เจมส์", "ผู้ค้นหาโน้ต")
+    Person(pim, "พิม", "ผู้แบ่งปันโน้ต")
+
+    Container_Boundary(noteshare, "NoteShare") {
+        Container(spa, "Single-Page App", "React + Vite", "ส่วนติดต่อผู้ใช้ทั้งหมดในเบราว์เซอร์: ค้นหา กรอง ดูตัวอย่าง อัปโหลด ให้เครดิต")
+        Container(gateway, "API Gateway", "Python + Flask", "ทางเข้าเดียวของระบบ ส่งต่อคำขอไปยัง service และตรวจโทเคน (JWT)")
+        Container(auth, "User & Auth Service", "Python + Flask", "สมัครสมาชิก เข้าสู่ระบบ (แฮชรหัสผ่าน) ออก JWT และจัดการโปรไฟล์")
+        Container(notes, "Notes Service", "Python + Flask", "เมทาดาต้าของโน้ต ค้นหา/กรอง อัปโหลด/ดาวน์โหลด และเครดิต")
+        Container(stats, "Stats Service", "Python + Flask", "รวบรวมสถิติยอดดาวน์โหลดและการใช้งานเพื่อให้เครดิตผู้แบ่งปัน")
+        ContainerDb(db, "PostgreSQL Database", "PostgreSQL", "ผู้ใช้ เมทาดาต้าของโน้ต รายวิชา และบันทึกเครดิต")
+        ContainerDb(storage, "Object Storage", "S3-compatible", "ไฟล์โน้ตที่อัปโหลด (PDF/รูปภาพ)")
+    }
+
+    System_Ext(email, "บริการอีเมล", "ผู้ให้บริการอีเมลภายนอก")
+
+    Rel(james, spa, "ใช้งาน", "HTTPS")
+    Rel(pim, spa, "ใช้งาน", "HTTPS")
+    Rel(spa, gateway, "เรียกใช้", "REST/JSON over HTTPS")
+
+    Rel(gateway, auth, "ส่งต่อคำขอเรื่องบัญชีไปยัง", "REST/JSON")
+    Rel(gateway, notes, "ส่งต่อคำขอเรื่องโน้ตไปยัง", "REST/JSON")
+    Rel(gateway, stats, "ส่งต่อคำขอเรื่องสถิติไปยัง", "REST/JSON")
+
+    Rel(auth, db, "อ่านและเขียน", "SQL")
+    Rel(notes, db, "อ่านและเขียน", "SQL")
+    Rel(stats, db, "อ่านจาก", "SQL")
+    Rel(notes, storage, "เก็บและส่งไฟล์โน้ต", "S3 API")
+    Rel(auth, email, "ส่งอีเมลยืนยันบัญชี", "SMTP")
+
+    UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")

@@ -1,0 +1,33 @@
+C4Container
+    title Container diagram for NoteShare
+
+    Person(james, "James", "Note Seeker")
+    Person(pim, "Pim", "Note Contributor")
+
+    Container_Boundary(noteshare, "NoteShare") {
+        Container(spa, "Single-Page App", "React + Vite", "All user-facing UI in the browser: search, filter, preview, upload, credit")
+        Container(gateway, "API Gateway", "Python + Flask", "Single entry point; routes requests to services and verifies tokens (JWT)")
+        Container(auth, "User & Auth Service", "Python + Flask", "Registration, login (hashed passwords), JWT issuance, profiles")
+        Container(notes, "Notes Service", "Python + Flask", "Note metadata, search/filter, upload/download, credits")
+        Container(stats, "Stats Service", "Python + Flask", "Aggregates download and usage stats for contributor recognition")
+        ContainerDb(db, "PostgreSQL Database", "PostgreSQL", "Users, note metadata, courses, and credit records")
+        ContainerDb(storage, "Object Storage", "S3-compatible", "Uploaded note files (PDF/images)")
+    }
+
+    System_Ext(email, "Email Service", "External email provider")
+
+    Rel(james, spa, "Uses", "HTTPS")
+    Rel(pim, spa, "Uses", "HTTPS")
+    Rel(spa, gateway, "Makes calls to", "REST/JSON over HTTPS")
+
+    Rel(gateway, auth, "Routes auth requests to", "REST/JSON")
+    Rel(gateway, notes, "Routes note requests to", "REST/JSON")
+    Rel(gateway, stats, "Routes stats requests to", "REST/JSON")
+
+    Rel(auth, db, "Reads from and writes to", "SQL")
+    Rel(notes, db, "Reads from and writes to", "SQL")
+    Rel(stats, db, "Reads from", "SQL")
+    Rel(notes, storage, "Stores and serves note files", "S3 API")
+    Rel(auth, email, "Sends verification emails", "SMTP")
+
+    UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
