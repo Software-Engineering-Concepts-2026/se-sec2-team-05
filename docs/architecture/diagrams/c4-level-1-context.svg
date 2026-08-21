@@ -1,105 +1,72 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="840" viewBox="0 0 1200 840" font-family="'Segoe UI','Leelawadee UI',Arial,sans-serif">
-  <style>
-    .title    { font-size: 26px; font-weight: 700; fill: #1a1a1a; }
-    .subtitle { font-size: 14px; fill: #6b6b6b; }
-    .b-title  { font-size: 17px; font-weight: 700; fill: #ffffff; }
-    .b-type   { font-size: 12px; fill: #dbe7f3; }
-    .b-desc   { font-size: 12.5px; fill: #eef4fb; }
-    .edge     { font-size: 12.5px; font-weight: 500; fill: #20232a;
-                paint-order: stroke; stroke: #ffffff; stroke-width: 4px; stroke-linejoin: round; }
-    .legend   { font-size: 12.5px; fill: #333; }
-  </style>
-
-  <rect x="0" y="0" width="1200" height="840" fill="#ffffff"/>
-
-  <!-- heading -->
-  <text class="title" x="40" y="52">NoteShare &#8212; C4 Model &#183; Level 1: System Context</text>
-  <text class="subtitle" x="40" y="76">How students and external services interact with the NoteShare platform</text>
-
-  <!-- arrow marker -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="820" viewBox="0 0 1240 820" font-family="'Segoe UI', Tahoma, 'Noto Sans Thai', sans-serif" text-anchor="middle">
   <defs>
-    <marker id="arrow" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto" markerUnits="strokeWidth">
-      <path d="M0,0 L8,3 L0,6 Z" fill="#707070"/>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2a3a4a"/>
     </marker>
+    <style>
+      .bg     { fill: #ffffff; }
+      .title  { font-size: 19px; font-weight: 600; fill: #16212e; }
+      .person { fill: #08427b; stroke: #073b6f; }
+      .system { fill: #1168bd; stroke: #0e5aa7; }
+      .ext    { fill: #8b8b8b; stroke: #6e6e6e; }
+      .glyph  { fill: #ffffff; }
+      .stereo { font-size: 11px; font-style: italic; fill: #ffffff; opacity: .8; }
+      .name   { font-size: 15px; font-weight: 600; fill: #ffffff; }
+      .nameL  { font-size: 17px; font-weight: 600; fill: #ffffff; }
+      .desc   { font-size: 12px; fill: #ffffff; opacity: .95; }
+      .edge   { fill: none; stroke: #2a3a4a; stroke-width: 1.6; marker-end: url(#arrow); }
+      .rel    { font-size: 12px; fill: #16212e; }
+    </style>
   </defs>
 
-  <!-- ============ relationships (drawn first, under boxes) ============ -->
-  <!-- James -> NoteShare -->
-  <line x1="330" y1="272" x2="545" y2="408" stroke="#707070" stroke-width="2" marker-end="url(#arrow)"/>
-  <text class="edge" x="360" y="326" text-anchor="middle">
-    <tspan x="360">Searches, previews &amp; downloads</tspan>
-    <tspan x="360" dy="15">notes; gives credit  [HTTPS]</tspan>
-  </text>
+  <rect class="bg" x="0" y="0" width="1240" height="820"/>
+  <text class="title" x="60" y="56" text-anchor="start">System Context diagram for NoteShare</text>
 
-  <!-- Pim -> NoteShare -->
-  <line x1="870" y1="272" x2="655" y2="408" stroke="#707070" stroke-width="2" marker-end="url(#arrow)"/>
-  <text class="edge" x="838" y="326" text-anchor="middle">
-    <tspan x="838">Uploads &amp; organizes notes;</tspan>
-    <tspan x="838" dy="15">views recognition  [HTTPS]</tspan>
-  </text>
-
-  <!-- NoteShare -> Email -->
-  <line x1="600" y1="562" x2="600" y2="688" stroke="#707070" stroke-width="2" marker-end="url(#arrow)"/>
-  <text class="edge" x="618" y="632" text-anchor="start">Sends verification &amp; notification emails  [SMTP/API]</text>
-
-  <!-- ============ Persons ============ -->
-  <!-- James -->
+  <!-- ============ people ============ -->
   <g>
-    <rect x="150" y="152" width="240" height="120" rx="10" fill="#08427b"/>
-    <circle cx="270" cy="171" r="8.5" fill="#ffffff" opacity="0.9"/>
-    <path d="M255 189 a15 11 0 0 1 30 0" fill="#ffffff" opacity="0.9"/>
-    <text class="b-title" x="270" y="208" text-anchor="middle">James &#8212; Note Seeker</text>
-    <text class="b-type"  x="270" y="226" text-anchor="middle">[Person]</text>
-    <text class="b-desc"  x="270" y="247" text-anchor="middle">
-      <tspan x="270">1st-year student; catches up</tspan>
-      <tspan x="270" dy="15">on missed lectures, mobile-first</tspan>
-    </text>
+    <rect class="person" x="370" y="120" width="200" height="130" rx="4"/>
+    <text class="stereo" x="470" y="138">&#171;Person&#187;</text>
+    <circle class="glyph" cx="470" cy="164" r="10"/>
+    <path class="glyph" d="M456,196 c0,-15 6,-19 14,-19 s14,4 14,19 z"/>
+    <text class="name" x="470" y="216">James</text>
+    <text class="desc" x="470" y="234">Note Seeker</text>
+  </g>
+  <g>
+    <rect class="person" x="670" y="120" width="200" height="130" rx="4"/>
+    <text class="stereo" x="770" y="138">&#171;Person&#187;</text>
+    <circle class="glyph" cx="770" cy="164" r="10"/>
+    <path class="glyph" d="M756,196 c0,-15 6,-19 14,-19 s14,4 14,19 z"/>
+    <text class="name" x="770" y="216">Pim</text>
+    <text class="desc" x="770" y="234">Note Contributor</text>
   </g>
 
-  <!-- Pim -->
+  <!-- ============ system in scope ============ -->
   <g>
-    <rect x="810" y="152" width="240" height="120" rx="10" fill="#08427b"/>
-    <circle cx="930" cy="171" r="8.5" fill="#ffffff" opacity="0.9"/>
-    <path d="M915 189 a15 11 0 0 1 30 0" fill="#ffffff" opacity="0.9"/>
-    <text class="b-title" x="930" y="208" text-anchor="middle">Pim &#8212; Note Contributor</text>
-    <text class="b-type"  x="930" y="226" text-anchor="middle">[Person]</text>
-    <text class="b-desc"  x="930" y="247" text-anchor="middle">
-      <tspan x="930">3rd-year student; shares detailed</tspan>
-      <tspan x="930" dy="15">notes, wants recognition</tspan>
-    </text>
+    <rect class="system" x="430" y="360" width="380" height="130" rx="4"/>
+    <text class="stereo" x="620" y="380">&#171;Software System&#187;</text>
+    <text class="nameL" x="620" y="410">NoteShare</text>
+    <text class="desc" x="620" y="440">Web platform where university students</text>
+    <text class="desc" x="620" y="458">upload, search, and share lecture notes</text>
   </g>
 
-  <!-- ============ Our system ============ -->
+  <!-- ============ external system ============ -->
   <g>
-    <rect x="450" y="408" width="300" height="154" rx="12" fill="#1168bd"/>
-    <text class="b-title" x="600" y="462" text-anchor="middle" font-size="20">NoteShare Platform</text>
-    <text class="b-type"  x="600" y="484" text-anchor="middle">[Software System]</text>
-    <text class="b-desc"  x="600" y="510" text-anchor="middle">
-      <tspan x="600">Web platform for university students to</tspan>
-      <tspan x="600" dy="16">upload, search, and share lecture notes.</tspan>
-    </text>
+    <rect class="ext" x="480" y="620" width="280" height="130" rx="4"/>
+    <text class="stereo" x="620" y="640">&#171;External System&#187;</text>
+    <text class="name" x="620" y="668">Email Service</text>
+    <text class="desc" x="620" y="702">External email provider</text>
   </g>
 
-  <!-- ============ External system ============ -->
-  <g>
-    <rect x="470" y="688" width="260" height="112" rx="10" fill="#6b6b6b"/>
-    <text class="b-title" x="600" y="730" text-anchor="middle">Email Service</text>
-    <text class="b-type"  x="600" y="749" text-anchor="middle">[External System]</text>
-    <text class="b-desc"  x="600" y="772" text-anchor="middle">
-      <tspan x="600">Delivers verification and</tspan>
-      <tspan x="600" dy="15">notification emails to users.</tspan>
-    </text>
-  </g>
+  <!-- ============ relationships ============ -->
+  <path class="edge" d="M470,250 L540,360"/>
+  <text class="rel" x="460" y="295" text-anchor="end">Searches, previews &amp; downloads</text>
+  <text class="rel" x="460" y="313" text-anchor="end">notes; gives credit to authors</text>
 
-  <!-- ============ legend ============ -->
-  <g>
-    <rect x="40" y="712" width="316" height="96" rx="8" fill="#f6f8fa" stroke="#d7dee6"/>
-    <text class="legend" x="56" y="734" font-weight="700">Legend</text>
-    <rect x="56" y="746" width="18" height="14" rx="3" fill="#08427b"/>
-    <text class="legend" x="82" y="758">Person (persona / actor)</text>
-    <rect x="56" y="768" width="18" height="14" rx="3" fill="#1168bd"/>
-    <text class="legend" x="82" y="780">Our software system</text>
-    <rect x="56" y="790" width="18" height="14" rx="3" fill="#6b6b6b"/>
-    <text class="legend" x="82" y="802">External system (dependency)</text>
-  </g>
+  <path class="edge" d="M770,250 L700,360"/>
+  <text class="rel" x="780" y="295" text-anchor="start">Uploads &amp; organizes notes; views</text>
+  <text class="rel" x="780" y="313" text-anchor="start">recognition/usage of her notes</text>
+
+  <path class="edge" d="M620,490 L620,620"/>
+  <text class="rel" x="640" y="548" text-anchor="start">Sends account-verification</text>
+  <text class="rel" x="640" y="566" text-anchor="start">and notification emails</text>
 </svg>

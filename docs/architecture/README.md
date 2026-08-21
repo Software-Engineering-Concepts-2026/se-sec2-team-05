@@ -1,4 +1,4 @@
-# 🏛️ NoteShare — Architecture
+# NoteShare — Architecture
 
 🌐 **English** · [ภาษาไทย](./README.th.md)
 
@@ -16,6 +16,8 @@ Who uses NoteShare and which external systems it depends on.
 | Pim (Note Contributor) → NoteShare | Uploads & organizes notes; views recognition/usage of her notes |
 | NoteShare → Email Service | Sends account-verification and notification emails |
 
+Diagram source: [`diagrams/c4-level-1-context.svg`](diagrams/c4-level-1-context.svg) · notes in [c4-context.md](./c4-context.md)
+
 ## C4 Level 2 — Containers
 
 Zooming into NoteShare: the runnable/deployable units and how they talk to each other.
@@ -32,6 +34,10 @@ Zooming into NoteShare: the runnable/deployable units and how they talk to each 
 | PostgreSQL Database | PostgreSQL | Users, note metadata, courses, and credit records |
 | Object Storage | S3-compatible | Uploaded note files (PDF/images) |
 
+All calls from the SPA through the API Gateway to the services are REST/JSON over HTTP (see [ADR-002](./adr/0002-use-restful-api-internal-communication.md)). Each service talks to PostgreSQL directly over SQL, and the Notes Service is the only container that touches Object Storage.
+
+Diagram source: [`diagrams/c4-level-2-container.svg`](diagrams/c4-level-2-container.svg) · notes in [c4-container.md](./c4-container.md)
+
 ## Technology Stack
 
 | Layer | Choice |
@@ -44,7 +50,7 @@ Zooming into NoteShare: the runnable/deployable units and how they talk to each 
 | Packaging | Docker + Docker Compose |
 | Deployment | Backend as containers on a cloud host; frontend on Vercel |
 
-Full rationale and trade-offs are in [ADR-001: Core Technology Stack](./adr/0001-tech-stack-selection.md).
+Per-layer rationale and the alternatives we weighed are in [tech_stack.md](./tech_stack.md). Full trade-offs are in [ADR-001: Core Technology Stack](./adr/0001-tech-stack-selection.md).
 
 ## Architecture Decision Records
 
@@ -53,4 +59,11 @@ Full rationale and trade-offs are in [ADR-001: Core Technology Stack](./adr/0001
 
 ## Editing the diagrams
 
-Diagrams are authored as SVG (`diagrams/*.svg`) and exported to PNG for display here. Each diagram has an English and a Thai version (`*.th.svg` / `*.th.png`). Edit the `.svg` and re-export to a PNG of the same name.
+Each diagram is kept in two forms in `diagrams/`, both with an English and a Thai version:
+
+- `*.mmd` — the Mermaid text source (`C4Context` for Level 1, `C4Container` for Level 2), reviewable as a diff in a PR. Both are also embedded in [c4-context.md](./c4-context.md) and [c4-container.md](./c4-container.md).
+- `*.svg` — a hand-positioned drawing of the same content, and the `.png` next to it is the export shown in this README.
+
+To change a diagram, update **both** forms so they keep saying the same thing, then export the `.png` at 1600px wide (open the SVG in a browser and export, or use any SVG-to-PNG tool). Keep the same basename. Both language versions share identical geometry, so a layout change made in one can be copied straight into the other.
+
+The rendered images come from the SVG rather than from Mermaid because Mermaid's `C4Container` renderer overlaps the boundary label with the relationship labels and ignores the shapes-per-row setting, which makes Level 2 unreadable; Level 1 crowds its full-length relationship labels for the same reason. The Mermaid sources still parse cleanly (checked with `mermaid-cli`). See [c4-container.md](./c4-container.md) for the details.

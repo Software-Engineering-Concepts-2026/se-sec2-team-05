@@ -29,6 +29,12 @@ We have decided to adopt the following core technology stack:
     - Free tiers on hosts such as Render and Vercel can introduce cold starts and resource limits that we need to plan around for demos.
     - We start with a single shared PostgreSQL instance (one schema per service) rather than a full database-per-service, trading strict isolation for simplicity; we can split the databases later if a service needs it.
 
+**Alternatives:**
+
+*   **Monolith vs. microservices:**
+    - We considered building NoteShare as a single monolithic Flask application, which would have been simpler for a three-person team to develop, test, and deploy as one deployable unit.
+    - We chose to decompose into microservices anyway, to practice service decomposition as a learning goal, accepting the operational overhead already noted above under Negative consequences (more services, inter-service calls, and moving parts for a three-person team).
+
 **Related decisions:**
 
 - [ADR-002: Use RESTful APIs for Internal Service Communication](./0002-use-restful-api-internal-communication.md)

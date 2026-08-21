@@ -1,0 +1,15 @@
+# Technology Stack — Rationale & Alternatives
+
+ตารางนี้ขยายความจากตาราง "Technology Stack" ใน [README.md](./README.md#technology-stack) โดยเพิ่มเหตุผลของแต่ละการเลือก (ดึงมาจาก Consequences ของ [ADR-001](./adr/0001-tech-stack-selection.md) และ [ADR-002](./adr/0002-use-restful-api-internal-communication.md)) และทางเลือกอื่นที่ทีมเคยชั่งใจก่อนตัดสินใจ
+
+| Layer | Choice | Rationale | Alternative(s) Considered |
+| --- | --- | --- | --- |
+| Frontend | React (SPA) + Vite | Component model ของ React เหมาะกับ UI แบบโต้ตอบและ mobile-first ของ NoteShare (ค้นหา กรอง ดูตัวอย่าง อัปโหลด) และเป็นทักษะที่ใช้งานในตลาดได้จริง | **Vue.js** — ทีมคุ้นเคยน้อยกว่า React; **Plain HTML/JS** — ไม่รองรับความซับซ้อนของ interactivity ที่แอปต้องการเมื่อฟีเจอร์เพิ่มขึ้น |
+| Backend | Python + Flask (microservices) | Python/Flask ตรงกับทักษะเดิมของทั้งทีมและเนื้อหาในวิชา ทำให้ learning curve ต่ำ | **Django** — heavyweight และ opinionated เกินไปสำหรับ microservices ขนาดเล็ก; **Node.js/Express** — ทีมมีประสบการณ์ Python มากกว่า |
+| Inter-service communication | REST / JSON over HTTP | ทีมมีประสบการณ์กับ HTTP/JSON อยู่แล้ว debug/test ได้ง่ายด้วยเครื่องมือทั่วไป (Postman, browser) และมี library รองรับกว้างขวาง (รายละเอียดใน ADR-002 ซึ่งต่อยอดจากการเลือก microservices ใน ADR-001) | **gRPC** — เร็วกว่าและมี strong typing แต่ทีมไม่คุ้นเคยเท่า REST และ debug ยากกว่า; **Message queue (เช่น RabbitMQ)** — เหมาะกับ async workflow แต่เพิ่มความซับซ้อนเกินความจำเป็นสำหรับ scope ของโปรเจกต์ |
+| Database | PostgreSQL | โมเดลเชิงสัมพันธ์ของ PostgreSQL เข้ากับความสัมพันธ์ที่ชัดเจนระหว่างผู้ใช้ โน้ต รายวิชา และเครดิตได้ดี | **MongoDB** — ข้อมูลเป็นแบบ relational มี foreign key ชัดเจน ไม่เหมาะกับ document model; **SQLite** — ไม่รองรับ concurrent access จากหลาย service พร้อมกัน |
+| File storage | S3-compatible object storage | การเก็บไฟล์ขนาดใหญ่ไว้ใน object storage แทนฐานข้อมูล ทำให้ฐานข้อมูลเล็กและการดาวน์โหลดเร็วและประหยัด | **เก็บไฟล์เป็น BLOB ใน PostgreSQL** — ทำให้ฐานข้อมูลบวมและช้าลงเมื่อไฟล์เยอะขึ้น; **Local disk ของ container** — ไม่ persistent เมื่อ container ถูก redeploy/scale |
+| Packaging | Docker + Docker Compose | Docker ทำให้ทุกคนในทีมมีสภาพแวดล้อมเหมือนกัน และแต่ละ service build/deploy แยกกันได้ | **รันตรงบนเครื่อง/venv โดยไม่มี container** — setup ไม่สอดคล้องกันระหว่างเครื่องของสมาชิกทีม; **Kubernetes ตั้งแต่ต้น** — overkill สำหรับทีม 3 คนและ scope ของโปรเจกต์ในหนึ่งภาคการศึกษา |
+| Deployment | Backend as containers on a cloud host (เช่น Render/Railway); frontend on Vercel | แยก deploy target ทำให้แต่ละฝั่ง build/deploy ได้เร็วและใช้ free tier ได้ แม้ต้องตั้งค่า CORS/environment variable อย่างระมัดระวัง และวางแผนรับมือ cold start บน free tier | **AWS/GCP VM เดียวรันทุกอย่าง** — learning curve สูงกว่าและมีความเสี่ยงด้านค่าใช้จ่ายสำหรับโปรเจกต์นักศึกษา; **Kubernetes cluster เต็มรูปแบบ** — ซับซ้อนและมี ops overhead เกินความจำเป็นสำหรับทีม 3 คน |
+
+รายละเอียดเพิ่มเติมของแต่ละการตัดสินใจดูได้ใน [ADR-001: Selection of Core Technology Stack](./adr/0001-tech-stack-selection.md) และ [ADR-002: Use RESTful APIs for Internal Service Communication](./adr/0002-use-restful-api-internal-communication.md)

@@ -1,4 +1,4 @@
-# 🏛️ NoteShare — สถาปัตยกรรม
+# NoteShare — สถาปัตยกรรม
 
 🌐 [English](./README.md) · **ภาษาไทย**
 
@@ -17,6 +17,8 @@
 | พิม (ผู้แบ่งปันโน้ต) → NoteShare | อัปโหลดและจัดระเบียบโน้ต ดูการยอมรับ/สถิติการใช้งานโน้ตของตัวเอง |
 | NoteShare → บริการอีเมล | ส่งอีเมลยืนยันบัญชีและอีเมลแจ้งเตือน |
 
+ต้นฉบับแผนภาพ: [`diagrams/c4-level-1-context.th.svg`](diagrams/c4-level-1-context.th.svg) · ดูคำอธิบายเพิ่มเติมที่ [c4-context.md](./c4-context.md)
+
 ## C4 Level 2 — Container
 
 ซูมเข้าไปในระบบ NoteShare เพื่อดูส่วนประกอบที่ deploy แยกกันได้ และการสื่อสารระหว่างกัน
@@ -33,6 +35,10 @@
 | PostgreSQL Database | PostgreSQL | เก็บข้อมูลผู้ใช้ metadata ของโน้ต รายวิชา และเครดิต |
 | Object Storage | S3-compatible | เก็บไฟล์โน้ตที่อัปโหลด (PDF/รูปภาพ) |
 
+การเรียกทั้งหมดจาก SPA ผ่าน API Gateway ไปยัง service เป็น REST/JSON over HTTP (ดู [ADR-002](./adr/0002-use-restful-api-internal-communication.th.md)) ส่วน service แต่ละตัวคุยกับ PostgreSQL ด้วย SQL ตรง ๆ และ Notes Service เป็น container เดียวที่ต่อกับ Object Storage
+
+ต้นฉบับแผนภาพ: [`diagrams/c4-level-2-container.th.svg`](diagrams/c4-level-2-container.th.svg) · ดูคำอธิบายเพิ่มเติมที่ [c4-container.md](./c4-container.md)
+
 ## Technology Stack
 
 | ส่วน | ที่เลือกใช้ |
@@ -45,7 +51,7 @@
 | Packaging | Docker + Docker Compose |
 | Deployment | backend รันเป็น container บน cloud host, frontend บน Vercel |
 
-เหตุผลและ trade-off ทั้งหมดอยู่ใน [ADR-001: Core Technology Stack](./adr/0001-tech-stack-selection.th.md)
+เหตุผลของแต่ละ layer และทางเลือกอื่นที่ชั่งใจดูที่ [tech_stack.md](./tech_stack.md) ส่วน trade-off ทั้งหมดอยู่ใน [ADR-001: Core Technology Stack](./adr/0001-tech-stack-selection.th.md)
 
 ## Architecture Decision Records
 
@@ -54,5 +60,11 @@
 
 ## แก้ไขแผนภาพ
 
-แผนภาพเขียนเป็นไฟล์ SVG (`diagrams/*.svg`) เป็นต้นฉบับ และ export เป็น `.png` สำหรับแสดงผล
-แต่ละแผนภาพมีเวอร์ชันอังกฤษและไทย (`*.th.svg` / `*.th.png`) แก้ที่ไฟล์ `.svg` แล้ว export เป็น PNG ชื่อเดิมทับ
+แผนภาพแต่ละรูปเก็บไว้สองรูปแบบในโฟลเดอร์ `diagrams/` และมีทั้งฉบับอังกฤษกับฉบับไทย
+
+- `*.mmd` — ต้นฉบับแบบข้อความของ Mermaid (Level 1 ใช้ `C4Context`, Level 2 ใช้ `C4Container`) รีวิวเป็น diff ใน PR ได้ และฝังไว้ใน [c4-context.md](./c4-context.md) กับ [c4-container.md](./c4-container.md) ด้วย
+- `*.svg` — รูปเนื้อหาเดียวกันที่จัดตำแหน่งเอง ส่วนไฟล์ `.png` ข้างกันคือรูปที่ export ไปแสดงใน README
+
+ถ้าจะแก้แผนภาพ ให้แก้ **ทั้งสองรูปแบบ** ให้ตรงกัน แล้ว export `.png` ใหม่ที่ความกว้าง 1600px (เปิด SVG ในเบราว์เซอร์แล้ว export หรือใช้เครื่องมือแปลง SVG เป็น PNG อะไรก็ได้) ใช้ชื่อไฟล์เดิม ทั้งสองภาษาใช้พิกัดชุดเดียวกัน ถ้าขยับ layout ที่ภาษาหนึ่งก็ก๊อปไปใช้อีกภาษาได้ตรง ๆ
+
+รูปที่แสดงมาจาก SVG ไม่ใช่ผลลัพธ์จาก Mermaid เพราะ renderer ของ `C4Container` วางป้ายชื่อขอบเขตระบบทับกับป้ายกำกับเส้น และไม่สนใจค่าจำนวนกล่องต่อแถว ทำให้ Level 2 อ่านไม่ออก ส่วน Level 1 ป้ายกำกับเส้นที่มีข้อความเต็มก็เบียดกันด้วยเหตุผลเดียวกัน — ตัวต้นฉบับ Mermaid เอง parse ผ่านปกติ (ตรวจด้วย `mermaid-cli` แล้ว) ดูรายละเอียดที่ [c4-container.md](./c4-container.md)

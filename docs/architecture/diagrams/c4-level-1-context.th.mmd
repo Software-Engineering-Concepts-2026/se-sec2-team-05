@@ -1,0 +1,15 @@
+C4Context
+    title แผนภาพบริบทของระบบ NoteShare
+
+    Person(james, "เจมส์", "ผู้ค้นหาโน้ต")
+    Person(pim, "พิม", "ผู้แบ่งปันโน้ต")
+
+    System(noteshare, "NoteShare", "เว็บแพลตฟอร์มให้นักศึกษาอัปโหลด ค้นหา และแบ่งปันสรุปเลกเชอร์")
+
+    System_Ext(email, "บริการอีเมล", "ผู้ให้บริการอีเมลภายนอก")
+
+    Rel(james, noteshare, "ค้นหา ดูตัวอย่าง และดาวน์โหลดโน้ต พร้อมให้เครดิตเจ้าของโน้ต")
+    Rel(pim, noteshare, "อัปโหลดและจัดระเบียบโน้ต ดูการยอมรับและการใช้งานโน้ตของตัวเอง")
+    Rel(noteshare, email, "ส่งอีเมลยืนยันบัญชีและอีเมลแจ้งเตือน")
+
+    UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")
