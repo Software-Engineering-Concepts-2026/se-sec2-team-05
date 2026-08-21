@@ -56,10 +56,11 @@ This section explains how to get a local copy of the project up and running for 
 - **การแจ้งลา/ติดปัญหา:** แจ้งทีมล่วงหน้าหากไม่สามารถเข้าร่วมประชุมหรือทำงานตามกำหนด
 
 ### 3. Git Workflow
-- **Branching:** แตก branch จาก `main` เสมอ ตั้งชื่อตามรูปแบบ `type/short-description` เช่น `feature/upload-note`, `fix/login-bug`, `docs/initial-charter`
+- **Branching:** แตก branch จาก `main` เสมอ ตั้งชื่อตามรูปแบบ `type/short-description` เช่น `feature/upload-note`, `fix/login-bug`, `docs/initial-charter` — **ถ้าใบงานของ Lab ระบุชื่อ branch มาให้ ใช้ชื่อของใบงานก่อนรูปแบบของทีม** เพราะเกณฑ์ให้คะแนนบางข้อดูชื่อ branch
 - **Commit Messages:** ใช้รูปแบบ [Conventional Commits] เช่น `feat: add note upload`, `fix: correct search query`
-- **Pull Request:** ทุกการเปลี่ยนแปลงเข้าผ่าน PR เท่านั้น ห้าม push ตรงเข้า `main`
-- **Code Review:** ต้องมีสมาชิกอย่างน้อย **1 คน** review และ approve ก่อน merge
+- **Pull Request:** ทุกการเปลี่ยนแปลงเข้าผ่าน PR เท่านั้น ห้าม push ตรงเข้า `main` · PR ใหม่จะขึ้น template จาก `.github/pull_request_template.md` มาให้ กรอกให้ครบทุกหัวข้อ **โดยเฉพาะช่อง Screenshots ถ้า PR แตะ UI** เพราะแนบย้อนหลังใน PR ที่ merge ไปแล้วไม่ได้
+- **Code Review:** ต้องมีสมาชิกอย่างน้อย **1 คน** review และ approve ก่อน merge (GitHub ไม่ให้เจ้าของ PR approve ตัวเอง)
+- **ปิด PR ให้จบในคาบ:** ไม่ปล่อย PR ค้างข้าม Lab เพราะหลายใบงานให้คะแนนตอน merge ไม่ใช่ตอนเปิด PR — ถ้ายังไม่พร้อมให้เปิดเป็น draft ไว้
 - **หลัง Merge:** ลบ branch ที่ merge แล้วเพื่อความเป็นระเบียบ
 
 ### 4. Decision Making
