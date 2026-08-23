@@ -49,3 +49,25 @@ ADR ฉบับแรกของทีมคือ [ADR-001: Selection of Core
 | Database | PostgreSQL + object storage | ความสัมพันธ์ระหว่างผู้ใช้ โน้ต รายวิชา และเครดิตเป็น relational ชัดเจนและต้อง join จริง ส่วนไฟล์ PDF/รูปแยกไปไว้ object storage เพื่อไม่ให้ฐานข้อมูลบวมตามขนาดไฟล์ |
 
 เหตุผลที่ระวังไม่เขียนคือคำว่า "ถนัด" ลอย ๆ — ข้อ Backend เป็นข้อที่ใกล้เคียงที่สุด แต่เขียนให้ผูกกับ constraint จริงคือเวลาหนึ่งภาคเรียนและสิ่งที่เราเลือกเอาเวลาไปลงแทน รายละเอียดเต็มพร้อมทางเลือกที่ตัดออกอยู่ใน [tech_stack.md](docs/architecture/tech_stack.md)
+
+## Post-quiz 6 — Containerization
+
+หมายเหตุ: เขียนพร้อมกับตอนทำ Lab 6 จริง ไม่ใช่ post-quiz แยกจากคาบบรรยาย เพราะไม่มี branch reflect ของ post-quiz แยกไว้ก่อนหน้า จึงรวมสามข้อ (B1–B3) ไว้ในหัวข้อนี้เลย
+
+### B1 — Dockerfile Draft → Production Dockerfile
+
+Draft แรก (ก่อนเห็นใบงานเต็ม) คือ copy ทั้งโปรเจกต์เข้า image เดียวแล้ว `pip install -r requirements.txt` ตรง ๆ ใน stage เดียว ไม่มี multi-stage เพราะคิดว่า Flask app เล็กไม่คุ้มจะซับซ้อน
+
+Production Dockerfile ที่ได้ต่างจาก draft ตรงที่ (1) แยกเป็น 2 stage — stage `deps` ติดตั้ง pip package ด้วย `--user` แล้ว stage สุดท้าย copy เฉพาะ `/root/.local` ที่ build เสร็จเข้ามา ไม่พ่วง build cache/metadata (2) เพิ่ม `USER appuser` ที่สร้างเองแทนรันเป็น root (3) pin `python:3.12-slim` แทน `python:latest` (4) `.dockerignore` กัน `.env`/`.git`/`tests/` ไม่ให้หลุดเข้า image บทเรียนคือ multi-stage ไม่ได้ซับซ้อนอย่างที่คิดไว้ตอนแรก แต่ตัด layer ที่ไม่จำเป็นออกได้จริง
+
+### B2 — Service Decomposition ตรวจด้วย Rule of Twos
+
+Stats Service เป็น 1 ใน 4 service ตาม [C4 Container diagram](docs/architecture/c4-container.md) (Gateway, Auth, Notes, Stats) เช็คกับ Microservices Rule of Twos:
+
+- ทีมขนาดพอดูแลได้ (3 คน ดูแล 4 service ยังไม่เกิน "two-pizza team" แต่เริ่มตึงถ้าเพิ่ม service อีก)
+- Stats Service มี responsibility เดียวชัดเจน (aggregate download/usage stats) ไม่ปนกับ Auth หรือ Notes — อ่านจาก DB โดยตรง ไม่ต้องเรียกข้าม service อื่นบ่อย
+- ความเสี่ยงที่เห็นจาก Rule of Twos คือถ้าเพิ่ม service ที่ 5 (เช่น Notification service) ทีม 3 คนอาจดูแล operational overhead ไม่ไหว — ตรงกับ Consequences ฝั่งเสียที่เขียนไว้ใน ADR-001 อยู่แล้ว จึงตัดสินใจคงที่ 4 service ต่อไปในเทอมนี้
+
+### B3 — REST Endpoint
+
+เลือก `GET /stats` ของ Stats Service เป็นตัวอย่าง เพราะเป็น read-only, stateless, และไม่ต้อง auth ในเวอร์ชันนี้ (auth มาจาก API Gateway ที่ route เข้ามาตาม [ADR-002](docs/architecture/adr/0002-use-restful-api-internal-communication.md)) ตอนนี้ response ยังเป็น mock data คงที่เพราะยังไม่ได้ต่อ PostgreSQL จริง (Sprint 2) แต่ shape ของ JSON (`total_downloads`, `total_notes`, `top_contributors`) ออกแบบให้ตรงกับสิ่งที่ Notes/Auth service ต้องส่งมาให้ query ได้จริงในอนาคต ไม่ใช่เดาขึ้นมาลอย ๆ
