@@ -54,5 +54,4 @@ VM ยังจำเป็นถ้าต้องการ kernel/OS ต่า
   - `curl http://localhost:5000/health` → `200`, `{"service":"stats-service","status":"ok",...}`
   - `curl http://localhost:5000/stats` → `200`, `{"top_contributors":[],"total_downloads":0,"total_notes":0}`
 - Image size: 187MB (see above)
-
-Still pending before the PR: push the image to the registry (ghcr.io or Docker Hub) and attach a registry screenshot to the PR description.
+- Pushed to `ghcr.io/software-engineering-concepts-2026/stats-service:v0.1.0` (see `AI_USAGE.md` log for the build/tag/push session) — package is private to the org, so there is no public link to embed here; a registry screenshot can be attached to the PR description if the grading checklist asks for one.
