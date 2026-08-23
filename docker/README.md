@@ -2,8 +2,8 @@
 
 ## Image
 
-- Name: `ghcr.io/software-engineering-concepts-2026/stats-service`
-- Tag: `v0.1.0`
+- **Public image (Docker Hub):** `docker.io/felsau/stats-service:v0.1.0` — this is the one to pull; the repo is public
+- Also pushed to `ghcr.io/software-engineering-concepts-2026/stats-service:v0.1.0`, but that package stays **private** — the org's package visibility policy has both Public and Internal disabled (Package settings → Danger Zone → Change visibility shows "Setting is disabled by organization administrators"), so only Docker Hub satisfies the "public" requirement
 - Base image: `python:3.12-slim` (multi-stage build — the `deps` stage that runs `pip install` is discarded; only the final slim runtime stage ships)
 - Built size: 187MB (measured via `docker images` after a local build, 2026-08-23)
 
@@ -32,6 +32,16 @@ curl -i http://localhost:5000/stats
 
 ## Push
 
+Docker Hub (public — use this one):
+
+```bash
+docker login
+docker build -t felsau/stats-service:v0.1.0 .
+docker push felsau/stats-service:v0.1.0
+```
+
+ghcr.io (private, kept for the org-linked package trail):
+
 ```bash
 echo $GITHUB_TOKEN | docker login ghcr.io -u <github-username> --password-stdin
 docker push ghcr.io/software-engineering-concepts-2026/stats-service:v0.1.0
@@ -54,4 +64,5 @@ VM ยังจำเป็นถ้าต้องการ kernel/OS ต่า
   - `curl http://localhost:5000/health` → `200`, `{"service":"stats-service","status":"ok",...}`
   - `curl http://localhost:5000/stats` → `200`, `{"top_contributors":[],"total_downloads":0,"total_notes":0}`
 - Image size: 187MB (see above)
-- Pushed to `ghcr.io/software-engineering-concepts-2026/stats-service:v0.1.0` (see `AI_USAGE.md` log for the build/tag/push session) — package is private to the org, so there is no public link to embed here; a registry screenshot can be attached to the PR description if the grading checklist asks for one.
+- Pushed to `ghcr.io/software-engineering-concepts-2026/stats-service:v0.1.0` (private — see the visibility note above)
+- Pushed to `docker.io/felsau/stats-service:v0.1.0`, digest `sha256:0abff5bb6bbc007cf81dea82fcede9eb107c532dd18db73ba0090b65ffba0025` — confirmed public via `curl https://hub.docker.com/v2/repositories/felsau/stats-service/` returning `"is_private":false`; screenshot in the PR description
