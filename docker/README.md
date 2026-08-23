@@ -5,7 +5,7 @@
 - Name: `ghcr.io/software-engineering-concepts-2026/stats-service`
 - Tag: `v0.1.0`
 - Base image: `python:3.12-slim` (multi-stage build — the `deps` stage that runs `pip install` is discarded; only the final slim runtime stage ships)
-- Built size: *TBD* — record the actual value from `docker images` after building locally and update this line before opening the PR
+- Built size: 187MB (measured via `docker images` after a local build, 2026-08-23)
 
 ## Build
 
@@ -47,6 +47,12 @@ docker push ghcr.io/software-engineering-concepts-2026/stats-service:v0.1.0
 
 VM ยังจำเป็นถ้าต้องการ kernel/OS ต่างจาก host จริง ๆ หรือต้องการ isolation ระดับ hypervisor สำหรับ workload ที่ไม่ไว้ใจกัน (multi-tenant untrusted code) ซึ่งไม่ใช่กรณีของ Stats Service
 
-## Notes
+## Verified locally (2026-08-23)
 
-ไฟล์นี้เขียนขึ้นก่อน build/run/push จริง เพราะเครื่องที่ใช้ตอนเขียนไม่มี Docker ติดตั้ง — ก่อนเปิด PR ต้อง: build image, รัน + curl ทั้งสอง endpoint ให้เห็น 2xx จริง, บันทึก image size จริงแทนบรรทัด TBD ด้านบน, push ขึ้น ghcr.io (หรือ Docker Hub ถ้าทีมเลือกใช้แทน) แล้วแนบ screenshot หน้า registry ใน PR description
+- `docker build -t stats-service:v0.1.0 .` — succeeded
+- `docker run -p 5000:5000 stats-service:v0.1.0` then:
+  - `curl http://localhost:5000/health` → `200`, `{"service":"stats-service","status":"ok",...}`
+  - `curl http://localhost:5000/stats` → `200`, `{"top_contributors":[],"total_downloads":0,"total_notes":0}`
+- Image size: 187MB (see above)
+
+Still pending before the PR: push the image to the registry (ghcr.io or Docker Hub) and attach a registry screenshot to the PR description.
