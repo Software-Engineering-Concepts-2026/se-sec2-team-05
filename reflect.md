@@ -49,3 +49,32 @@ ADR ฉบับแรกของทีมคือ [ADR-001: Selection of Core
 | Database | PostgreSQL + object storage | ความสัมพันธ์ระหว่างผู้ใช้ โน้ต รายวิชา และเครดิตเป็น relational ชัดเจนและต้อง join จริง ส่วนไฟล์ PDF/รูปแยกไปไว้ object storage เพื่อไม่ให้ฐานข้อมูลบวมตามขนาดไฟล์ |
 
 เหตุผลที่ระวังไม่เขียนคือคำว่า "ถนัด" ลอย ๆ — ข้อ Backend เป็นข้อที่ใกล้เคียงที่สุด แต่เขียนให้ผูกกับ constraint จริงคือเวลาหนึ่งภาคเรียนและสิ่งที่เราเลือกเอาเวลาไปลงแทน รายละเอียดเต็มพร้อมทางเลือกที่ตัดออกอยู่ใน [tech_stack.md](docs/architecture/tech_stack.md)
+
+## Post-quiz 7 - Refactoring
+
+หมายเหตุ: ทำก่อนเริ่ม Lab 7 ตามที่ใบงานสั่ง (ถ้ายังไม่ได้ทำในคาบบรรยาย) เนื้อหาอ้างจากการอ่านโค้ดจริงในรีโป ไม่ใช่การเดา
+
+### DRY Hunt
+
+โค้ดจริงในโปรเจกต์ยังมีน้อย (ส่วนใหญ่เป็นเอกสาร/mockup) แต่จุดที่เห็น DRY violation ชัดคือแนวคิด "แปลงคะแนนเป็นดาว" ถูกทำซ้ำคนละแบบใน 2 ไฟล์:
+
+- `wachirawit_search_note_prototype.html` เดิมมีฟังก์ชัน `stars()` แปลงตัวเลขเป็นข้อความดาว (`★★★★☆`)
+- `kittamet_note_rating_prototype.html` มี logic คนละแบบ (toggle class + textContent ของ `<span>` 5 ตัว) แต่ทำเรื่องเดียวกันคือ "แสดงดาวตามคะแนน 0-5"
+
+ทั้งสองที่ hardcode เลข 5 (จำนวนดาวเต็ม) ไว้ในโค้ดของตัวเอง ถ้าจะเปลี่ยนสเกลคะแนน (เช่นเป็น 10) ต้องไปแก้หลายที่ Lab 7 นี้แก้เฉพาะฝั่ง `wachirawit_search_note_prototype.html` (ย้าย `stars()` ไป `note-utils.js`) ส่วนฝั่ง `kittamet_note_rating_prototype.html` ยังไม่แตะ เพราะเป็นคนละรูปแบบ implementation (interactive DOM ไม่ใช่ text) ควรคุยกับกฤตเมธก่อนว่าจะรวมเป็นฟังก์ชันเดียวกันไหมในรอบถัดไป
+
+### Orthogonality Check
+
+จุดที่ผิด orthogonality ชัดที่สุดคือหน้า prototype ทั้งสามหน้า (upload/rating/search) ผูก business logic (คำนวณ, กรอง, escape ข้อความ) เข้ากับ DOM/UI ไว้ในบล็อก `<script>` เดียวกัน ทำให้:
+
+- เปลี่ยน logic การเรียง/กรอง ต้องเสี่ยงไปแตะโค้ดที่จัดการ DOM ด้วย ทั้งที่สองเรื่องนี้ไม่เกี่ยวกัน
+- ทดสอบ logic อย่างเดียวไม่ได้เลยถ้าไม่เปิดเบราว์เซอร์
+
+Lab 7 แก้จุดนี้ในหน้า search โดยแยก pure function ออกเป็น `note-utils.js` ทำให้ logic เปลี่ยนได้โดยไม่กระทบโค้ด DOM และกลับกัน (เปลี่ยนหน้าตาการ์ดไม่กระทบการคำนวณดาว)
+
+### Refactoring Plan
+
+ลำดับที่วางไว้ถ้ามีเวลาต่อจาก Lab 7:
+1. ทำแบบเดียวกันกับหน้า upload และ rating คือแยก pure function ออกจาก DOM code
+2. รวม logic "แสดงดาว" ของหน้า search กับหน้า rating เป็นฟังก์ชันเดียวกันใน `note-utils.js` ถ้าทีมตกลงรูปแบบการแสดงผลร่วมกันได้
+3. ตั้ง test runner ให้ backend (`services/stats-service`) ด้วย pytest เมื่อมี endpoint ที่ทำงานจริงมากกว่านี้ (ตอนนี้ยังเป็น mock data ล้วน)
