@@ -8,6 +8,65 @@
 
 เรื่อง Take Responsibility ทั้งสามคนเห็นตรงกันว่าคือการยอมรับผิดเมื่อมีปัญหาแล้วลงมือแก้ ไม่ใช่โยนความผิด ส่วนวิธีสื่อสารเมื่อทำงานไม่ทัน อติชาติกับกฤตเมธ เขียนตรงตามหลัก Provide Options ชัดเจน คือเสนอทางเลือกเป็นข้อ ๆ ให้ทีมเลือก (เช่น จำกัด scope ก่อน / ใช้ทางเลือกอื่น / เลื่อนไป sprint หน้า สำหรับอติชาติ, และขอขยายเวลา/แบ่งงาน/ส่งส่วนที่เสร็จก่อน สำหรับกฤตเมธ) ส่วนวชิรวิทย์เน้นไปที่การแจ้งทีมล่วงหน้าเพื่อช่วยกันหาทางแก้และพยายามส่งงานส่วนที่จำเป็นที่สุดให้ได้ก่อน แล้วค่อยขอขยายเวลาส่วนที่เหลือ ซึ่งเป็นแนวทางเดียวกันแต่ยังไม่ได้ระบุเป็นตัวเลือกที่จับต้องได้ชัดเท่าอีกสองคน
 
+## Post-quiz 3 — Requirements Documents
+
+หมายเหตุ: เขียนย้อนหลัง เพราะไม่มี branch `feature/exit-ticket-3` แยกไว้ก่อนหน้าตามที่ใบงาน Lab 3 ระบุ จึงรวบรวมจากหลักฐานจริงที่มีอยู่แล้วในรีโป ([`docs/requirements/personas/`](docs/requirements/personas/), [`main_scenario.md`](docs/requirements/main_scenario.md), [`user-stories.md`](docs/requirements/user-stories.md), [`nfr.md`](docs/requirements/nfr.md)) ไม่ใช่การเดาย้อนหลัง
+
+### B1 — Apply: Magic Shipping
+
+ลูกค้าบอก "อยากให้แอปส่ง notification โปรโมชันใหม่" — โจทย์นี้กำกวมเพราะไม่รู้ว่า "ส่ง" หมายถึงอะไร ถึงใคร บ่อยแค่ไหน คำถาม 3 ข้อที่จะถามเพิ่มเพื่อให้ชัดพอจะเขียนเป็น user story ได้:
+
+1. **ส่งถึงใคร** — ผู้ใช้ทุกคน หรือกรองเฉพาะกลุ่ม (เช่น เฉพาะคนที่เคยดาวน์โหลดโน้ตวิชานั้น)? ถ้าไม่ถามข้อนี้ก่อน อาจ implement เป็น broadcast ทั้งระบบทั้งที่ลูกค้าต้องการแค่ segment เดียว
+2. **ผ่านช่องทางไหน** — in-app notification, อีเมล, หรือ push notification ของเบราว์เซอร์? แต่ละช่องทางใช้ infrastructure คนละแบบ (ใน scope ของ NoteShare ตอนนี้ยังไม่มี push notification service เลย ถ้าลูกค้าหมายถึง push ต้องเพิ่ม NFR/container ใหม่)
+3. **"โปรโมชัน" คืออะไรในบริบทแอปแบ่งปันโน้ตที่ไม่มีการขายของ** — หมายถึงประกาศฟีเจอร์ใหม่ ประกาศกิจกรรมของทีม หรือจริง ๆ แล้วเป็น requirement ที่หลุดมาจากโปรเจกต์อื่น? ถ้าไม่เช็คคำนี้อาจไปสร้างฟีเจอร์ที่ไม่ตรงกับ scope ของ NoteShare เลย (ตรงกับ [PP] Tip 45 — "No one knows exactly what they want" ต้องถามให้ชัดก่อนลงมือ)
+
+### B2 — Connect: NFR
+
+แอปที่ใช้ทุกวัน: **LINE** (คุยงานกับทีมและติดต่ออาจารย์)
+
+- **NFR ที่เลือก:** ข้อความที่ส่งต้องถึงผู้รับภายใน 2 วินาที เมื่อทั้งสองฝั่งมีสัญญาณอินเทอร์เน็ตปกติ (performance/reliability)
+- **วิธีวัด:** จับเวลาตั้งแต่กดส่งบนเครื่องต้นทาง ถึงข้อความขึ้น "อ่านแล้ว/ส่งถึงแล้ว" บนเครื่องปลายทาง (อุปกรณ์คนละเครื่อง ซิงก์เวลาไว้ก่อน) ทำซ้ำหลายสิบครั้งแล้ววัด p95 แทนค่าเฉลี่ยเดียว เพราะ error กระจายไม่สม่ำเสมอ
+- **ผลกระทบถ้าไม่มี NFR นี้:** ถ้าไม่กำหนดตัวเลขไว้ ทีมพัฒนาอาจปล่อยดีเลย์เป็นสิบวินาทีได้โดยยังถือว่า "ใช้งานได้" — ผลคือข้อความเรื่องด่วน (เช่นนัดประชุมกะทันหัน) มาช้าจนพลาดจังหวะ ผู้ใช้เสียความเชื่อมั่นและเปลี่ยนไปใช้แอปอื่นแทน ตรงกับเหตุผลที่ [`nfr.md`](docs/requirements/nfr.md) ของ NoteShare เองก็ผูกทุกข้อกับตัวเลขวัดผลได้ (เช่น NFR-002 คืนผลค้นหาภายใน 3 วินาที) แทนคำคุณศัพท์อย่าง "เร็ว"
+
+### B3 — Reflect: User Story
+
+**User Story ที่เลือกสำหรับ Sprint 1:** ในฐานะผู้แบ่งปันโน้ต (Note Contributor) ฉันต้องการอัปโหลดไฟล์โน้ต (PDF/รูปภาพ) เพื่อแบ่งปันสรุปให้เพื่อนในชุมชน
+
+**เหตุผลที่เลือกเรื่องนี้:** อัปโหลดโน้ตเป็น core value proposition ของ NoteShare โดยตรง — ถ้าไม่มีโน้ตให้อัปโหลด ฟีเจอร์อื่นทั้งหมด (ค้นหา ดาวน์โหลด ให้เครดิต ให้คะแนน) ก็ไม่มีข้อมูลให้ทำงานด้วย จึงเป็น Must-have ตัวแรกที่ต้องมีก่อนอย่างอื่น เรื่องนี้ต่อมาถูกขยายเป็น GitHub Issue #7 (`US-07`) ใน Lab 3 จริง ผูกกับ [Scenario 4 — อัปโหลดโน้ตพร้อมข้อมูลครบ ตัดปัญหาถูกทักซ้ำ](docs/requirements/main_scenario.md) และตั้ง priority เป็น Must (Sprint 1) พร้อม Acceptance Criteria ครบ 4 ข้อใน [`user-stories.md`](docs/requirements/user-stories.md)
+
+## Post-quiz 4 — AI Prompting Strategy
+
+หมายเหตุ: เขียนย้อนหลัง เพราะไม่มี branch `feature/exit-ticket-4` แยกไว้ก่อนหน้าตามที่ใบงาน Lab 4 ระบุ เขียนหลัง Lab 4 (prototype ทั้งสามหน้า) เสร็จไปแล้ว จึงอ้างอิงกับสิ่งที่เกิดขึ้นจริงใน [`AI_USAGE.md`](AI_USAGE.md) แทนการเดาแผนล่วงหน้า
+
+### B1 — Apply: Prompt Critique
+
+Prompt เดิม "ช่วยเขียน code Python ที่ดีๆ หน่อย" ไม่ผ่านสัก S เดียวใน Five S's เพราะไม่บอกด้วยซ้ำว่าจะเขียนฟังก์ชันอะไร Prompt ที่เขียนใหม่สำหรับ `calculate_discount`:
+
+```
+คุณเป็น senior Python developer
+
+เขียนฟังก์ชัน calculate_discount(price: float, discount_percent: float) -> float
+ที่คำนวณราคาสินค้าหลังหักส่วนลด สำหรับใช้ใน production code
+
+ข้อกำหนด:
+- price ต้องมากกว่า 0, discount_percent ต้องอยู่ในช่วง 0-100 — ถ้าไม่เข้าเงื่อนไข raise ValueError พร้อมข้อความบอกสาเหตุ
+- คืนค่าราคาหลังหักส่วนลด ปัดทศนิยม 2 ตำแหน่ง
+- ใส่ type hint และ docstring สั้นๆ 1-2 บรรทัด
+
+ขอแค่ตัวฟังก์ชันนี้ฟังก์ชันเดียว ไม่ต้องมี main() หรือ unit test
+```
+
+เทียบกับ Five S's ทีละข้อ: **Structured** ผ่าน (แยกข้อกำหนดเป็น bullet), **Specific** ผ่าน (ชื่อฟังก์ชัน, signature, ช่วงค่าที่รับได้, จำนวนทศนิยม, error handling ระบุชัดหมด — จุดที่ prompt เดิมไม่มีเลยสักอย่าง), **Single task** ผ่าน (ปิดท้ายกันไม่ให้ AI พ่วง test/main มาด้วย), **Short** ผ่าน (กระชับ ไม่มีคำฟุ่มเฟือย), **Surrounding** ผ่าน (บอก role "senior Python developer" และบริบทว่าเป็น production code ไม่ใช่ script ทดลอง ทำให้ได้ error handling ที่รัดกุมกว่าถ้าไม่บอก)
+
+### B2 — Connect: AI ในงานที่ใช้
+
+- **Task ที่ AI ช่วยได้จริง:** สร้าง interactive prototype (HTML/CSS/JS) จาก spec ที่ให้ชัดเจน — เกิดขึ้นจริงใน Lab 4: Copilot/ChatGPT สร้างหน้าอัปโหลดโน้ต (PR #35), Gemini สร้างหน้า note-rating พร้อมระบบดาว (PR #36) ทั้งสองกรณีนี้เป็นงาน boilerplate ที่ pattern ชัดเจนอยู่แล้ว (persona + scenario บอกไว้ครบใน Lab 3) AI จึงร่างโครงได้เร็วและถูกต้องพอสมควรตั้งแต่รอบแรก
+- **Task ที่ AI ใช้ไม่ได้/ไม่ควรใช้ตรงๆ:** ตัดสินใจเรื่อง security ของ input ที่ผู้ใช้พิมพ์เอง — เกิดขึ้นจริงเช่นกัน: โค้ดหน้าค้นหาที่ AI ช่วยร่างใน PR #37 ถูก reviewer สั่ง CHANGES_REQUESTED เพราะไม่ได้ escape ข้อความก่อนแสดงผล (XSS) ต้องเพิ่มฟังก์ชัน `esc()` เองถึงจะผ่าน เหตุผลคือ AI generate โค้ดที่ "ทำงานได้" แต่ไม่รู้ context ว่าข้อมูลไหนมาจากผู้ใช้และต้อง sanitize จุดไหนบ้าง เรื่องแบบนี้ต้องให้คนตรวจ ไม่ใช่เชื่อว่า AI คิดเรื่อง security ให้ครบเอง
+
+### B3 — Reflect: AI Strategy
+
+Sprint หน้า (ตอนทำ Lab 4 จริง) วางแผนจะใช้ AI ในขั้นตอน **สร้าง starter prototype (markup/style เริ่มต้น) จาก scenario ที่มีอยู่แล้วใน Lab 3** เพราะเป็นงานที่มี input ชัด (persona, scenario, action sequence) แปลงเป็น UI ได้ตรงไปตรงมา และ AI ทำได้เร็วกว่าพิมพ์ HTML/CSS เองทีละบรรทัดมาก แต่จะ**ไม่**ให้ AI เป็นคนตัดสินใจสุดท้ายในสองเรื่อง: (1) จุดที่รับ input จากผู้ใช้ต้อง escape/validate เอง ตรวจทุกครั้งก่อน commit ไม่ปล่อยผ่านตามที่ AI เขียนมา — บทเรียนตรงจาก B2 ข้างบน (2) priority/scope ของ prototype ยังเป็นการตัดสินใจของทีมเหมือนเดิมตาม policy AI usage ของ Lab 3 ผลจริงคือแผนนี้ตรงกับที่เกิดขึ้นใน Lab 4 พอดี — ได้ prototype เร็วจาก AI แต่ต้องแก้ XSS เองหลัง review อยู่ดี
+
 ## Sprint Retro
 
 ตารางข้างล่างร่างจากหลักฐานที่ตามได้จริงใน repo (commit history, PR review, สถานะ PR) ไม่ใช่จากความรู้สึกย้อนหลัง ทีมยืนยันและเพิ่มเติมกันในคาบ retro ได้
@@ -50,6 +109,32 @@ ADR ฉบับแรกของทีมคือ [ADR-001: Selection of Core
 
 เหตุผลที่ระวังไม่เขียนคือคำว่า "ถนัด" ลอย ๆ — ข้อ Backend เป็นข้อที่ใกล้เคียงที่สุด แต่เขียนให้ผูกกับ constraint จริงคือเวลาหนึ่งภาคเรียนและสิ่งที่เราเลือกเอาเวลาไปลงแทน รายละเอียดเต็มพร้อมทางเลือกที่ตัดออกอยู่ใน [tech_stack.md](docs/architecture/tech_stack.md)
 
+## Post-quiz 6 — Containerization
+
+หมายเหตุ: เขียนพร้อมกับตอนทำ Lab 6 จริง ไม่ใช่ post-quiz แยกจากคาบบรรยาย เพราะไม่มี branch reflect ของ post-quiz แยกไว้ก่อนหน้า จึงรวมสามข้อ (B1–B3) ไว้ในหัวข้อนี้เลย
+
+### B1 — Dockerfile Draft → Production Dockerfile
+
+Draft แรก (ก่อนเห็นใบงานเต็ม) คือ copy ทั้งโปรเจกต์เข้า image เดียวแล้ว `pip install -r requirements.txt` ตรง ๆ ใน stage เดียว ไม่มี multi-stage เพราะคิดว่า Flask app เล็กไม่คุ้มจะซับซ้อน
+
+Production Dockerfile ที่ได้ต่างจาก draft ตรงที่ (1) แยกเป็น 2 stage — stage `deps` ติดตั้ง pip package ด้วย `--user` แล้ว stage สุดท้าย copy เฉพาะ `/root/.local` ที่ build เสร็จเข้ามา ไม่พ่วง build cache/metadata (2) เพิ่ม `USER appuser` ที่สร้างเองแทนรันเป็น root (3) pin `python:3.12-slim` แทน `python:latest` (4) `.dockerignore` กัน `.env`/`.git`/`tests/` ไม่ให้หลุดเข้า image บทเรียนคือ multi-stage ไม่ได้ซับซ้อนอย่างที่คิดไว้ตอนแรก แต่ตัด layer ที่ไม่จำเป็นออกได้จริง
+
+### B2 — Service Decomposition ตรวจด้วย Rule of Twos
+
+Stats Service เป็น 1 ใน 4 service ตาม [C4 Container diagram](docs/architecture/c4-container.md) (Gateway, Auth, Notes, Stats) เช็คกับ Microservices Rule of Twos:
+
+- ทีมขนาดพอดูแลได้ (3 คน ดูแล 4 service ยังไม่เกิน "two-pizza team" แต่เริ่มตึงถ้าเพิ่ม service อีก)
+- Stats Service มี responsibility เดียวชัดเจน (aggregate download/usage stats) ไม่ปนกับ Auth หรือ Notes — อ่านจาก DB โดยตรง ไม่ต้องเรียกข้าม service อื่นบ่อย
+- ความเสี่ยงที่เห็นจาก Rule of Twos คือถ้าเพิ่ม service ที่ 5 (เช่น Notification service) ทีม 3 คนอาจดูแล operational overhead ไม่ไหว — ตรงกับ Consequences ฝั่งเสียที่เขียนไว้ใน ADR-001 อยู่แล้ว จึงตัดสินใจคงที่ 4 service ต่อไปในเทอมนี้
+
+### B3 — REST Endpoint
+
+เลือก `GET /stats` ของ Stats Service เป็นตัวอย่าง เพราะเป็น read-only, stateless, และไม่ต้อง auth ในเวอร์ชันนี้ (auth มาจาก API Gateway ที่ route เข้ามาตาม [ADR-002](docs/architecture/adr/0002-use-restful-api-internal-communication.md)) ตอนนี้ response ยังเป็น mock data คงที่เพราะยังไม่ได้ต่อ PostgreSQL จริง (Sprint 2) แต่ shape ของ JSON (`total_downloads`, `total_notes`, `top_contributors`) ออกแบบให้ตรงกับสิ่งที่ Notes/Auth service ต้องส่งมาให้ query ได้จริงในอนาคต ไม่ใช่เดาขึ้นมาลอย ๆ
+
+**Status code:** ตอนนี้ [`app.py`](services/stats-service/app.py) คืน `200 OK` เสมอผ่าน `jsonify()` ยังไม่มี branch สำหรับกรณี error (เช่น service ล่ม/DB ต่อไม่ได้) เพราะยังเป็น mock data ไม่มีจุดที่ fail ได้จริง — เมื่อต่อ PostgreSQL จริงใน Sprint 2 ต้องเพิ่ม `503` เมื่อ DB unreachable ตาม NFR-011 ที่เขียนไว้แล้วใน [`nfr.md`](docs/requirements/nfr.md)
+
+**Versioning:** endpoint ปัจจุบันคือ `/stats` ไม่มี prefix เวอร์ชัน (เช่น `/v1/stats`) — เป็นช่องว่างที่ยังไม่ได้ตัดสินใจจริง ๆ ไม่ใช่ว่าตั้งใจไม่ใส่ ถ้า API เปลี่ยน breaking change ในอนาคต (เช่น เปลี่ยน shape ของ `top_contributors`) ตอนนี้ยังไม่มีทาง version ให้ client เก่ากับใหม่อยู่ร่วมกันได้ ควรตัดสินใจเรื่องนี้ก่อนเริ่ม Sprint 2 ไม่ใช่ปล่อยผ่าน
+
 ## Post-quiz 7 - Refactoring
 
 หมายเหตุ: ทำก่อนเริ่ม Lab 7 ตามที่ใบงานสั่ง (ถ้ายังไม่ได้ทำในคาบบรรยาย) เนื้อหาอ้างจากการอ่านโค้ดจริงในรีโป ไม่ใช่การเดา
@@ -73,6 +158,8 @@ ADR ฉบับแรกของทีมคือ [ADR-001: Selection of Core
 Lab 7 แก้จุดนี้ในหน้า search โดยแยก pure function ออกเป็น `note-utils.js` ทำให้ logic เปลี่ยนได้โดยไม่กระทบโค้ด DOM และกลับกัน (เปลี่ยนหน้าตาการ์ดไม่กระทบการคำนวณดาว)
 
 ### Refactoring Plan
+
+**สรุป Smell + Before/After + Tests + AI workflow ของรอบนี้:** สรุปละเอียดทั้งหมดอยู่ใน [`docs/refactoring-journal.md`](docs/refactoring-journal.md) โดยย่อ — smell ที่เลือกแก้คือ ternary ซ้อน 3 ชั้นในตัวเรียงผลลัพธ์ และ `esc()`/`stars()` ที่ผูกกับ DOM จนทดสอบไม่ได้ (ดู DRY Hunt/Orthogonality ด้านบน) ก่อนแก้ logic ทั้งหมดอยู่ปนกับ DOM ~90 บรรทัดและมี unit test ได้ 0 เคส หลังแก้แยกออกมาเป็น `note-utils.js` 33 บรรทัดที่ทดสอบได้ตรง ๆ พร้อม `node --test` 7 เคสผ่านทั้งหมด และเปิดหน้าเว็บจริงเทียบก่อน/หลังด้วย headless Edge ยืนยันว่าผลค้นหา/กรอง/เรียงไม่เปลี่ยน ส่วน AI workflow ใช้ explain to propose to apply to test ตามที่ใบงานกำหนด — ขั้น "test" นี่เองที่จับได้ว่า Claude ลืมห่อไฟล์ด้วย IIFE จนตัวแปรชนกันตอนโหลดในเบราว์เซอร์ ถ้าข้ามขั้นทดสอบจริงไปเชื่อโค้ดที่ AI เขียนเลยจะไม่มีทางรู้
 
 ลำดับที่วางไว้ถ้ามีเวลาต่อจาก Lab 7:
 1. ทำแบบเดียวกันกับหน้า upload และ rating คือแยก pure function ออกจาก DOM code

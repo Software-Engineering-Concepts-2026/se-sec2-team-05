@@ -18,6 +18,9 @@
 | 2026-08-19, PR #40 | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | เติมประโยครองรับ US-14 (คอมเมนต์) และ US-15 (รายการโปรด) ใน Scenario 2 กับ 3 ของ `main_scenario.md` (commit `7afcb72`) เพราะสอง story นี้เดิมอ้าง scenario แบบใกล้เคียง ไม่มีประโยคใน scenario รองรับตรง ๆ | อติชาติตรวจว่าเนื้อเรื่องที่เติมยังเข้ากับ persona เจมส์และไม่ขัดกับ scenario เดิม |
 | 2026-08-19, PR #45 (แทน #42) | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | ตรวจงาน Lab 5 เทียบ deliverable ในสไลด์บทที่ 5 แล้วแก้ส่วนที่ตก: กู้ Mermaid `C4Context` กลับมาและเขียน `C4Container` ใหม่ทั้ง EN/TH, ฝังบล็อก Mermaid ใน `c4-context.md`/`c4-container.md`, แก้ย่อหน้า "ไม่ใช้ Mermaid" ใน README ทั้งสองภาษา, ลบ `uml_models.md` ที่เป็น template เปล่า, ร่างหัวข้อ Exit Ticket บทที่ 5 (B1/B2/B3) ใน `reflect.md`, แนบรูป C4 ใน PR description | ตรวจว่าไฟล์ `.mmd` ทั้ง 4 parse ผ่านด้วย `mermaid-cli` จริงก่อน commit · อติชาติอ่านและตรวจว่าเนื้อหา B1/B2/B3 ตรงกับ artifact ที่มีในรีโป และกำกับไว้ในไฟล์ว่าเขียนย้อนหลัง ไม่ใช่เขียนสดท้ายคาบ |
 | 2026-08-19, PR #44 | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | เขียน `.github/pull_request_template.md` และแก้หัวข้อ Git Workflow ใน `README.md` ตาม action item จาก Sprint 1 retro · พ่วงจัดคอลัมน์ project board #28 ผ่าน GitHub API (ย้าย Sprint 1 Must เข้า Sprint Backlog, เอา item ของ duplicate ที่ปิดแล้วออก) | อติชาติตรวจเนื้อหา template และไล่ดูสถานะบอร์ดหลังแก้ทุกครั้ง · ก่อนลบ item ตรวจแล้วว่า issue ทั้งสามถูกปิดเป็น duplicate จริง |
+| 2026-08-23, feature/lab6-dockerfile | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | เขียน root `Dockerfile` แบบ multi-stage สำหรับ Stats Service, เติม `services/stats-service/app.py` (Flask, `/health` + `/stats`) และ `requirements.txt`, เพิ่ม `.env`/`.env.*`/`tests/`/`coverage/`/`*.log` เข้า `.dockerignore`, เขียน `docker/README.md`, และร่างหัวข้อ Post-quiz 6 ใน `reflect.md` | อติชาติตรวจ Dockerfile ทีละบรรทัดเทียบ checklist ใบงาน Lab 6 (multi-stage, base image ที่ pin เวอร์ชัน, `USER` non-root, `EXPOSE`) ก่อน commit |
+| 2026-08-23, feature/lab6-dockerfile (ต่อ) | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | หลังติดตั้ง Docker Desktop สำเร็จ Claude รันคำสั่งเองใน session: `docker build`, `docker run` + `curl /health` และ `/stats` (ยืนยัน 200 ทั้งคู่), `docker tag` และ `docker push` ขึ้น `ghcr.io/software-engineering-concepts-2026/stats-service:v0.1.0`, แก้ `docker/README.md` ให้บันทึกขนาด image จริง (187MB) และผลทดสอบจริงแทนบรรทัด TBD, ตั้งค่า git identity ในเรโปนี้, commit และ push branch ขึ้น origin | อติชาติเป็นคนรัน `docker login` เอง แต่ GitHub PAT หลุดเข้ามาในบทสนทนากับ Claude 2 ครั้ง (ครั้งแรกพิมพ์วางในแชทตรง ๆ, ครั้งที่สองหลุดผ่าน terminal echo ของคำสั่ง `!`) — Claude เตือนให้ revoke ทั้งสองตัวทันทีที่เห็น และอติชาติ revoke ทั้งสองตัวใน GitHub settings แล้ว ไม่มี token ใดที่ยังใช้งานได้อยู่ในเวลาที่เขียน log นี้ · อติชาติตรวจ output ของทุกคำสั่งที่ Claude รัน (build log, curl response, push digest) ก่อนยืนยันให้ push branch ขึ้น origin |
+| 2026-08-23, PR #46 (รอบตรวจใบงานจริง) | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | ตรวจ PR #46 เทียบใบงาน Lab 6 ตัวจริง (ตาราง L6.1) พบว่าเกณฑ์ "Image บน Registry" ต้องการ public ไม่ใช่แค่ push — ใช้ browser automation เข้า Package settings ของ ghcr.io จริงแล้วพบว่า org `Software-Engineering-Concepts-2026` ปิด Public/Internal ไว้ระดับ org (เหลือ Private เท่านั้น) จึงเสนอ push เพิ่มขึ้น Docker Hub (public โดย default) แทน — Claude เปิด Docker Desktop ให้ (ค้างไม่ได้รันอยู่), รัน `docker build`/`run`/`curl` ทดสอบซ้ำ, และ `docker push felsau/stats-service:v0.1.0` เอง หลังจากยืนยันว่า repo เป็น public จริงผ่าน Docker Hub public API (`is_private:false`), แก้ `docker/README.md` ให้ระบุทั้งสอง registry และเหตุผลที่ ghcr.io ยังเป็น private, ถ่าย screenshot หน้า ghcr.io package แล้วฝังเข้า PR #46 description พร้อมหมายเหตุ org policy | รอบนี้อติชาติเป็นคนรัน `docker login` เองในเทอร์มินัลของตัวเองทั้งหมด (เรียนรู้จาก incident token หลุดในรอบก่อน) ไม่ได้พิมพ์ username/password ให้ Claude เห็นเลย — บอก Claude แค่ว่า "login แล้ว" จาก Docker Hub username `Felsau` เท่านั้น อติชาติตรวจ output `docker build`/`push`/curl ทุกคำสั่งก่อนอนุมัติให้แก้ README และ PR description |
 | 2026-08-26, Lab 7 refactor | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | หา code smell ในหน้า search prototype แล้ว refactor: แยก `esc()`/`stars()`/ตัวเรียงผลลัพธ์ ออกจาก `wachirawit_search_note_prototype.html` ไปเป็นไฟล์ `prototypes/sprint1/note-utils.js` ที่ทดสอบได้ + เขียน unit test 7 เคสด้วย `node --test`, เขียน `docs/refactoring-journal.md` | อติชาติอ่านโค้ดที่แยกออกมาทั้งหมด รันเทสต์เองผ่านทุกเคส และเปิดหน้าเว็บจริงเทียบก่อน/หลังด้วย headless browser ก่อนจะยอมรับว่าใช้ได้ (ระหว่างทาง Claude ทำโค้ดพังเองครั้งหนึ่งเพราะลืม IIFE ทำให้ตัวแปรชนกันตอนโหลดในเบราว์เซอร์ แล้วแก้เองก่อนจะรายงานว่าเสร็จ ไม่ได้ปล่อยผ่านไปโดยไม่ตรวจ) |
 
 > **TODO:** วชิรวิทย์และกฤตเมธ — ช่วยกรอกแถวของตัวเองให้ละเอียดขึ้น (prompt ที่ใช้จริง, ช่วง session, และรายละเอียดของสิ่งที่ตรวจ/แก้) เพราะมีแค่เจ้าของงานที่รู้ข้อมูลนี้แน่ชัด
@@ -78,7 +81,29 @@ Prompt ที่ใช้สร้างระบบดาวและควา�
 
 _TODO — วชิรวิทย์: วาง prompt ที่ใช้ขอ search/filter/sort และ prompt รอบที่แก้เรื่อง XSS (ฟังก์ชัน `esc()` ในไฟล์) มาไว้ตรงนี้_
 
-### Prompt 5 (Lab 7 refactor หน้า search, อติชาติ, Claude Code, 2026-08-26)
+### Prompt 5 — เริ่มงาน Lab 6 (อติชาติ, Claude Code, 2026-08-23)
+
+prompt จริงที่พิมพ์ วางใบงาน Lab 6 ทั้งใบเป็น context ก่อน แล้วถามเป็นสองรอบ:
+
+```
+[วางเนื้อหาใบงาน Lab 6 ทั้งใบ] ช่วยเช็คให้หน่อยว่างานนี้ทำแล้วหรือยัง
+```
+
+แล้วรอบถัดมา:
+
+```
+จัดการเริ่มงานให้เลยทีได้ไหม
+```
+
+เทียบกับ Five S's: **Surrounding** แข็ง (วางใบงานทั้งใบเป็น context) แต่ **Specific** อ่อนกว่ารอบตรวจงาน Lab 4/5 เพราะไม่ได้ระบุว่าจะ containerize service ไหน AI จึงต้องไปอ่าน `docs/architecture/c4-container.md` เองเพื่อเลือก Stats Service (Python + Flask) ตาม ADR ที่มีอยู่แล้วแทนที่จะเดาสุ่ม
+
+### Prompt 6 — ขอบเขตของสิ่งที่ AI ทำได้จริงในรอบนี้
+
+เครื่องที่ใช้คุยกับ Claude ตอนแรกไม่มี Docker ติดตั้ง จึง Claude เขียนไฟล์ `Dockerfile` / `.dockerignore` / `docker/README.md` / โค้ด Flask ให้ก่อน โดยระบุขอบเขตไว้ตรง ๆ ใน `docker/README.md` ว่ายัง build/run/push จริงไม่ได้
+
+ภายหลังอติชาติติดตั้ง Docker Desktop สำเร็จในวันเดียวกัน (2026-08-23) แล้วกลับมาต่อ session เดิม รอบนี้ Claude เป็นคนรันคำสั่ง `docker build`/`run`/`tag`/`push` เองทั้งหมด (ยกเว้น `docker login` ที่อติชาติรันเองผ่าน token ส่วนตัว) และแก้ `docker/README.md` ให้ตรงกับผลจริง — จุดที่ควรระบุตรงๆ คือ token ของอติชาติหลุดเข้ามาในบทสนทนา 2 ครั้งระหว่างขั้นตอนนี้ (ดูรายละเอียดในตาราง Log ด้านบน) ทั้งสองตัวถูก revoke แล้ว
+
+### Prompt 7 (Lab 7 refactor หน้า search, อติชาติ, Claude Code, 2026-08-26)
 
 prompt จริงที่พิมพ์ในรอบ session นี้ แบ่งเป็น 3 รอบ (workflow explain to propose to apply to test ตามที่ใบงาน Lab 7 กำหนด):
 
@@ -101,6 +126,8 @@ prompt จริงที่พิมพ์ในรอบ session นี้ แ
 | script เซ็ต state ก่อนถ่าย screenshot (อยู่ใน scratchpad ไม่ commit) | Claude Code (2026-08-19) | รับมาทั้งก้อน ใช้ครั้งเดียวเพื่อถ่ายภาพ ไม่ได้เข้า repo |
 | C4 diagram (SVG) และเนื้อหา ADR-001/ADR-002 | Claude Code | AI ร่าง อติชาติแก้ถ้อยคำและตัวเลือกใน Alternatives บางส่วน จึงไม่ใช่ "ไม่แก้" ทั้งก้อน |
 | ฟังก์ชันการคำนวณและ Event Listener ของดาวใน `kittamet_note_rating_prototype.html` | Gemini (กฤตเมธ) | รับ Logic การคำนวณ Hover/Click เปลี่ยนสีดาวจาก Gemini มาตรงๆ แล้วนำมาครอบสไตล์ CSS ของการ์ดเอง |
+| `services/stats-service/app.py`, root `Dockerfile`, ส่วนที่เพิ่มใน `.dockerignore` | Claude Code (2026-08-23) | generate ทั้งไฟล์/ส่วน อติชาติตรวจ syntax และเทียบ checklist Lab 6 (USER non-root, EXPOSE, pinned base image version) ก่อน commit และภายหลังตรวจผลจริงจากการ build/run/push (ดูแถวถัดไป) แล้ว |
+| คำสั่ง `docker build`/`run`/`tag`/`push` และการแก้ `docker/README.md` ให้ตรงกับผลจริง | Claude Code (2026-08-23) | Claude รันคำสั่งเองทั้งหมด (ยกเว้น `docker login` ที่อติชาติรันเองเพื่อไม่ให้ token หลุด) อติชาติตรวจ output ทุกคำสั่งก่อนอนุมัติให้ push branch |
 | `prototypes/sprint1/note-utils.js` และ `note-utils.test.js` ทั้งไฟล์ (Lab 7) | Claude Code (2026-08-26) | generate ทั้งสองไฟล์ อติชาติอ่านทุกบรรทัด รันเทสต์เองด้วย `node --test` และเปิดหน้าเว็บจริงเทียบก่อน/หลัง แต่ไม่ได้แก้โค้ดในไฟล์เพิ่มเติม รายละเอียดดู [docs/refactoring-journal.md](docs/refactoring-journal.md) |
 
 ส่วนที่ตามหลักฐานแล้วน่าจะเป็นงานที่คนเขียน/แก้เอง ไม่ใช่รับจาก AI ตรง ๆ: ฟังก์ชัน `esc()` กัน XSS และการ clamp ค่าใน `stars()` ของหน้าค้นหา ก่อน Lab 7 (เข้ามาในรอบที่ PR #37 ถูก CHANGES_REQUESTED จึงเป็นผลจากรีวิวของคนในทีม) แต่ใน Lab 7 ฟังก์ชันสองตัวนี้ถูกย้าย/เขียนใหม่เป็น `escapeHtml`/`formatStars` ใน `note-utils.js` โดย Claude Code แล้ว (แถวด้านบน) จึงไม่ใช่ "ไม่แก้จาก AI" อีกต่อไปสำหรับตำแหน่งใหม่นี้ ส่วนที่ยังเป็นของคนเขียนเองเหมือนเดิม: การตัดสินใจเรื่อง Tracer vs Prototype และเนื้อหา reflection รายบุคคลทั้งสามไฟล์
