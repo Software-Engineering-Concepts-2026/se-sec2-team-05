@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <title>NoteShare - ค้นหาโน้ต</title>
 <link rel="stylesheet" href="wachirawit_search_note_prototype.css">
+<script src="note-utils.js"></script>
 </head>
 <body>
 
@@ -81,12 +82,8 @@ const sortFilter = document.getElementById('sortFilter');
 
 let searchHistory = JSON.parse(localStorage.getItem('noteshare_history')) || [];
 
-// escape ค่าที่มาจากข้อมูล กันแทรก HTML/สคริปต์ (XSS) ตอนใช้ template literal
-const esc = str => {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
-};
+// escapeHtml/formatStars/compareNotes มาจาก note-utils.js (ดู docs/refactoring-journal.md)
+const { escapeHtml, formatStars, compareNotes } = NoteUtils;
 
 function saveHistory(term) {
   if (!term || term.length < 2) return;
@@ -126,10 +123,6 @@ function renderHistory() {
 }
 
 const icons = { pdf: '📄', docx: '📝', img: '🖼️' };
-const stars = r => {
-  const safeR = Math.max(0, Math.min(5, Math.round(Number(r) || 0)));
-  return '★'.repeat(safeR) + '☆'.repeat(5 - safeR);
-};
 
 function render() {
   const q = searchInput.value.trim().toLowerCase();
@@ -141,21 +134,17 @@ function render() {
       (!yearFilter.value || n.year === yearFilter.value) &&
       (!typeFilter.value || n.type === typeFilter.value)
     )
-    .sort((a, b) =>
-      sortFilter.value === 'rating' ? b.rating - a.rating :
-      sortFilter.value === 'download' ? b.downloads - a.downloads :
-      b.createdAt - a.createdAt
-    );
+    .sort((a, b) => compareNotes(a, b, sortFilter.value));
 
   resultsList.innerHTML = filtered.map(n => `
     <div class="note-card">
       <div class="thumbnail">${icons[n.type] || '📄'}</div>
       <div class="note-info">
-        <div class="note-title">${esc(n.title)}</div>
-        <div class="note-sub">${esc(n.subtitle)}</div>
+        <div class="note-title">${escapeHtml(n.title)}</div>
+        <div class="note-sub">${escapeHtml(n.subtitle)}</div>
       </div>
       <div class="note-meta">
-        <div class="rating">${stars(n.rating)}</div>
+        <div class="rating">${formatStars(n.rating)}</div>
         <div class="downloads">⬇ ${n.downloads}</div>
       </div>
       <button class="preview-link" type="button">Preview</button>
