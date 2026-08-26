@@ -103,7 +103,23 @@ prompt จริงที่พิมพ์ วางใบงาน Lab 6 ท�
 
 ภายหลังอติชาติติดตั้ง Docker Desktop สำเร็จในวันเดียวกัน (2026-08-23) แล้วกลับมาต่อ session เดิม รอบนี้ Claude เป็นคนรันคำสั่ง `docker build`/`run`/`tag`/`push` เองทั้งหมด (ยกเว้น `docker login` ที่อติชาติรันเองผ่าน token ส่วนตัว) และแก้ `docker/README.md` ให้ตรงกับผลจริง — จุดที่ควรระบุตรงๆ คือ token ของอติชาติหลุดเข้ามาในบทสนทนา 2 ครั้งระหว่างขั้นตอนนี้ (ดูรายละเอียดในตาราง Log ด้านบน) ทั้งสองตัวถูก revoke แล้ว
 
-### Prompt 7 (Lab 7 refactor หน้า search, อติชาติ, Claude Code, 2026-08-26)
+### Prompt 7 — ตรวจ + กู้ C4 diagrams สำหรับ Lab 5 (อติชาติ, Claude Code, 2026-08-19)
+
+prompt จริงที่พิมพ์ (รูปแบบเดียวกับ Prompt 2 — วางใบงานทั้งใบก่อนถามให้ตรวจ):
+
+```
+[วางเนื้อหาใบงาน Lab 5 ทั้งใบ] ตรวจให้หน่อยว่า deliverable ครบไหม เทียบกับสไลด์บทที่ 5
+```
+
+แล้วรอบถัดมาเมื่อเห็นว่า Mermaid หายไปและ `c4-container.md` ไม่ครบ:
+
+```
+กู้ Mermaid กลับมาแล้วเขียน C4Container ให้ครบทั้ง EN/TH ให้เลย
+```
+
+เทียบกับ Five S's: **Surrounding** แข็ง (วางใบงานทั้งใบ) เหมือน Prompt 2 แต่รอบนี้ **Specific** ดีขึ้นเพราะระบุตรง ๆ ว่าให้กู้ Mermaid ที่หายไป ไม่ปล่อยให้ AI เดาว่าจะแก้อะไร ผลคือ AI อ่าน commit history ของ `c4-container.md` แล้วพบว่าเคยมี Mermaid source อยู่ก่อนถูกแทนที่ด้วย SVG ล้วน (ดู commit `36e0080` "redraw C4 diagrams as hand-authored SVG") จึงกู้ `.mmd` กลับมาไว้คู่กับ SVG แทนที่จะเขียน diagram ใหม่ทั้งหมด
+
+### Prompt 8 (Lab 7 refactor หน้า search, อติชาติ, Claude Code, 2026-08-26)
 
 prompt จริงที่พิมพ์ในรอบ session นี้ แบ่งเป็น 3 รอบ (workflow explain to propose to apply to test ตามที่ใบงาน Lab 7 กำหนด):
 
