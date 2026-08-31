@@ -55,7 +55,9 @@ Stats Service ที่คืน mock data กับ prototype ฝั่ง fron
 | --- | --- | --- |
 | JS unit | `cd prototypes/sprint1 && node --test` | ✅ 7 passed / 0 failed (119 ms) |
 | Python unit | `pytest src/tests -v` | ✅ 4 passed / 0 failed (0.16 s) |
-| Container smoke | `docker build` + `curl` | ⏳ ยังไม่ได้รัน local (Docker daemon ไม่ได้เปิดบนเครื่องที่รัน) — รอผลจาก CI |
+| Container smoke | `docker build` + `curl` | ✅ ผ่านบน CI ([run #33350421986](https://github.com/Software-Engineering-Concepts-2026/se-sec2-team-05/actions/runs/33350421986)) — ไม่ได้รัน local เพราะ Docker daemon ไม่ได้เปิดบนเครื่องที่ใช้เขียน |
+
+**ผลรันบน CI ครั้งแรก (PR #55):** ทั้ง 3 job ผ่านหมด — `js-tests` 14s, `python-tests` 14s, `docker-build` 17s
 
 > DK-01 เคยผ่านมาแล้วตอน Lab 6 (build + push ขึ้น Docker Hub สำเร็จ ดู [`docker/README.md`](../../docker/README.md))
 > รอบนี้เพิ่ม DK-02/DK-03 เข้ามาเป็น smoke test อัตโนมัติใน CI ซึ่ง Lab 6 ยังทำด้วยมือ
