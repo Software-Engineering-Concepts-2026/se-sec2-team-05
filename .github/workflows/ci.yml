@@ -5,8 +5,9 @@ name: CI
 on:
   push:
     branches: [main]
+  # ไม่กรอง branch ปลายทาง เพราะ PR ที่ซ้อนกัน (base เป็น feature branch อื่น)
+  # จะไม่ถูกทดสอบเลยถ้าจำกัดไว้แค่ `branches: [main]`
   pull_request:
-    branches: [main]
 
 jobs:
   js-tests:
