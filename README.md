@@ -86,3 +86,15 @@ User personas and key scenarios that drive our development are located in the `/
 - **[User Scenarios](./docs/requirements/main_scenario.md)**
 - **[User Stories](./docs/requirements/user-stories.md)**
 - **[Non-functional Requirements](./docs/requirements/nfr.md)**
+
+## 🧪 Testing & CI
+
+ทุก PR ที่ยิงเข้า `main` จะถูกรันอัตโนมัติด้วย [GitHub Actions](./.github/workflows/ci.yml) — เทสต์ JS, เทสต์ Python และ build + smoke-test Docker image
+
+```bash
+cd prototypes/sprint1 && node --test   # unit test ฝั่ง prototype
+pytest src/tests -v               # unit test ของ Stats Service (ดูวิธีติดตั้งใน src/tests/README.md)
+```
+
+- **[Test Plan & Report](./docs/testing/readme.md)**
+- **[วิธีรันเทสต์ในเครื่อง](./src/tests/README.md)**

@@ -1,0 +1,4 @@
+# Test-only tooling. Kept ASCII: pip reads requirements files with the OS
+# locale encoding, so non-ASCII comments break `pip install` on Windows.
+# Not installed into the production image.
+pytest==8.3.3
