@@ -81,7 +81,8 @@ jobs:
       - name: End-to-end smoke test (upload -> filter -> download)
         run: |
           set -euo pipefail
-          printf '%PDF-1.4 ci smoke note' > /tmp/note.pdf
+          # ใช้ printf '%s' เพราะ '%PDF' ถูกตีความเป็น format specifier ที่ไม่มีอยู่จริง
+          printf '%s' '%PDF-1.4 ci smoke note' > /tmp/note.pdf
           note_id=$(curl -fsS -X POST http://localhost:5001/notes             -F 'title=CI smoke note'             -F 'subject_name=Data Structures'             -F 'subject_code=CS201'             -F 'faculty=ICT'             -F 'year_level=2'             -F 'lesson=Linked List'             -F 'class_date=2026-08-20'             -F 'file=@/tmp/note.pdf;type=application/pdf' | jq -r '.id')
           echo "created note #$note_id"
 
