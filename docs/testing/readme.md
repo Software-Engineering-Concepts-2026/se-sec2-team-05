@@ -92,9 +92,13 @@ Stats Service ที่คืน mock data กับ prototype ฝั่ง fron
 | --- | --- | --- |
 | JS unit | `cd prototypes/sprint1 && node --test` | ✅ 7 passed / 0 failed (119 ms) |
 | Python unit + integration | `pytest src/tests -v` | ✅ 32 passed / 0 failed (0.52 s) — stats 4, notes validation 17, notes API 11 |
-| Container smoke | `docker build` + `curl` | ✅ ผ่านบน CI ([run #33350421986](https://github.com/Software-Engineering-Concepts-2026/se-sec2-team-05/actions/runs/33350421986)) — ไม่ได้รัน local เพราะ Docker daemon ไม่ได้เปิดบนเครื่องที่ใช้เขียน |
+| Container smoke (compose e2e) | `docker compose up` + `curl` | ✅ ผ่านบน CI ([run #33351842320](https://github.com/Software-Engineering-Concepts-2026/se-sec2-team-05/actions/runs/33351842320), 1m6s) — log ยืนยัน `created note #1` และ `end-to-end OK` · ไม่ได้รัน local เพราะ Docker daemon ไม่ได้เปิดบนเครื่องที่ใช้เขียน |
 
-**ผลรันบน CI ครั้งแรก (PR #55):** ทั้ง 3 job ผ่านหมด — `js-tests` 14s, `python-tests` 14s, `docker-build` 17s
+**ผลรันบน CI (PR #56):** ทั้ง 3 job ผ่านหมด — `js-tests` 13s, `python-tests` 13s, `docker-build` 1m6s
+
+CI จับของจริงไปแล้ว 2 ครั้งตั้งแต่ตั้งขึ้นมา ทั้งที่เทสต์ในเครื่องเขียวหมด:
+1. PR ที่ base เป็น feature branch อื่นไม่ถูกทดสอบเลย เพราะ trigger กรองไว้แค่ `branches: [main]` → เอาตัวกรองออกจาก `pull_request`
+2. `printf '%PDF-1.4 ...'` ใน smoke test ล้มเพราะ `%P` ถูกตีความเป็น format specifier → เปลี่ยนเป็น `printf '%s'`
 
 > DK-01 เคยผ่านมาแล้วตอน Lab 6 (build + push ขึ้น Docker Hub สำเร็จ ดู [`docker/README.md`](../../docker/README.md))
 > รอบนี้เพิ่ม DK-02/DK-03 เข้ามาเป็น smoke test อัตโนมัติใน CI ซึ่ง Lab 6 ยังทำด้วยมือ
