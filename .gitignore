@@ -9,6 +9,7 @@ __pycache__/
 *$py.class
 venv/
 ENV/
+.pytest_cache/
 
 # Node.js
 node_modules/
