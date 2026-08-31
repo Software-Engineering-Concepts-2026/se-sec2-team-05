@@ -8,7 +8,7 @@
 storage) — เก็บแค่ `storage_key` ที่ชี้ไปยังไฟล์ใน object storage
 """
 
-from datetime import datetime, timezone
+from datetime import date as date_type, datetime, timezone
 
 from sqlalchemy import Date, DateTime, Integer, String, Text, create_engine, Index
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
@@ -31,7 +31,7 @@ class Note(Base):
     year_level: Mapped[int] = mapped_column(Integer, nullable=False)
     lesson: Mapped[str] = mapped_column(String(200), nullable=False)
     topic: Mapped[str | None] = mapped_column(String(200))
-    class_date: Mapped[Date | None] = mapped_column(Date)
+    class_date: Mapped[date_type | None] = mapped_column(Date)
     description: Mapped[str | None] = mapped_column(Text)
 
     # --- ไฟล์ ---

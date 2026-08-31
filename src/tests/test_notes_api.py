@@ -9,7 +9,6 @@ import io
 import pytest
 from werkzeug.datastructures import FileStorage
 
-from app import create_app
 from storage import LocalFileStorage
 
 BASE_FORM = {
@@ -23,8 +22,8 @@ BASE_FORM = {
 
 
 @pytest.fixture
-def client(tmp_path):
-    app = create_app(
+def client(tmp_path, notes_create_app):
+    app = notes_create_app(
         database_url=f"sqlite:///{tmp_path / 'test.db'}",
         storage=LocalFileStorage(str(tmp_path / "storage")),
     )

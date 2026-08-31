@@ -42,42 +42,64 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r services/stats-service/requirements.txt
+          pip install -r services/notes-service/requirements.txt
           pip install -r src/tests/requirements-dev.txt
 
       - name: Run pytest
         run: pytest src/tests -v
 
   docker-build:
-    name: Build & smoke-test image
+    name: Build & smoke-test stack
     runs-on: ubuntu-latest
     # ไม่ต้องเสียเวลา build image ถ้าเทสต์ยังไม่ผ่าน
     needs: [js-tests, python-tests]
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build Stats Service image
-        run: docker build -t noteshare/stats-service:ci .
+      - name: Build and start the whole stack
+        run: docker compose up -d --build
 
-      - name: Start container
-        run: docker run -d --name stats-ci -p 5000:5000 noteshare/stats-service:ci
-
-      # gunicorn ใช้เวลา boot ไม่กี่วินาที — retry แทนการ sleep ตายตัว
-      - name: Smoke test /health
+      # gunicorn/postgres ใช้เวลา boot ไม่กี่วินาที — retry แทนการ sleep ตายตัว
+      - name: Wait for services to become healthy
         run: |
-          for i in $(seq 1 15); do
-            if curl -fsS http://localhost:5000/health; then
-              echo "health OK"
-              exit 0
+          for url in http://localhost:5000/health http://localhost:5001/health; do
+            ok=false
+            for i in $(seq 1 20); do
+              if curl -fsS "$url" > /dev/null; then ok=true; break; fi
+              sleep 3
+            done
+            if [ "$ok" != true ]; then
+              echo "::error::$url did not become healthy"
+              docker compose logs
+              exit 1
             fi
-            sleep 2
+            echo "$url OK"
           done
-          echo "service did not become healthy in time"
-          docker logs stats-ci
-          exit 1
 
-      - name: Smoke test /stats
-        run: curl -fsS http://localhost:5000/stats
+      # เส้นทาง end-to-end ของ US-08: อัปโหลดพร้อม metadata -> กรองเจอ -> ดาวน์โหลดไฟล์เดิมกลับมา
+      - name: End-to-end smoke test (upload -> filter -> download)
+        run: |
+          set -euo pipefail
+          printf '%PDF-1.4 ci smoke note' > /tmp/note.pdf
+          note_id=$(curl -fsS -X POST http://localhost:5001/notes             -F 'title=CI smoke note'             -F 'subject_name=Data Structures'             -F 'subject_code=CS201'             -F 'faculty=ICT'             -F 'year_level=2'             -F 'lesson=Linked List'             -F 'class_date=2026-08-20'             -F 'file=@/tmp/note.pdf;type=application/pdf' | jq -r '.id')
+          echo "created note #$note_id"
 
-      - name: Stop container
+          count=$(curl -fsS 'http://localhost:5001/notes?faculty=ICT&year_level=2&q=CS201' | jq '.count')
+          test "$count" -eq 1
+
+          curl -fsS "http://localhost:5001/notes/$note_id/download" -o /tmp/downloaded.pdf
+          cmp /tmp/note.pdf /tmp/downloaded.pdf
+          echo "end-to-end OK"
+
+      - name: Metadata validation is enforced
+        run: |
+          status=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:5001/notes -F 'title=missing everything else')
+          test "$status" = "400"
+
+      - name: Dump logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Tear down
         if: always()
-        run: docker rm -f stats-ci
+        run: docker compose down -v
