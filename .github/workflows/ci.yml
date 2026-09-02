@@ -1,1 +1,83 @@
-....
+# CI สำหรับ NoteShare — รันทุก push และทุก PR ที่ยิงเข้า main
+# ทั้งสาม job แยกกันเพื่อให้เห็นชัดว่าอะไรพัง: เทสต์ JS, เทสต์ Python, หรือ image build
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  js-tests:
+    name: Unit tests (JS prototypes)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # ใช้ test runner ที่มากับ Node เอง ไม่ต้องมี package.json / npm install
+      # ต้อง cd เข้าโฟลเดอร์แล้วรัน `node --test` เปล่า ๆ — ถ้าส่ง path โฟลเดอร์เป็น
+      # argument ตรง ๆ Node 24 จะตีความว่าเป็นชื่อ module แล้ว MODULE_NOT_FOUND
+      - name: Run note-utils tests
+        working-directory: prototypes/sprint1
+        run: node --test
+
+  python-tests:
+    name: Unit tests (Stats Service)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install -r services/stats-service/requirements.txt
+          pip install -r src/tests/requirements-dev.txt
+
+      - name: Run pytest
+        run: pytest src/tests -v
+
+  docker-build:
+    name: Build & smoke-test image
+    runs-on: ubuntu-latest
+    # ไม่ต้องเสียเวลา build image ถ้าเทสต์ยังไม่ผ่าน
+    needs: [js-tests, python-tests]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Stats Service image
+        run: docker build -t noteshare/stats-service:ci .
+
+      - name: Start container
+        run: docker run -d --name stats-ci -p 5000:5000 noteshare/stats-service:ci
+
+      # gunicorn ใช้เวลา boot ไม่กี่วินาที — retry แทนการ sleep ตายตัว
+      - name: Smoke test /health
+        run: |
+          for i in $(seq 1 15); do
+            if curl -fsS http://localhost:5000/health; then
+              echo "health OK"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "service did not become healthy in time"
+          docker logs stats-ci
+          exit 1
+
+      - name: Smoke test /stats
+        run: curl -fsS http://localhost:5000/stats
+
+      - name: Stop container
+        if: always()
+        run: docker rm -f stats-ci
