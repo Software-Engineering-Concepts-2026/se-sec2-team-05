@@ -18,11 +18,17 @@ from sqlalchemy import select
 
 from models import Note, build_session_factory
 from storage import storage_from_env
-from validation import validate_file, validate_metadata
+from validation import MAX_FILE_BYTES, validate_file, validate_metadata
 
 DEFAULT_DATABASE_URL = "sqlite:///notes.db"
 DEFAULT_PAGE_SIZE = 20
 MAX_PAGE_SIZE = 100
+
+# เพดานขนาด request ทั้งก้อน = ขนาดไฟล์สูงสุด + ที่เผื่อไว้ให้ multipart boundary กับฟิลด์ metadata
+# ตั้งให้สูงกว่า MAX_FILE_BYTES เล็กน้อยโดยตั้งใจ ไฟล์ที่เกินนิดเดียวจะได้ตกที่ validate_file
+# ซึ่งบอกเหตุผลรายฟิลด์ แทนที่จะถูกตัดทิ้งแบบไม่มีรายละเอียดตั้งแต่ชั้น Werkzeug
+REQUEST_OVERHEAD_BYTES = 1024 * 1024
+MAX_REQUEST_BYTES = MAX_FILE_BYTES + REQUEST_OVERHEAD_BYTES
 
 # เรียงผลลัพธ์ได้เท่าที่กำหนดไว้เท่านั้น ไม่ให้ client ส่งชื่อคอลัมน์อะไรมาก็ได้
 SORT_COLUMNS = {
@@ -35,6 +41,9 @@ SORT_COLUMNS = {
 
 def create_app(database_url: str | None = None, storage=None) -> Flask:
     app = Flask(__name__)
+    # ตัดคำขอที่ใหญ่เกินตั้งแต่ชั้น Werkzeug ไม่ต้องรอให้ validate_file เห็นขนาด
+    # เพราะกว่าจะถึงตรงนั้น request body ถูกอ่านเข้ามาครบแล้ว
+    app.config["MAX_CONTENT_LENGTH"] = MAX_REQUEST_BYTES
     session_factory = build_session_factory(
         database_url or os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL)
     )
@@ -46,6 +55,21 @@ def create_app(database_url: str | None = None, storage=None) -> Flask:
             status="ok",
             service="notes-service",
             time=datetime.now(timezone.utc).isoformat(),
+        )
+
+    @app.errorhandler(413)
+    def too_large(_error):
+        """ให้ 413 ตอบเป็น JSON รูปแบบเดียวกับ validation error ตัวอื่น
+
+        ถ้าไม่ดักไว้ Werkzeug จะคืนหน้า HTML ซึ่ง client ที่ parse JSON อยู่แล้วจะพัง
+        """
+        limit_mb = MAX_FILE_BYTES // (1024 * 1024)
+        return (
+            jsonify(
+                error="validation_failed",
+                fields={"file": f"ไฟล์ใหญ่เกิน {limit_mb} MB"},
+            ),
+            413,
         )
 
     @app.post("/notes")
@@ -127,8 +151,10 @@ def create_app(database_url: str | None = None, storage=None) -> Flask:
         stmt = stmt.order_by(SORT_COLUMNS[sort])
 
         try:
-            limit = min(int(args.get("limit", DEFAULT_PAGE_SIZE)), MAX_PAGE_SIZE)
-            offset = int(args.get("offset", 0))
+            # clamp ทั้งขอบบนและขอบล่าง — ค่าติดลบผ่าน int() ได้ แต่ LIMIT -1 มีความหมาย
+            # ต่างกันระหว่าง SQLite (ไม่จำกัด) กับ Postgres (error) จึงกันไว้ที่ชั้นนี้
+            limit = max(1, min(int(args.get("limit", DEFAULT_PAGE_SIZE)), MAX_PAGE_SIZE))
+            offset = max(0, int(args.get("offset", 0)))
         except ValueError:
             return jsonify(error="invalid_filter", field="limit/offset"), 400
 
