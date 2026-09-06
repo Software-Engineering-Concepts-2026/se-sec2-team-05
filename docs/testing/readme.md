@@ -78,7 +78,25 @@ Stats Service ที่คืน mock data กับ prototype ฝั่ง fron
 | NA-13 | `limit`/`offset` ติดลบถูก clamp | `?limit=-1`, `?offset=-5` | `limit=-1` ได้ 1 รายการ (ไม่ใช่ทั้งหมดแบบที่ SQLite ตีความ), `offset=-5` เท่ากับ 0 |
 | NA-14 | request ใหญ่เกินได้ 413 เป็น JSON | body เกิน `MAX_CONTENT_LENGTH` | `413` + `error = validation_failed` ไม่ใช่หน้า HTML ของ Werkzeug |
 
-### 2.5 Container smoke test (CI เท่านั้น)
+### 2.5 Notes Service — แก้ไข/ลบโน้ต (`pytest`, US-19 #19 + US-20 #20)
+
+ความเป็นเจ้าของพิสูจน์ด้วย edit token ต่อโน้ต ([ADR-004](../architecture/adr/0004-per-note-edit-token.th.md))
+
+| # | Test case | Request | ผลที่คาดหวัง |
+| --- | --- | --- | --- |
+| NE-01 | token ออกให้ครั้งเดียวตอนสร้าง และไม่รั่วออกทาง endpoint อื่น | `POST /notes` แล้ว `GET /notes/<id>`, `GET /notes` | response ตอนสร้างมี `edit_token` · การอ่านครั้งต่อ ๆ ไปไม่มีทั้ง `edit_token` และ `edit_token_hash` |
+| NE-02 | PATCH แก้เฉพาะฟิลด์ที่ส่งมา และประทับ `updated_at` | `PATCH` ส่ง `subject_code` + `topic` | สองฟิลด์นั้นเปลี่ยน ฟิลด์อื่นคงเดิม `updated_at` จาก `null` เป็นเวลาจริง |
+| NE-03 | ล้างค่าฟิลด์ไม่บังคับได้ | `PATCH` ส่ง `topic=` (ว่าง) | `topic` เป็น `null` |
+| NE-04 | ค่าผิดรูปต้องไม่ทำให้ข้อมูลเดิมเสีย | `PATCH` ส่ง `year_level=99` | `400` และค่าเดิมใน DB ไม่เปลี่ยน |
+| NE-05 | ฟิลด์ที่แก้ไม่ได้ถูกเมิน ไม่ใช่ error | `PATCH` ส่ง `uploader_name` + `title` | `title` เปลี่ยน `uploader_name` คงเดิม |
+| NE-06 | PATCH ที่ไม่มีฟิลด์ให้แก้ | `PATCH` body ว่าง | `400` `no_fields_to_update` |
+| NE-07 | ลบแล้วหายทั้ง record และไฟล์ | `DELETE` ด้วย token ถูก | `204` · `GET` ได้ `404` · โฟลเดอร์ storage ว่าง |
+| NE-08 | ไม่ส่ง token | `PATCH`/`DELETE` ไม่มี header | `403` ทั้งคู่ |
+| NE-09 | token ผิด | `PATCH`/`DELETE` ด้วย token มั่ว | `403` ทั้งคู่ |
+| NE-10 | token ของโน้ตใบหนึ่งใช้กับใบอื่นไม่ได้ | ใช้ token ของโน้ต A ไปแก้/ลบโน้ต B | `403` ทั้งคู่ · โน้ต B ไม่ถูกแตะทั้งใน DB และ storage · เจ้าของตัวจริงยังใช้ token ของตัวเองได้ |
+| NE-11 | แก้/ลบโน้ตที่ไม่มีอยู่ | `PATCH`/`DELETE /notes/999` | `404` ทั้งคู่ |
+
+### 2.6 Container smoke test (CI เท่านั้น)
 
 | # | Test case | ขั้นตอน | ผลที่คาดหวัง |
 | --- | --- | --- | --- |
@@ -89,12 +107,12 @@ Stats Service ที่คืน mock data กับ prototype ฝั่ง fron
 
 ## 3. Test Report
 
-**รันล่าสุด:** 2026-08-31 (เครื่อง local, Windows 11)
+**รันล่าสุด:** 2026-09-06 (เครื่อง local, Windows 11)
 
 | ชุด | คำสั่ง | ผล |
 | --- | --- | --- |
 | JS unit | `cd prototypes/sprint1 && node --test` | ✅ 7 passed / 0 failed (119 ms) |
-| Python unit + integration | `pytest src/tests -v` | ✅ 35 passed / 0 failed (0.45 s) — stats 4, notes validation 17, notes API 14 |
+| Python unit + integration | `pytest src/tests -v` | ✅ 48 passed / 0 failed (1.01 s) — stats 4, notes validation 17, notes API 27 |
 | Container smoke (compose e2e) | `docker compose up` + `curl` | ✅ ผ่านบน CI ([run #33351842320](https://github.com/Software-Engineering-Concepts-2026/se-sec2-team-05/actions/runs/33351842320), 1m6s) — log ยืนยัน `created note #1` และ `end-to-end OK` · ไม่ได้รัน local เพราะ Docker daemon ไม่ได้เปิดบนเครื่องที่ใช้เขียน |
 
 **ผลรันบน CI (PR #56):** ทั้ง 3 job ผ่านหมด — `js-tests` 13s, `python-tests` 13s, `docker-build` 1m6s

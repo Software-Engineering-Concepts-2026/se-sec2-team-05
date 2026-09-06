@@ -58,6 +58,7 @@
 - [ADR-001 — การเลือก Core Technology Stack](./adr/0001-tech-stack-selection.th.md)
 - [ADR-002 — ใช้ RESTful API สำหรับการสื่อสารระหว่าง Service](./adr/0002-use-restful-api-internal-communication.th.md)
 - [ADR-003 — จำกัดขอบเขตของ slice แรกที่รันได้ ให้เหลือ service เดียวและเก็บไฟล์บนดิสก์](./adr/0003-tracer-bullet-scope.th.md)
+- [ADR-004 — ใช้ edit token ต่อโน้ตเป็นตัวแทนการตรวจสอบเจ้าของชั่วคราว](./adr/0004-per-note-edit-token.th.md)
 
 > ⚠️ C4 Container diagram ด้านบนอธิบายสถาปัตยกรรม **เป้าหมาย** สิ่งที่ `docker compose up` ยกขึ้นมาจริงตอนนี้แคบกว่านั้น — มีแค่ `notes-service` กับ `stats-service` ยังไม่มี gateway และยังไม่มี auth ดูรายละเอียดใน ADR-003
 

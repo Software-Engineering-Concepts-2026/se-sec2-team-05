@@ -3,8 +3,9 @@
 Service ที่ดูแล metadata และไฟล์ของโน้ต — ทำตาม [US-08 (#8)](https://github.com/Software-Engineering-Concepts-2026/se-sec2-team-05/issues/8)
 ขอบเขตและสิ่งที่จงใจยังไม่ทำในรอบนี้อธิบายไว้ใน [ADR-003](../../docs/architecture/adr/0003-tracer-bullet-scope.th.md)
 
-> ⚠️ **ยังไม่มี authentication** — ทุก endpoint เปิดหมด และ `uploader_name` รับมาจากฟอร์มตรง ๆ
-> ห้าม deploy ออกสู่สาธารณะก่อน #5/#6 เสร็จ
+> ⚠️ **ยังไม่มี authentication** — endpoint ที่อ่านอย่างเดียวเปิดหมด และ `uploader_name`
+> รับมาจากฟอร์มตรง ๆ ส่วนการแก้/ลบกันด้วย edit token ต่อโน้ต ซึ่ง **ไม่ใช่** ระบบ auth
+> (ดู [ADR-004](../../docs/architecture/adr/0004-per-note-edit-token.th.md)) ห้าม deploy ออกสู่สาธารณะก่อน #5/#6 เสร็จ
 
 ## รันในเครื่อง
 
@@ -33,6 +34,8 @@ NOTES_STORAGE_DIR=./data python services/notes-service/app.py
 | `POST` | `/notes` | อัปโหลดไฟล์ + metadata (`multipart/form-data`) → `201` พร้อม object ของโน้ต |
 | `GET` | `/notes` | ค้นหา/กรอง → `{ items: [...], count: n }` |
 | `GET` | `/notes/<id>` | รายละเอียดโน้ตหนึ่งรายการ |
+| `PATCH` | `/notes/<id>` | แก้ metadata บางส่วน — ต้องมี `X-Note-Token` (US-19) |
+| `DELETE` | `/notes/<id>` | ลบโน้ตพร้อมไฟล์ — ต้องมี `X-Note-Token` (US-20) → `204` |
 | `GET` | `/notes/<id>/download` | ดาวน์โหลดไฟล์จริง (ตั้งชื่อไฟล์ตามที่ผู้ใช้อัปโหลดมา) |
 
 ### `POST /notes`
@@ -63,6 +66,35 @@ request ที่ใหญ่เกิน 21 MB (ไฟล์ 20 MB + ที่�
 
 ค่าที่ผิดรูปจะได้ `400` (`{"error": "invalid_filter", "field": ...}`) ไม่ใช่ `500`
 และ `sort` รับได้เฉพาะค่าใน allowlist เท่านั้น ไม่ได้เอาค่าจาก client ไปต่อเป็น SQL
+
+### `PATCH /notes/<id>` และ `DELETE /notes/<id>` — ต้องมี edit token
+
+ตอน `POST /notes` สำเร็จ response จะมีฟิลด์ `edit_token` เพิ่มมา **ครั้งเดียวเท่านั้น**
+เก็บไว้ให้ดี เพราะฐานข้อมูลเก็บแค่ hash และไม่มี endpoint ไหนคืนค่านี้ให้อีก ถ้าทำหาย
+จะแก้หรือลบโน้ตใบนั้นไม่ได้อีกเลย เหตุผลของกลไกนี้และข้อจำกัดอยู่ใน ADR-004
+
+```bash
+# แก้เฉพาะฟิลด์ที่ส่งมา ฟิลด์ที่ไม่ส่งคงค่าเดิม (partial update)
+curl -X PATCH localhost:5001/notes/1 \
+  -H "X-Note-Token: $TOKEN" \
+  -d 'subject_code=CS202' -d 'topic=Binary Tree'
+
+curl -X DELETE localhost:5001/notes/1 -H "X-Note-Token: $TOKEN"
+```
+
+| กรณี | Response |
+| --- | --- |
+| `PATCH` สำเร็จ | `200` + object ของโน้ต (มี `updated_at` ที่เพิ่งอัปเดต) |
+| `DELETE` สำเร็จ | `204` ไม่มี body · ลบทั้ง record และไฟล์ใน storage |
+| ค่าที่ส่งมาผิดรูป | `400` `{"error": "validation_failed", "fields": {...}}` |
+| `PATCH` ที่ไม่มีฟิลด์ให้แก้เลย | `400` `{"error": "no_fields_to_update"}` |
+| ไม่ส่ง token หรือ token ผิด | `403` `{"error": "forbidden"}` |
+| ไม่มีโน้ตนั้น | `404` `{"error": "not_found"}` |
+
+แก้ได้เฉพาะ metadata — ตัวไฟล์แก้ไม่ได้ ต้องอัปโหลดใหม่ · ส่ง `uploader_name`,
+`created_at` หรือฟิลด์ของไฟล์มาใน `PATCH` จะถูกเมิน ไม่ถือเป็น error ·
+ฟิลด์ไม่บังคับ (`topic`, `class_date`, `description`) ล้างค่าได้ด้วยการส่งค่าว่าง
+
 
 ## ตัวอย่างการเรียกใช้
 
