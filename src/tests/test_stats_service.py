@@ -8,13 +8,11 @@ from datetime import datetime
 
 import pytest
 
-from app import app as flask_app
-
 
 @pytest.fixture
-def client():
-    flask_app.config.update(TESTING=True)
-    return flask_app.test_client()
+def client(stats_client):
+    # ตัว app ถูกโหลดใน conftest.py เพราะทุก service มี app.py ชื่อซ้ำกัน
+    return stats_client
 
 
 def test_health_returns_ok(client):

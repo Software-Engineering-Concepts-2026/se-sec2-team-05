@@ -1,0 +1,44 @@
+# สภาพแวดล้อม dev ของ NoteShare — ยกทุก service ขึ้นพร้อมกันด้วย `docker compose up`
+# ตอนนี้มี 2 service ตาม C4 Container diagram: Notes Service (US-08) และ Stats Service
+# ยังไม่มี API Gateway และ User & Auth Service (รอ #5, #6)
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: noteshare
+      POSTGRES_PASSWORD: noteshare_dev   # dev เท่านั้น — production ต้องมาจาก secret
+      POSTGRES_DB: noteshare
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      # กัน notes-service สตาร์ตก่อน Postgres พร้อมรับ connection
+      test: ["CMD-SHELL", "pg_isready -U noteshare -d noteshare"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  notes-service:
+    build: ./services/notes-service
+    environment:
+      DATABASE_URL: postgresql+psycopg://noteshare:noteshare_dev@db:5432/noteshare
+      NOTES_STORAGE_DIR: /data/notes
+    ports:
+      - "5001:5001"
+    volumes:
+      - notes-files:/data/notes
+    depends_on:
+      db:
+        condition: service_healthy
+
+  stats-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+
+volumes:
+  db-data:
+  notes-files:

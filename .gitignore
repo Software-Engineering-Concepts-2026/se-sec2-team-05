@@ -10,6 +10,7 @@ __pycache__/
 venv/
 ENV/
 .pytest_cache/
+*.db
 
 # Node.js
 node_modules/

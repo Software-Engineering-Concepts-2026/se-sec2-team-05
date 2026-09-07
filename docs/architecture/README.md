@@ -56,6 +56,9 @@ Per-layer rationale and the alternatives we weighed are in [tech_stack.md](./tec
 
 - [ADR-001 — Selection of Core Technology Stack](./adr/0001-tech-stack-selection.md)
 - [ADR-002 — Use RESTful APIs for Internal Service Communication](./adr/0002-use-restful-api-internal-communication.md)
+- [ADR-003 — Narrow the First Running Slice to One Service and Local File Storage](./adr/0003-tracer-bullet-scope.md)
+
+> ⚠️ The C4 Container diagram above describes the **target** architecture. What `docker compose up` actually starts today is narrower — one `notes-service` plus `stats-service`, no gateway and no auth. See ADR-003.
 
 ## Editing the diagrams
 

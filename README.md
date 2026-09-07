@@ -27,13 +27,18 @@ This section explains how to get a local copy of the project up and running for 
     ```
 
 2.  **Run the services:**
-    *(This section will be updated in later weeks when using Docker Compose)*
     ```bash
-    # Example for a single service
-    cd services/stats-service
-    docker build -t your-team/stats-service .
-    docker run -p 5001:5000 your-team/stats-service
+    docker compose up --build
     ```
+    ยกขึ้นมาสามตัว: PostgreSQL, [Notes Service](./services/notes-service/README.md) ที่ `localhost:5001`
+    และ Stats Service ที่ `localhost:5000` — ตรวจว่าขึ้นแล้วด้วย `curl localhost:5001/health`
+
+    ```bash
+    docker compose down -v   # ลบ volume ด้วย จำเป็นเมื่อ schema เปลี่ยน (ยังไม่มี migration)
+    ```
+
+    > ℹ️ ตอนนี้ยังยกไม่ครบตาม C4 Container diagram — ยังไม่มี API Gateway และ User & Auth Service
+    > เหตุผลอยู่ใน [ADR-003](./docs/architecture/adr/0003-tracer-bullet-scope.th.md)
 
 ---
 
@@ -77,6 +82,14 @@ Key architectural decisions and diagrams are documented in the `/docs/architectu
 
 - **[C4 Models & Tech Stack](./docs/architecture/README.md)**
 - **[Architectural Decision Records (ADRs)](./docs/architecture/adr/)**
+
+## 🧩 Services
+
+| Service | Port | สถานะ |
+| --- | --- | --- |
+| **[Notes Service](./services/notes-service/README.md)** | 5001 | อัปโหลด/ค้นหา/ดาวน์โหลดโน้ตพร้อม metadata (US-08) — ยังไม่มี auth |
+| **Stats Service** | 5000 | คืนสถิติ mock ยังไม่ต่อ DB |
+| API Gateway, User & Auth Service | — | ยังไม่ได้สร้าง (#5, #6) |
 
 ## 👥 Requirements
 
