@@ -51,10 +51,15 @@ NOTES_STORAGE_DIR=./data python services/notes-service/app.py
 { "error": "validation_failed", "fields": { "subject_code": "จำเป็นต้องกรอก", "year_level": "ต้องเป็นตัวเลข" } }
 ```
 
+request ที่ใหญ่เกิน 21 MB (ไฟล์ 20 MB + ที่เผื่อให้ multipart/metadata) จะถูกตัดตั้งแต่ชั้น Werkzeug
+และได้ `413` ที่มีรูปร่าง JSON เดียวกัน — ไม่ต้องรอให้อ่าน body เข้ามาครบก่อนถึงจะปฏิเสธ
+
 ### `GET /notes` — query parameters
 
 `q` (ค้นในชื่อ/วิชา/รหัส/บทเรียน/หัวข้อ), `faculty`, `subject_code`, `year_level`,
 `date_from`, `date_to`, `sort` (`new` | `old` | `class_date` | `title`), `limit` (สูงสุด 100), `offset`
+
+`limit` ถูก clamp ไว้ที่ 1–100 และ `offset` ต่ำสุด 0 ค่าติดลบจึงไม่หลุดไปถึง SQL
 
 ค่าที่ผิดรูปจะได้ `400` (`{"error": "invalid_filter", "field": ...}`) ไม่ใช่ `500`
 และ `sort` รับได้เฉพาะค่าใน allowlist เท่านั้น ไม่ได้เอาค่าจาก client ไปต่อเป็น SQL

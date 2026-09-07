@@ -140,3 +140,44 @@ def test_stored_file_name_does_not_trust_user_supplied_path(client, tmp_path):
     assert len(stored) == 1
     assert stored[0].name.endswith(".pdf")
     assert ".." not in stored[0].name
+
+
+def test_failed_commit_does_not_leave_orphan_file(client, tmp_path, monkeypatch):
+    """ถ้า commit ไม่ผ่าน ไฟล์ที่เพิ่งเซฟลง storage ต้องถูกลบตามไปด้วย
+
+    ไม่งั้นทุกครั้งที่ DB ล้ม จะเหลือไฟล์กำพร้าที่ไม่มี record ไหนชี้ถึงและไม่มีใครเก็บกวาด
+    """
+    from sqlalchemy.orm import Session
+
+    def commit_fails(self):
+        raise RuntimeError("db is down")
+
+    monkeypatch.setattr(Session, "commit", commit_fails)
+    storage_dir = tmp_path / "storage"
+
+    with pytest.raises(RuntimeError):
+        upload(client)
+
+    assert list(storage_dir.iterdir()) == []
+
+
+def test_negative_limit_and_offset_are_clamped(client):
+    """`limit=-1` แปลว่า "ไม่จำกัด" บน SQLite แต่เป็น error บน Postgres จึงต้อง clamp ก่อนถึง SQL"""
+    upload(client, subject_code="CS101")
+    upload(client, subject_code="CS201")
+
+    assert client.get("/notes?limit=-1").get_json()["count"] == 1
+    assert client.get("/notes?offset=-5").get_json()["count"] == 2
+    # ขอบบนยังทำงานเหมือนเดิม
+    assert client.get("/notes?limit=999").get_json()["count"] == 2
+
+
+def test_oversized_request_returns_json_413_not_html(client):
+    """413 ต้องมี contract เดียวกับ validation error ตัวอื่น ไม่ใช่หน้า HTML ของ Werkzeug"""
+    client.application.config["MAX_CONTENT_LENGTH"] = 512
+
+    response = upload(client, description="x" * 1024)
+
+    assert response.status_code == 413
+    assert response.get_json()["error"] == "validation_failed"
+    assert "file" in response.get_json()["fields"]

@@ -74,6 +74,9 @@ Stats Service ที่คืน mock data กับ prototype ฝั่ง fron
 | NA-09 | ค่ากรองที่ผิดรูปต้องได้ 400 ไม่ใช่ 500 | `year_level=สอง`, วันที่ผิดรูป, `sort=; DROP TABLE notes` | `400` ทั้งสามเคส |
 | NA-10 | โน้ตที่ไม่มีอยู่ | `GET /notes/999`, `/999/download` | `404` |
 | NA-11 | ไม่เชื่อชื่อไฟล์จากผู้ใช้ | อัปโหลดชื่อ `../../evil.pdf` | ไฟล์จริงถูกเก็บในโฟลเดอร์ storage ด้วยชื่อที่ระบบสร้างเอง ชื่อเดิมเก็บไว้แค่แสดงผล |
+| NA-12 | commit ล้มแล้วต้องไม่เหลือไฟล์กำพร้า | `Session.commit` raise | โฟลเดอร์ storage ว่าง ไม่มีไฟล์ค้าง |
+| NA-13 | `limit`/`offset` ติดลบถูก clamp | `?limit=-1`, `?offset=-5` | `limit=-1` ได้ 1 รายการ (ไม่ใช่ทั้งหมดแบบที่ SQLite ตีความ), `offset=-5` เท่ากับ 0 |
+| NA-14 | request ใหญ่เกินได้ 413 เป็น JSON | body เกิน `MAX_CONTENT_LENGTH` | `413` + `error = validation_failed` ไม่ใช่หน้า HTML ของ Werkzeug |
 
 ### 2.5 Container smoke test (CI เท่านั้น)
 
@@ -91,7 +94,7 @@ Stats Service ที่คืน mock data กับ prototype ฝั่ง fron
 | ชุด | คำสั่ง | ผล |
 | --- | --- | --- |
 | JS unit | `cd prototypes/sprint1 && node --test` | ✅ 7 passed / 0 failed (119 ms) |
-| Python unit + integration | `pytest src/tests -v` | ✅ 32 passed / 0 failed (0.52 s) — stats 4, notes validation 17, notes API 11 |
+| Python unit + integration | `pytest src/tests -v` | ✅ 35 passed / 0 failed (0.45 s) — stats 4, notes validation 17, notes API 14 |
 | Container smoke (compose e2e) | `docker compose up` + `curl` | ✅ ผ่านบน CI ([run #33351842320](https://github.com/Software-Engineering-Concepts-2026/se-sec2-team-05/actions/runs/33351842320), 1m6s) — log ยืนยัน `created note #1` และ `end-to-end OK` · ไม่ได้รัน local เพราะ Docker daemon ไม่ได้เปิดบนเครื่องที่ใช้เขียน |
 
 **ผลรันบน CI (PR #56):** ทั้ง 3 job ผ่านหมด — `js-tests` 13s, `python-tests` 13s, `docker-build` 1m6s
@@ -121,7 +124,7 @@ python-tests ─┘
 
 - [ ] **วชิรวิทย์** — เขียน unit test ของตัวเอง (เสนอ: logic filter คณะ/ปี/ประเภทไฟล์ และประวัติการค้นหาใน `wachirawit_search_note_prototype.html` ต้องแยก pure function ออกมาก่อนแบบเดียวกับ Lab 7)
 - [ ] **กฤตเมธ** — เขียน unit test ของตัวเอง (เสนอ: การคำนวณคะแนนเฉลี่ยหลังส่ง rating ใน `kittamet_note_rating_prototype.html`)
-- [ ] เขียนเทสต์ของ `POST /notes` ที่ commit ไม่ผ่าน แล้วต้องไม่ทิ้งไฟล์กำพร้าไว้ใน storage (โค้ดมี rollback แล้วแต่ยังไม่มีเทสต์คลุม)
+- [x] เขียนเทสต์ของ `POST /notes` ที่ commit ไม่ผ่าน แล้วต้องไม่ทิ้งไฟล์กำพร้าไว้ใน storage — NA-12
 - [ ] เทสต์ที่รันกับ PostgreSQL จริง — ตอนนี้เทสต์ Python ใช้ SQLite ส่วน compose ใช้ Postgres จึงมีช่องว่างเรื่องความต่างของ dialect (`ilike`, การเทียบวันที่) ที่จับได้แค่ตอน smoke test
 - [ ] เพิ่ม branch protection ให้ `main` ต้องผ่าน CI ก่อน merge (ตั้งใน GitHub Settings ไม่ใช่ในโค้ด)
 - [ ] E2E test — รอ backend จริง
