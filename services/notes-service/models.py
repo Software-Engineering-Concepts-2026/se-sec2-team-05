@@ -42,9 +42,17 @@ class Note(Base):
 
     # เจ้าของโน้ต — ยังเป็น string ไปก่อนจนกว่า User & Auth service จะมีจริง (#5, #6)
     uploader_name: Mapped[str] = mapped_column(String(120), nullable=False, default="anonymous")
+
+    # hash ของ edit token ที่ใช้พิสูจน์ความเป็นเจ้าของตอนแก้/ลบ (US-19, US-20)
+    # เก็บเฉพาะ hash ตัว token จริงคืนให้ผู้สร้างครั้งเดียวตอน POST แล้วไม่เก็บไว้ที่ไหนอีก
+    # ดู ADR-004 — เป็นของชั่วคราว รื้อทิ้งเมื่อ #5/#6 เสร็จ
+    edit_token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
     )
+    # ว่างจนกว่าจะถูกแก้ครั้งแรก — AC ข้อ 3 ของ #19 ขอแค่ "เวลาแก้ไขล่าสุด"
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     def to_dict(self):
         return {
@@ -63,6 +71,7 @@ class Note(Base):
             "size_bytes": self.size_bytes,
             "uploader_name": self.uploader_name,
             "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "download_url": f"/notes/{self.id}/download",
         }
 

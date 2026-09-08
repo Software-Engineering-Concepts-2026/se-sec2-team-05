@@ -93,6 +93,34 @@ jobs:
           cmp /tmp/note.pdf /tmp/downloaded.pdf
           echo "end-to-end OK"
 
+      # เส้นทางของ US-19/US-20: แก้ metadata ด้วย edit token แล้วลบทิ้ง พร้อมเช็คว่าคนที่ไม่มี token ทำไม่ได้
+      - name: End-to-end smoke test (edit -> delete with edit token)
+        run: |
+          set -euo pipefail
+          printf '%s' '%PDF-1.4 ci edit note' > /tmp/edit.pdf
+          created=$(curl -fsS -X POST http://localhost:5001/notes             -F 'title=CI edit note'             -F 'subject_name=Algorithms'             -F 'subject_code=CS301'             -F 'faculty=ICT'             -F 'year_level=3'             -F 'lesson=Sorting'             -F 'file=@/tmp/edit.pdf;type=application/pdf')
+          note_id=$(echo "$created" | jq -r '.id')
+          token=$(echo "$created" | jq -r '.edit_token')
+          test "$token" != "null"
+
+          # ไม่มี token ต้องแก้ไม่ได้และลบไม่ได้
+          for verb in PATCH DELETE; do
+            status=$(curl -s -o /dev/null -w '%{http_code}' -X $verb "http://localhost:5001/notes/$note_id" -d 'title=hijacked')
+            test "$status" = "403"
+          done
+
+          # มี token ถึงจะแก้ได้ และ updated_at ต้องถูกประทับ
+          updated=$(curl -fsS -X PATCH "http://localhost:5001/notes/$note_id"             -H "X-Note-Token: $token" -d 'topic=Merge Sort')
+          test "$(echo "$updated" | jq -r '.topic')" = "Merge Sort"
+          test "$(echo "$updated" | jq -r '.updated_at')" != "null"
+          # ฟิลด์ที่ไม่ได้ส่งมาต้องคงเดิม
+          test "$(echo "$updated" | jq -r '.subject_code')" = "CS301"
+
+          status=$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "http://localhost:5001/notes/$note_id" -H "X-Note-Token: $token")
+          test "$status" = "204"
+          test "$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:5001/notes/$note_id")" = "404"
+          echo "edit/delete OK"
+
       - name: Metadata validation is enforced
         run: |
           status=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:5001/notes -F 'title=missing everything else')

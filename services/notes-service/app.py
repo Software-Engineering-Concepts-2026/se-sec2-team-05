@@ -5,9 +5,12 @@ Endpoint:
     POST /notes               อัปโหลดไฟล์ + metadata (multipart/form-data)
     GET  /notes               ค้นหา/กรองด้วย metadata ที่กรอกไว้ (AC ข้อ 4)
     GET  /notes/<id>          รายละเอียดโน้ตหนึ่งรายการ
+    PATCH  /notes/<id>        แก้ metadata บางส่วน (US-19) ต้องมี X-Note-Token
+    DELETE /notes/<id>        ลบโน้ตพร้อมไฟล์ (US-20) ต้องมี X-Note-Token
     GET  /notes/<id>/download ดาวน์โหลดไฟล์จริง
 
-ยังไม่มี auth — ทุก endpoint เปิดหมด จนกว่า #5/#6 (User & Auth) จะเสร็จ
+ยังไม่มี auth — endpoint ที่อ่านอย่างเดียวเปิดหมด จนกว่า #5/#6 (User & Auth) จะเสร็จ
+ส่วนการแก้/ลบใช้ edit token ต่อโน้ตเป็นตัวกันชั่วคราว (ดู ADR-004 และ tokens.py)
 """
 
 import os
@@ -18,6 +21,7 @@ from sqlalchemy import select
 
 from models import Note, build_session_factory
 from storage import storage_from_env
+from tokens import HEADER_NAME, issue_token, token_matches
 from validation import ALLOWED_CONTENT_TYPES, MAX_FILE_BYTES, validate_file, validate_metadata
 
 DEFAULT_DATABASE_URL = "sqlite:///notes.db"
@@ -94,12 +98,14 @@ def create_app(database_url: str | None = None, storage=None) -> Flask:
         storage_key = file_storage.build_key(content_type)
         file_storage.save(storage_key, upload)
 
+        token, token_hash = issue_token()
         note = Note(
             **cleaned,
             file_name=upload.filename,
             content_type=content_type,
             size_bytes=size_bytes,
             storage_key=storage_key,
+            edit_token_hash=token_hash,
         )
         with session_factory() as session:
             session.add(note)
@@ -110,7 +116,8 @@ def create_app(database_url: str | None = None, storage=None) -> Flask:
                 session.rollback()
                 file_storage.delete(storage_key)
                 raise
-            return jsonify(note.to_dict()), 201
+            # ครั้งเดียวที่ token ตัวจริงออกจาก service — ในฐานข้อมูลมีแค่ hash
+            return jsonify(**note.to_dict(), edit_token=token), 201
 
     @app.get("/notes")
     def list_notes():
@@ -186,6 +193,54 @@ def create_app(database_url: str | None = None, storage=None) -> Flask:
             if note is None:
                 return jsonify(error="not_found"), 404
             return jsonify(note.to_dict())
+
+    @app.patch("/notes/<int:note_id>")
+    def update_note(note_id):
+        """แก้ metadata บางส่วน — US-19 (#19)
+
+        เป็น partial update: ส่งมาเฉพาะฟิลด์ที่จะแก้ ฟิลด์ที่ไม่ส่งคงค่าเดิม
+        ไฟล์แก้ไม่ได้ ต้องอัปโหลดใหม่ (AC ของ #19 พูดถึงแค่ metadata)
+        """
+        with session_factory() as session:
+            note = session.get(Note, note_id)
+            if note is None:
+                return jsonify(error="not_found"), 404
+            if not token_matches(request.headers.get(HEADER_NAME), note.edit_token_hash):
+                return jsonify(error="forbidden"), 403
+
+            cleaned, errors = validate_metadata(request.form, partial=True)
+            if errors:
+                return jsonify(error="validation_failed", fields=errors), 400
+            if not cleaned:
+                return jsonify(error="no_fields_to_update"), 400
+
+            for field, value in cleaned.items():
+                setattr(note, field, value)
+            note.updated_at = datetime.now(timezone.utc)
+
+            session.commit()
+            return jsonify(note.to_dict())
+
+    @app.delete("/notes/<int:note_id>")
+    def delete_note(note_id):
+        """ลบโน้ตพร้อมไฟล์ — US-20 (#20)
+
+        ลบแถวใน DB ให้ commit ผ่านก่อน แล้วค่อยลบไฟล์ ถ้าสลับลำดับแล้ว commit ล้ม
+        จะเหลือ record ที่ชี้ไปยังไฟล์ที่ไม่มีอยู่จริง ซึ่งพังกว่าไฟล์กำพร้าที่ไม่มีใครชี้ถึง
+        """
+        with session_factory() as session:
+            note = session.get(Note, note_id)
+            if note is None:
+                return jsonify(error="not_found"), 404
+            if not token_matches(request.headers.get(HEADER_NAME), note.edit_token_hash):
+                return jsonify(error="forbidden"), 403
+
+            storage_key = note.storage_key
+            session.delete(note)
+            session.commit()
+
+        file_storage.delete(storage_key)
+        return "", 204
 
     @app.get("/notes/<int:note_id>/download")
     def download_note(note_id):

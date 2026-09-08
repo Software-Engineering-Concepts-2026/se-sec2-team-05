@@ -87,7 +87,7 @@ Key architectural decisions and diagrams are documented in the `/docs/architectu
 
 | Service | Port | สถานะ |
 | --- | --- | --- |
-| **[Notes Service](./services/notes-service/README.md)** | 5001 | อัปโหลด/ค้นหา/ดาวน์โหลดโน้ตพร้อม metadata (US-08) — ยังไม่มี auth |
+| **[Notes Service](./services/notes-service/README.md)** | 5001 | อัปโหลด/ค้นหา/ดาวน์โหลด/แก้ไข/ลบโน้ตพร้อม metadata (US-08, US-19, US-20) — ยังไม่มี auth |
 | **Stats Service** | 5000 | คืนสถิติ mock ยังไม่ต่อ DB |
 | API Gateway, User & Auth Service | — | ยังไม่ได้สร้าง (#5, #6) |
 

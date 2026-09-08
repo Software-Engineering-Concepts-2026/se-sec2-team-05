@@ -182,6 +182,7 @@ def test_oversized_request_returns_json_413_not_html(client):
     assert response.get_json()["error"] == "validation_failed"
     assert "file" in response.get_json()["fields"]
 
+
 def test_filter_by_file_type_alone(client):
     upload(client)  # pdf, ICT, year 2 ตาม BASE_FORM
 
@@ -238,3 +239,146 @@ def test_invalid_file_type_mixed_with_valid_still_rejects_whole_request(client):
     response = client.get("/notes?file_type=pdf&file_type=docx")
 
     assert response.status_code == 400
+
+
+# --- US-19 (#19) แก้ไขโน้ต / US-20 (#20) ลบโน้ต -----------------------------------
+# ความเป็นเจ้าของพิสูจน์ด้วย edit token ต่อโน้ต (ADR-004) ระหว่างที่ยังไม่มี Auth Service
+
+
+def upload_with_token(client, **overrides):
+    """อัปโหลดแล้วคืน (note_id, edit_token) — token ออกมาให้ครั้งเดียวตอนสร้าง"""
+    body = upload(client, **overrides).get_json()
+    return body["id"], body["edit_token"]
+
+
+def test_create_returns_edit_token_once_and_never_stores_it_plainly(client):
+    body = upload(client).get_json()
+    token = body["edit_token"]
+
+    assert len(token) >= 32
+    # อ่านโน้ตซ้ำต้องไม่มี token หรือ hash ของมันหลุดออกมาอีก
+    again = client.get(f"/notes/{body['id']}").get_json()
+    assert "edit_token" not in again
+    assert "edit_token_hash" not in again
+    assert token not in client.get("/notes").get_data(as_text=True)
+
+
+def test_patch_updates_only_given_fields_and_stamps_updated_at(client):
+    note_id, token = upload_with_token(client)
+    assert client.get(f"/notes/{note_id}").get_json()["updated_at"] is None
+
+    body = client.patch(
+        f"/notes/{note_id}",
+        data={"subject_code": "CS202", "topic": "Binary Tree"},
+        headers={"X-Note-Token": token},
+    ).get_json()
+
+    assert body["subject_code"] == "CS202"
+    assert body["topic"] == "Binary Tree"
+    # ฟิลด์ที่ไม่ได้ส่งมาต้องคงค่าเดิม
+    assert body["subject_name"] == BASE_FORM["subject_name"]
+    assert body["lesson"] == BASE_FORM["lesson"]
+    assert body["updated_at"] is not None
+
+
+def test_patch_can_clear_an_optional_field(client):
+    note_id, token = upload_with_token(client, topic="เดิม")
+
+    body = client.patch(
+        f"/notes/{note_id}", data={"topic": ""}, headers={"X-Note-Token": token}
+    ).get_json()
+
+    assert body["topic"] is None
+
+
+def test_patch_rejects_invalid_value_and_keeps_old_data(client):
+    note_id, token = upload_with_token(client)
+
+    response = client.patch(
+        f"/notes/{note_id}", data={"year_level": "99"}, headers={"X-Note-Token": token}
+    )
+
+    assert response.status_code == 400
+    assert "year_level" in response.get_json()["fields"]
+    assert client.get(f"/notes/{note_id}").get_json()["year_level"] == 2
+
+
+def test_patch_ignores_immutable_fields(client):
+    note_id, token = upload_with_token(client, uploader_name="อติชาติ")
+
+    body = client.patch(
+        f"/notes/{note_id}",
+        data={"uploader_name": "คนอื่น", "title": "ชื่อใหม่"},
+        headers={"X-Note-Token": token},
+    ).get_json()
+
+    assert body["title"] == "ชื่อใหม่"
+    assert body["uploader_name"] == "อติชาติ"
+
+
+def test_patch_with_no_usable_field_returns_400(client):
+    note_id, token = upload_with_token(client)
+
+    response = client.patch(f"/notes/{note_id}", data={}, headers={"X-Note-Token": token})
+
+    assert response.status_code == 400
+    assert response.get_json()["error"] == "no_fields_to_update"
+
+
+def test_delete_removes_record_and_file(client, tmp_path):
+    note_id, token = upload_with_token(client)
+    storage_dir = tmp_path / "storage"
+    assert len(list(storage_dir.iterdir())) == 1
+
+    response = client.delete(f"/notes/{note_id}", headers={"X-Note-Token": token})
+
+    assert response.status_code == 204
+    assert client.get(f"/notes/{note_id}").status_code == 404
+    assert list(storage_dir.iterdir()) == []
+
+
+@pytest.mark.parametrize("method", ["patch", "delete"])
+def test_edit_and_delete_are_rejected_without_token(client, method):
+    note_id, _ = upload_with_token(client)
+
+    response = getattr(client, method)(f"/notes/{note_id}", data={"title": "แอบแก้"})
+
+    assert response.status_code == 403
+    assert response.get_json()["error"] == "forbidden"
+
+
+@pytest.mark.parametrize("method", ["patch", "delete"])
+def test_edit_and_delete_are_rejected_with_wrong_token(client, method):
+    note_id, _ = upload_with_token(client)
+
+    response = getattr(client, method)(
+        f"/notes/{note_id}",
+        data={"title": "แอบแก้"},
+        headers={"X-Note-Token": "not-the-right-token"},
+    )
+
+    assert response.status_code == 403
+
+
+def test_token_of_one_note_cannot_touch_another_note(client, tmp_path):
+    """token ของโน้ตใบหนึ่งต้องใช้กับใบอื่นไม่ได้ — AC "เจ้าของเท่านั้น" ของทั้ง #19 และ #20"""
+    mine, my_token = upload_with_token(client, title="โน้ตของฉัน")
+    theirs, _ = upload_with_token(client, title="โน้ตของคนอื่น")
+
+    assert client.patch(
+        f"/notes/{theirs}", data={"title": "โดนแก้"}, headers={"X-Note-Token": my_token}
+    ).status_code == 403
+    assert client.delete(f"/notes/{theirs}", headers={"X-Note-Token": my_token}).status_code == 403
+
+    # ของคนอื่นต้องไม่ถูกแตะทั้งใน DB และใน storage
+    assert client.get(f"/notes/{theirs}").get_json()["title"] == "โน้ตของคนอื่น"
+    assert len(list((tmp_path / "storage").iterdir())) == 2
+    # แต่เจ้าของตัวจริงยังใช้ token ของตัวเองกับโน้ตตัวเองได้ตามปกติ
+    assert client.delete(f"/notes/{mine}", headers={"X-Note-Token": my_token}).status_code == 204
+
+
+def test_edit_and_delete_unknown_note_returns_404(client):
+    _, token = upload_with_token(client)
+
+    assert client.patch("/notes/999", data={"title": "x"}, headers={"X-Note-Token": token}).status_code == 404
+    assert client.delete("/notes/999", headers={"X-Note-Token": token}).status_code == 404
