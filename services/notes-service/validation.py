@@ -31,15 +31,29 @@ MAX_LENGTHS = {
 }
 
 
-def validate_metadata(form):
+# ฟิลด์ที่ผู้ใช้แก้ไม่ได้หลังสร้างโน้ตแล้ว (US-19) — ไฟล์ต้องอัปโหลดใหม่ ส่วนเจ้าของ
+# กับเวลาสร้างเป็นข้อมูลที่ระบบเป็นคนกำหนด ส่งมาใน PATCH ก็จะถูกเมิน ไม่ใช่ error
+IMMUTABLE_FIELDS = ("uploader_name", "created_at", "file", "file_name", "storage_key")
+
+# ฟิลด์ที่ไม่บังคับ ล้างค่าได้ด้วยการส่งค่าว่างมาใน PATCH
+OPTIONAL_FIELDS = ("topic", "class_date", "description")
+
+
+def validate_metadata(form, partial=False):
     """ตรวจ metadata ที่ผู้ใช้กรอก
 
     คืน (cleaned, errors) — `errors` เป็น dict ของ {field: เหตุผล} ถ้าว่างแปลว่าผ่าน
     เก็บ error ให้ครบทุกฟิลด์ก่อนค่อยคืน ไม่หยุดที่ตัวแรก เพื่อให้ผู้ใช้แก้ทีเดียวจบ
+
+    `partial=True` ใช้กับ PATCH (US-19): ฟิลด์ที่ไม่ได้ส่งมาจะถูกข้ามไปเลย ไม่นับว่าขาด
+    แต่ฟิลด์บังคับที่ "ส่งมาแบบว่าง" ยังเป็น error อยู่ เพราะนั่นคือความตั้งใจจะลบค่าทิ้ง
+    ซึ่งทำกับฟิลด์บังคับไม่ได้ ส่วนฟิลด์ไม่บังคับที่ส่งมาว่างแปลว่าล้างค่า → เก็บเป็น None
     """
     cleaned, errors = {}, {}
 
     for field in REQUIRED_FIELDS:
+        if partial and field not in form:
+            continue
         value = (form.get(field) or "").strip()
         if not value:
             errors[field] = "จำเป็นต้องกรอก"
@@ -55,34 +69,40 @@ def validate_metadata(form):
             year = int(cleaned["year_level"])
         except ValueError:
             errors["year_level"] = "ต้องเป็นตัวเลข"
+            del cleaned["year_level"]
         else:
             if not MIN_YEAR_LEVEL <= year <= MAX_YEAR_LEVEL:
                 errors["year_level"] = f"ต้องอยู่ระหว่าง {MIN_YEAR_LEVEL}-{MAX_YEAR_LEVEL}"
+                del cleaned["year_level"]
             else:
                 cleaned["year_level"] = year
 
     # topic กับ class_date ไม่บังคับ แต่ถ้ากรอกมาต้องถูกรูปแบบ (AC ข้อ 2)
-    topic = (form.get("topic") or "").strip()
-    if topic:
-        if len(topic) > MAX_LENGTHS["topic"]:
-            errors["topic"] = f"ยาวเกิน {MAX_LENGTHS['topic']} ตัวอักษร"
-        else:
-            cleaned["topic"] = topic
+    for field in OPTIONAL_FIELDS:
+        if field not in form:
+            continue
+        value = (form.get(field) or "").strip()
+        if not value:
+            # ส่งค่าว่างมาใน PATCH = ตั้งใจล้างค่า · ใน POST ถือว่าไม่ได้กรอก จึงไม่ต้องเซ็ต
+            if partial:
+                cleaned[field] = None
+            continue
+        if field == "class_date":
+            try:
+                cleaned[field] = date.fromisoformat(value)
+            except ValueError:
+                errors[field] = "ต้องเป็นรูปแบบ YYYY-MM-DD"
+            continue
+        limit = MAX_LENGTHS.get(field)
+        if limit and len(value) > limit:
+            errors[field] = f"ยาวเกิน {limit} ตัวอักษร"
+            continue
+        cleaned[field] = value
 
-    raw_date = (form.get("class_date") or "").strip()
-    if raw_date:
-        try:
-            cleaned["class_date"] = date.fromisoformat(raw_date)
-        except ValueError:
-            errors["class_date"] = "ต้องเป็นรูปแบบ YYYY-MM-DD"
-
-    description = (form.get("description") or "").strip()
-    if description:
-        cleaned["description"] = description
-
-    uploader = (form.get("uploader_name") or "").strip()
-    # ยังไม่มี auth (#5, #6) จึงรับชื่อจากฟอร์มไปก่อน — เมื่อมี session จริงให้ดึงจาก token แทน
-    cleaned["uploader_name"] = uploader or "anonymous"
+    if not partial:
+        uploader = (form.get("uploader_name") or "").strip()
+        # ยังไม่มี auth (#5, #6) จึงรับชื่อจากฟอร์มไปก่อน — เมื่อมี session จริงให้ดึงจาก token แทน
+        cleaned["uploader_name"] = uploader or "anonymous"
 
     return cleaned, errors
 
