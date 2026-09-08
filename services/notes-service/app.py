@@ -158,7 +158,7 @@ def create_app(database_url: str | None = None, storage=None) -> Flask:
                 return jsonify(error="invalid_filter", field="file_type"), 400
             content_types = [EXT_TO_CONTENT_TYPE[ft] for ft in file_types]
             stmt = stmt.where(Note.content_type.in_(content_types))
-        
+
         for field, condition in (
             ("date_from", lambda d: Note.class_date >= d),
             ("date_to", lambda d: Note.class_date <= d),
