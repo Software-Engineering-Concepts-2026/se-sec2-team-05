@@ -60,7 +60,12 @@ request ที่ใหญ่เกิน 21 MB (ไฟล์ 20 MB + ที่�
 ### `GET /notes` — query parameters
 
 `q` (ค้นในชื่อ/วิชา/รหัส/บทเรียน/หัวข้อ), `faculty`, `subject_code`, `year_level`,
-`date_from`, `date_to`, `sort` (`new` | `old` | `class_date` | `title`), `limit` (สูงสุด 100), `offset`
+`file_type` (`pdf` | `png` | `jpg`), `date_from`, `date_to`,
+`sort` (`new` | `old` | `class_date` | `title`), `limit` (สูงสุด 100), `offset`
+
+`file_type` ส่งซ้ำได้หลายค่าเพื่อกรองแบบ OR เช่น `?file_type=pdf&file_type=png` (US-10)
+ค่าที่รับมาจาก client เป็นนามสกุลสั้น แล้วแปลงเป็น content type ผ่าน allowlist ของ `validation.py`
+ถ้ามีค่าใดไม่อยู่ใน allowlist จะปฏิเสธทั้งชุดด้วย `400` ไม่ใช่กรองเฉพาะค่าที่ถูก
 
 `limit` ถูก clamp ไว้ที่ 1–100 และ `offset` ต่ำสุด 0 ค่าติดลบจึงไม่หลุดไปถึง SQL
 

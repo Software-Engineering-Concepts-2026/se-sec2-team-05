@@ -32,8 +32,9 @@ def client(tmp_path, notes_create_app):
 
 
 def upload(client, **overrides):
+    """อัปโหลดโน้ตด้วย BASE_FORM — ส่ง `file=` มา override ไฟล์ default (pdf) ได้"""
     form = {**BASE_FORM, **overrides}
-    form["file"] = (io.BytesIO(b"%PDF-1.4 fake note"), "note.pdf", "application/pdf")
+    form.setdefault("file", (io.BytesIO(b"%PDF-1.4 fake note"), "note.pdf", "application/pdf"))
     return client.post("/notes", data=form, content_type="multipart/form-data")
 
 
@@ -181,6 +182,74 @@ def test_oversized_request_returns_json_413_not_html(client):
     assert response.status_code == 413
     assert response.get_json()["error"] == "validation_failed"
     assert "file" in response.get_json()["fields"]
+
+
+def test_filter_by_file_type_alone(client):
+    upload(client)  # pdf, ICT, year 2 ตาม BASE_FORM
+
+    hits = client.get("/notes?file_type=pdf").get_json()
+
+    assert hits["count"] == 1
+    assert hits["items"][0]["content_type"] == "application/pdf"
+
+
+def test_filter_combined_faculty_year_file_type(client):
+    upload(client)  # ตรงทุกเงื่อนไข: ICT, year 2, pdf
+    upload(client, faculty="Business", year_level="1", subject_code="BUS101")  # ไม่ตรง faculty/year
+
+    hits = client.get("/notes?faculty=ICT&year_level=2&file_type=pdf").get_json()
+
+    assert hits["count"] == 1
+    assert hits["items"][0]["subject_code"] == "CS201"  # จาก BASE_FORM
+
+
+def test_filter_multiple_file_types_combine_with_or(client):
+    upload(client, subject_code="PDF1")  # pdf จาก upload() helper
+    upload(
+        client,
+        subject_code="PNG1",
+        file=(io.BytesIO(b"fake-png-bytes"), "note.png", "image/png"),
+    )
+
+    # ยืนยันก่อนว่าอัปโหลดได้สองชนิดจริง ไม่ใช่ pdf สองไฟล์ — ไม่งั้นเคสนี้เขียวแบบหลอก
+    stored = client.get("/notes").get_json()["items"]
+    assert {n["content_type"] for n in stored} == {"application/pdf", "image/png"}
+
+    hits = client.get("/notes?file_type=pdf&file_type=png").get_json()
+
+    assert hits["count"] == 2
+    assert {n["subject_code"] for n in hits["items"]} == {"PDF1", "PNG1"}
+
+    # แต่ละชนิดเดี่ยว ๆ ต้องได้แค่ตัวของมัน มิฉะนั้นแปลว่า in_() ไม่ได้กรองจริง
+    only_pdf = client.get("/notes?file_type=pdf").get_json()
+    only_png = client.get("/notes?file_type=png").get_json()
+    assert [n["subject_code"] for n in only_pdf["items"]] == ["PDF1"]
+    assert [n["subject_code"] for n in only_png["items"]] == ["PNG1"]
+
+
+def test_file_type_filter_with_no_match_returns_empty_not_error(client):
+    upload(client)  # มีแต่ pdf ในระบบ
+
+    hits = client.get("/notes?file_type=png").get_json()
+
+    assert hits["count"] == 0
+    assert hits["items"] == []
+
+
+def test_invalid_file_type_returns_400_not_500(client):
+    response = client.get("/notes?file_type=docx")
+    body = response.get_json()
+
+    assert response.status_code == 400
+    assert body["error"] == "invalid_filter"
+    assert body["field"] == "file_type"
+
+
+def test_invalid_file_type_mixed_with_valid_still_rejects_whole_request(client):
+    """ส่งมาหลายค่าแล้วมีตัวเดียวผิด ต้อง reject ทั้งชุด ไม่ใช่กรองเฉพาะตัวที่ถูก"""
+    response = client.get("/notes?file_type=pdf&file_type=docx")
+
+    assert response.status_code == 400
 
 
 # --- US-19 (#19) แก้ไขโน้ต / US-20 (#20) ลบโน้ต -----------------------------------

@@ -22,7 +22,7 @@ from sqlalchemy import select
 from models import Note, build_session_factory
 from storage import storage_from_env
 from tokens import HEADER_NAME, issue_token, token_matches
-from validation import MAX_FILE_BYTES, validate_file, validate_metadata
+from validation import ALLOWED_CONTENT_TYPES, MAX_FILE_BYTES, validate_file, validate_metadata
 
 DEFAULT_DATABASE_URL = "sqlite:///notes.db"
 DEFAULT_PAGE_SIZE = 20
@@ -40,6 +40,14 @@ SORT_COLUMNS = {
     "old": Note.created_at.asc(),
     "class_date": Note.class_date.desc(),
     "title": Note.title.asc(),
+}
+
+# รับค่าจาก client เป็นนามสกุลไฟล์สั้นๆ (pdf, png, jpg) แทน MIME type เต็ม
+# เพื่อให้ frontend ส่งค่าที่คนอ่านง่ายกว่า "application/pdf"
+# สร้าง reverse map จาก ALLOWED_CONTENT_TYPES เดิมใน validation.py ไม่ต้อง hardcode ซ้ำ
+EXT_TO_CONTENT_TYPE = {
+    ext.lstrip("."): content_type
+    for content_type, ext in ALLOWED_CONTENT_TYPES.items()
 }
 
 
@@ -141,6 +149,15 @@ def create_app(database_url: str | None = None, storage=None) -> Flask:
                 stmt = stmt.where(Note.year_level == int(args["year_level"]))
             except ValueError:
                 return jsonify(error="invalid_filter", field="year_level"), 400
+
+        # US-10: กรองตามประเภทไฟล์ — รับหลายค่าพร้อมกันได้ (OR ภายในตัวกรองนี้)
+        file_types = args.getlist("file_type")
+        if file_types:
+            invalid = [ft for ft in file_types if ft not in EXT_TO_CONTENT_TYPE]
+            if invalid:
+                return jsonify(error="invalid_filter", field="file_type"), 400
+            content_types = [EXT_TO_CONTENT_TYPE[ft] for ft in file_types]
+            stmt = stmt.where(Note.content_type.in_(content_types))
 
         for field, condition in (
             ("date_from", lambda d: Note.class_date >= d),
