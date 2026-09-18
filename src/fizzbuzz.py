@@ -1,8 +1,12 @@
+def is_multiple(n, factor):
+    return n % factor == 0
+
+
 def fizzbuzz(number):
-    if number % 15 == 0:
+    if is_multiple(number, 15):
         return "FizzBuzz"
-    if number % 3 == 0:
+    if is_multiple(number, 3):
         return "Fizz"
-    if number % 5 == 0:
+    if is_multiple(number, 5):
         return "Buzz"
     return str(number)
