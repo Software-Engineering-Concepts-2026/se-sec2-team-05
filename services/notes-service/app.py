@@ -248,6 +248,10 @@ def create_app(database_url: str | None = None, storage=None) -> Flask:
             note = session.get(Note, note_id)
             if note is None:
                 return jsonify(error="not_found"), 404
+            
+            note.download_count += 1
+            session.commit()
+            
             return send_file(
                 file_storage.open(note.storage_key),
                 mimetype=note.content_type,
