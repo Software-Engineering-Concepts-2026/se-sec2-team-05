@@ -32,3 +32,14 @@ def test_fizzbuzz_returns_buzz_for_five():
 
     # Assert
     assert result == "Buzz"
+
+
+def test_fizzbuzz_returns_fizzbuzz_for_fifteen():
+    # Arrange
+    number = 15
+
+    # Act
+    result = fizzbuzz(number)
+
+    # Assert
+    assert result == "FizzBuzz"
