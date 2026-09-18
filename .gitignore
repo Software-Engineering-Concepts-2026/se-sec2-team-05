@@ -11,6 +11,7 @@ venv/
 .venv/
 ENV/
 .pytest_cache/
+.coverage
 *.db
 
 # Node.js
