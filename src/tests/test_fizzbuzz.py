@@ -43,3 +43,14 @@ def test_fizzbuzz_returns_fizzbuzz_for_fifteen():
 
     # Assert
     assert result == "FizzBuzz"
+
+
+def test_fizzbuzz_returns_number_as_string_for_non_multiple():
+    # Arrange
+    number = 7
+
+    # Act
+    result = fizzbuzz(number)
+
+    # Assert
+    assert result == "7"
