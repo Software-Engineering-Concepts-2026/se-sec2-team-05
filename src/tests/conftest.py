@@ -24,6 +24,12 @@ for service in ("stats-service", "notes-service"):
     if path not in sys.path:
         sys.path.insert(0, path)
 
+# fizzbuzz.py ไม่มี __init__.py จึงไม่ใช่ package - เติม src/ เข้า sys.path ตรง ๆ
+# แทนที่จะพึ่ง `python -m pytest` ที่เติม cwd ให้เอง (CI เรียก `pytest` ตรง ๆ ไม่ผ่าน -m)
+SRC = str(REPO_ROOT / "src")
+if SRC not in sys.path:
+    sys.path.insert(0, SRC)
+
 import pytest  # noqa: E402  (ต้องเติม sys.path ให้เสร็จก่อน)
 
 # `app.py` ของ Notes Service สร้าง app ตอน import (gunicorn ต้องการ `app:app`) ซึ่งแปลว่า

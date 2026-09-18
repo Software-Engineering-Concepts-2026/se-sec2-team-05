@@ -1,4 +1,4 @@
-from src.fizzbuzz import fizzbuzz
+from fizzbuzz import fizzbuzz
 
 
 def test_fizzbuzz_returns_number_as_string_for_one():
