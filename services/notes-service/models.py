@@ -54,11 +54,6 @@ class Note(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
     )
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
-    )
     # ว่างจนกว่าจะถูกแก้ครั้งแรก — AC ข้อ 3 ของ #19 ขอแค่ "เวลาแก้ไขล่าสุด"
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

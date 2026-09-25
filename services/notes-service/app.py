@@ -17,7 +17,7 @@ import os
 from datetime import date, datetime, timezone
 
 from flask import Flask, jsonify, request, send_file
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from models import Note, build_session_factory
 from storage import storage_from_env
@@ -248,12 +248,23 @@ def create_app(database_url: str | None = None, storage=None) -> Flask:
             note = session.get(Note, note_id)
             if note is None:
                 return jsonify(error="not_found"), 404
-            
-            note.download_count += 1
+
+            # เปิดไฟล์ก่อนแล้วค่อยนับ — นับเฉพาะดาวน์โหลดที่สำเร็จ (AC ข้อ 3 ของ #12)
+            try:
+                file_handle = file_storage.open(note.storage_key)
+            except FileNotFoundError:
+                return jsonify(error="file_not_found"), 404
+
+            # update แบบ atomic ใน SQL กันนับตกหล่นเมื่อมีดาวน์โหลดพร้อมกันหลาย request
+            session.execute(
+                update(Note)
+                .where(Note.id == note_id)
+                .values(download_count=Note.download_count + 1)
+            )
             session.commit()
-            
+
             return send_file(
-                file_storage.open(note.storage_key),
+                file_handle,
                 mimetype=note.content_type,
                 as_attachment=True,
                 download_name=note.file_name,
