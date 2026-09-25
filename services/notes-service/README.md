@@ -36,7 +36,7 @@ NOTES_STORAGE_DIR=./data python services/notes-service/app.py
 | `GET` | `/notes/<id>` | รายละเอียดโน้ตหนึ่งรายการ |
 | `PATCH` | `/notes/<id>` | แก้ metadata บางส่วน — ต้องมี `X-Note-Token` (US-19) |
 | `DELETE` | `/notes/<id>` | ลบโน้ตพร้อมไฟล์ — ต้องมี `X-Note-Token` (US-20) → `204` |
-| `GET` | `/notes/<id>/download` | ดาวน์โหลดไฟล์จริง (ตั้งชื่อไฟล์ตามที่ผู้ใช้อัปโหลดมา) |
+| `GET` | `/notes/<id>/download` | ดาวน์โหลดไฟล์จริง (ตั้งชื่อไฟล์ตามที่ผู้ใช้อัปโหลดมา) และนับยอดดาวน์โหลด (US-12) |
 
 ### `POST /notes`
 
@@ -71,6 +71,24 @@ request ที่ใหญ่เกิน 21 MB (ไฟล์ 20 MB + ที่�
 
 ค่าที่ผิดรูปจะได้ `400` (`{"error": "invalid_filter", "field": ...}`) ไม่ใช่ `500`
 และ `sort` รับได้เฉพาะค่าใน allowlist เท่านั้น ไม่ได้เอาค่าจาก client ไปต่อเป็น SQL
+
+### `GET /notes/<id>/download` — ดาวน์โหลดและนับยอด (US-12)
+
+ตอบเป็นไฟล์แนบ (`Content-Disposition: attachment`) ชื่อไฟล์ตามที่ผู้อัปโหลดตั้งไว้
+พร้อมเพิ่ม `download_count` ของโน้ตนั้นทีละ 1 ซึ่งแสดงอยู่ใน object ของโน้ต (`GET /notes`, `GET /notes/<id>`)
+และเป็นข้อมูลตั้งต้นให้สถิติของเจ้าของโน้ตใน US-16
+
+| กรณี | Response | `download_count` |
+| --- | --- | --- |
+| ดาวน์โหลดสำเร็จ | `200` + ไฟล์ | +1 |
+| ไม่มีโน้ตนั้น | `404` `{"error": "not_found"}` | — |
+| มี record แต่ไฟล์หายจาก storage | `404` `{"error": "file_not_found"}` | ไม่เปลี่ยน |
+
+- **นับเฉพาะที่สำเร็จ** — service เปิดไฟล์จาก storage ก่อน แล้วค่อยนับ ไฟล์หายจึงไม่ทำให้ยอดเพิ่มโดยที่ผู้ใช้ไม่ได้ไฟล์ไป
+- **นับแบบ atomic** — ใช้ `UPDATE notes SET download_count = download_count + 1` ใน SQL ตรง ๆ
+  ไม่อ่านค่ามาบวกใน Python จึงไม่นับตกหล่นเมื่อมีหลาย request โหลดพร้อมกัน
+- นับต่อ request ที่ดาวน์โหลดสำเร็จ ยังไม่ตัดซ้ำรายผู้ใช้ เพราะยังไม่มีระบบ auth (#5/#6) ให้ระบุตัวผู้ดาวน์โหลด
+- ตาราง `notes` มีคอลัมน์ `download_count` เพิ่มมา ยังไม่มี migration จึงต้อง `docker compose down -v` ตอนอัปเดต schema
 
 ### `PATCH /notes/<id>` และ `DELETE /notes/<id>` — ต้องมี edit token
 

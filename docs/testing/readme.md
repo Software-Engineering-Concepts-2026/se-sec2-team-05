@@ -77,6 +77,11 @@ Stats Service ที่คืน mock data กับ prototype ฝั่ง fron
 | NA-12 | commit ล้มแล้วต้องไม่เหลือไฟล์กำพร้า | `Session.commit` raise | โฟลเดอร์ storage ว่าง ไม่มีไฟล์ค้าง |
 | NA-13 | `limit`/`offset` ติดลบถูก clamp | `?limit=-1`, `?offset=-5` | `limit=-1` ได้ 1 รายการ (ไม่ใช่ทั้งหมดแบบที่ SQLite ตีความ), `offset=-5` เท่ากับ 0 |
 | NA-14 | request ใหญ่เกินได้ 413 เป็น JSON | body เกิน `MAX_CONTENT_LENGTH` | `413` + `error = validation_failed` ไม่ใช่หน้า HTML ของ Werkzeug |
+| NA-15 | โน้ตใหม่เริ่มที่ 0 ดาวน์โหลด (US-12) | `GET /notes/<id>` หลังอัปโหลด | `download_count = 0` |
+| NA-16 | ดาวน์โหลดสำเร็จแล้วยอดเพิ่ม 1 | `GET /notes/<id>/download` | `download_count = 1` |
+| NA-17 | ดาวน์โหลดซ้ำสะสมยอด | ดาวน์โหลด 3 ครั้ง | `download_count = 3` |
+| NA-18 | ไฟล์หายจาก storage ต้องไม่นับ | ลบไฟล์ออกจาก storage แล้วดาวน์โหลด | `404` `{"error": "file_not_found"}` และ `download_count` ยังเป็น 0 (AC ข้อ 3 ของ #12) |
+| NA-19 | ยอดดาวน์โหลดแยกรายโน้ต | โหลดโน้ต A 2 ครั้ง | A = 2, B = 0 |
 
 ### 2.5 Notes Service — แก้ไข/ลบโน้ต (`pytest`, US-19 #19 + US-20 #20)
 
