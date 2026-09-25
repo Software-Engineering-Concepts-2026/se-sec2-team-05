@@ -8,6 +8,8 @@
 (เจอจริงตอนเพิ่ม notes-service — เทสต์ของ stats-service กลายเป็นไปเรียก notes-service)
 จึงโหลด `app.py` ของแต่ละ service ด้วย importlib ภายใต้ชื่อโมดูลที่ไม่ซ้ำกัน แล้วส่งต่อ
 ให้เทสต์ผ่าน fixture แทน ส่วนโมดูลอื่น (models/storage/validation) ชื่อไม่ชนกันจึง import ปกติได้
+— auth-service จึงตั้งชื่อโมดูลเป็น `auth_models`/`auth_tokens`/`credentials` ไม่ใช้
+`models`/`tokens` ที่ notes-service ใช้อยู่แล้ว
 """
 
 import importlib.util
@@ -19,7 +21,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SERVICES = REPO_ROOT / "services"
 
-for service in ("stats-service", "notes-service"):
+for service in ("stats-service", "notes-service", "auth-service"):
     path = str(SERVICES / service)
     if path not in sys.path:
         sys.path.insert(0, path)
@@ -38,6 +40,8 @@ import pytest  # noqa: E402  (ต้องเติม sys.path ให้เส�
 _SANDBOX = Path(tempfile.mkdtemp(prefix="noteshare-tests-"))
 os.environ["DATABASE_URL"] = f"sqlite:///{_SANDBOX / 'import-time.db'}"
 os.environ["NOTES_STORAGE_DIR"] = str(_SANDBOX / "storage")
+# auth-service ไม่ยอมสตาร์ตถ้าไม่มี secret (ไม่มีค่า default โดยตั้งใจ) — ค่านี้ใช้แค่ในเทสต์
+os.environ["AUTH_JWT_SECRET"] = "test-only-secret-that-is-at-least-32-bytes"
 
 
 def _load_entrypoint(service: str, module_name: str):
@@ -50,6 +54,7 @@ def _load_entrypoint(service: str, module_name: str):
 
 stats_app_module = _load_entrypoint("stats-service", "stats_service_app")
 notes_app_module = _load_entrypoint("notes-service", "notes_service_app")
+auth_app_module = _load_entrypoint("auth-service", "auth_service_app")
 
 
 @pytest.fixture
@@ -62,3 +67,9 @@ def stats_client():
 def notes_create_app():
     """คืนฟังก์ชัน create_app ของ Notes Service ให้เทสต์ประกอบ app เองตามต้องการ"""
     return notes_app_module.create_app
+
+
+@pytest.fixture
+def auth_create_app():
+    """คืนฟังก์ชัน create_app ของ User & Auth Service ให้เทสต์ประกอบ app เองตามต้องการ"""
+    return auth_app_module.create_app

@@ -58,8 +58,9 @@ Per-layer rationale and the alternatives we weighed are in [tech_stack.md](./tec
 - [ADR-002 — Use RESTful APIs for Internal Service Communication](./adr/0002-use-restful-api-internal-communication.md)
 - [ADR-003 — Narrow the First Running Slice to One Service and Local File Storage](./adr/0003-tracer-bullet-scope.md)
 - [ADR-004 — Per-Note Edit Tokens as a Temporary Stand-In for Ownership Checks](./adr/0004-per-note-edit-token.md)
+- [ADR-005 — User & Auth Service with JWT Access Tokens Backed by Server-Side Sessions](./adr/0005-auth-jwt-with-server-side-sessions.md)
 
-> ⚠️ The C4 Container diagram above describes the **target** architecture. What `docker compose up` actually starts today is narrower — one `notes-service` plus `stats-service`, no gateway and no auth. See ADR-003.
+> ⚠️ The C4 Container diagram above describes the **target** architecture. What `docker compose up` actually starts today is narrower — `notes-service`, `auth-service` and `stats-service`, with no gateway, and `notes-service` does not call `auth-service` yet. See ADR-003 and ADR-005.
 
 ## Editing the diagrams
 

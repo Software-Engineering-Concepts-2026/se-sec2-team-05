@@ -26,6 +26,7 @@
 | 2026-08-31, feature/us08-note-metadata-service | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | เขียน Notes Service ทั้งตัวสำหรับ US-08 (#8): `app.py` (5 endpoint), `models.py`, `validation.py`, `storage.py`, `Dockerfile`, `README.md` ของ service + `docker-compose.yml` (Postgres + 2 service) + เทสต์ 28 เคสใน `src/tests/` + ADR-003 ทั้ง EN/TH + อัปเดต CI ให้ทดสอบ end-to-end ผ่าน compose | อติชาติสั่งให้รันเทสต์จริงทุกครั้งก่อนยอมรับ (`pytest` 32/32, `node --test` 7/7) · ระหว่างทาง Claude ทำเทสต์ของ stats-service พังเองเพราะทุก service มีไฟล์ `app.py` ชื่อซ้ำกัน แล้ว `import app` ไปเจอ notes-service แทน — Claude เจอเองตอนรันเทสต์ แก้ด้วยการโหลดผ่าน importlib ในชื่อโมดูลที่ไม่ซ้ำ และเขียนเหตุผลไว้ใน `conftest.py` แล้ว · Claude ยังเจอว่า `import app.py` สร้าง `notes.db` และโฟลเดอร์ `C:\data\notes` ทิ้งไว้บนเครื่อง จึงชี้ไป temp dir ใน conftest และลบของที่ค้างทิ้ง |
 | 2026-09-06, PR #57 + hardening + US-19/US-20 | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | ตรวจสถานะโปรเจกต์ทั้งรีโปแล้วพบว่า PR #56 ถูก merge เข้า `feature/lab8-ci-tests` แทน `main` ทำให้ Notes Service ไม่เคยขึ้น `main` เลย จึงเปิด PR #57 แก้ · งาน hardening: ตั้ง `MAX_CONTENT_LENGTH` + errorhandler 413, clamp `limit`/`offset` ที่ขอบล่าง, เพิ่ม `.venv/` ใน `.gitignore`, เขียนเทสต์ commit ล้มแล้วไม่เหลือไฟล์กำพร้าที่ค้างไว้ใน test plan · งาน US-19/US-20: `PATCH`/`DELETE /notes/<id>`, `tokens.py` (edit token ต่อโน้ต), คอลัมน์ `edit_token_hash`/`updated_at`, โหมด partial ของ `validate_metadata`, ADR-004 ทั้ง EN/TH, เทสต์ 13 เคส และ smoke test ของ edit/delete ใน CI | อติชาติสั่งให้รันเทสต์จริงทุกครั้งก่อนยอมรับ — `pytest src/tests` ผ่าน 48/48 และ `node --test` ผ่าน 7/7 บนเครื่อง · อติชาติเป็นคนเลือกแนวทางตรวจสอบเจ้าของเองจากสามตัวเลือกที่เสนอมา (uploader_name / edit token / รอ Auth Service) โดยเลือก edit token เพราะเป็นทางเดียวที่บังคับ AC "เจ้าของเท่านั้น" ได้จริงและทดสอบได้ · ระหว่างทางอติชาติสั่งแก้ข้อเสนอเดิมเรื่อง `MAX_CONTENT_LENGTH` ที่ตั้งเท่าขนาดไฟล์สูงสุดพอดี ซึ่งจะทำให้ไฟล์ 20 MB ถูกปฏิเสธเพราะ multipart overhead จึงเผื่อไว้ 1 MB · job `docker-build` ยังไม่ได้รัน local เพราะ Docker daemon ไม่ได้เปิด จึงรอผลจาก CI ไม่ได้เขียนใน test report ว่าผ่านแล้ว |
 | 2026-09-18, feature/lab9-testing | อติชาติ ผาแสนเถิน | ChatGPT, Claude Code (Anthropic) | Lab 9 (Unit Test/TDD/Property-Based Test/CI/Saboteur): Claude Code อ่านโค้ดจริงในรีโปแล้วร่าง prompt ให้อติชาติเอาไปสั่ง ChatGPT ทำทีละขั้น ได้ผลลัพธ์คือ `src/tests/test_notes_validation_boundary.py` (19 boundary/equivalence test ของ `validate_metadata`/`validate_file`), `src/fizzbuzz.py` + `src/tests/test_fizzbuzz.py` (TDD kata ครบ Red-Green-Refactor 4 รอบ + helper `is_multiple`), `src/tests/test_tokens_property.py` (2 property ด้วย Hypothesis บน `tokens.py`), แก้ `src/tests/requirements-dev.txt` (เพิ่ม `hypothesis`, `pytest-cov`) และ `.github/workflows/ci.yml` (เพิ่ม `--cov` ใน job `python-tests`), `docs/saboteur-journal.md` (เจาะ boundary บนของ `year_level` แบบ off-by-one แล้ว revert) | อติชาติรัน ChatGPT เองทีละขั้นแล้วรายงานผลกลับมาให้ Claude Code ตรวจ — Claude Code เปิด/รันไฟล์จริงในเครื่องเพื่อยืนยันทุกรอบ (diff, `pytest -v`, coverage report) ก่อนให้ prompt ขั้นถัดไป ไม่เชื่อรายงานเปล่า ๆ · commit history ถูกแยกย่อยตามลำดับ Red-Green-Refactor จริงที่เกิดขึ้น ไม่ใช่ squash เป็นก้อนเดียว |
+| 2026-09-25, feature/auth-service | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | ตรวจสถานะงานทั้งหมด → merge PR #63 ตามคำสั่ง → วิเคราะห์ #5/#6 เทียบ NFR-004/005/007, C4, ADR-003/004 แล้วเสนอแผนให้เลือก → เขียน User & Auth Service ใหม่ทั้งตัว (US-05/US-06): `services/auth-service/` (`app.py`, `auth_models.py`, `credentials.py`, `auth_tokens.py`, `Dockerfile`, `requirements.txt`, `README.md`), เทสต์ 73 เคสใน `test_auth_credentials.py`/`test_auth_tokens.py`/`test_auth_api.py`, แก้ `conftest.py`, เพิ่ม service ใน `docker-compose.yml`, เพิ่ม install/coverage/health/smoke step ใน `ci.yml`, ADR-005 ทั้ง EN/TH, อัปเดต README ราก + architecture README ทั้งสองภาษา + test plan | อติชาติเป็นคนตัดสินใจเองทั้ง 6 ข้อที่ AI เสนอมา (แยกเป็น 2 PR, ให้ PR ถัดไปใช้ `Refs #31` โดยไม่เปลี่ยนผู้รับผิดชอบ, ผู้ใช้ตั้ง `display_name` เอง 1–120 ตัวอักษร, อ่านโดเมนจาก `ALLOWED_EMAIL_DOMAINS` ค่าเริ่มต้น `up.ac.th`, JWT อายุ 8 ชั่วโมงไม่มี refresh token แต่มี session ฝั่งเซิร์ฟเวอร์ให้ logout มีผลทันที, ตรวจใบงานก่อนตั้งชื่อ branch) และสั่งให้บันทึกเหตุผลที่ scrypt เทียบเท่า bcrypt ไว้ใน ADR · `pytest src/tests` ผ่าน 153/153 และ `node --test` ผ่าน 7/7 บนเครื่อง · ลองทำโค้ด auth พังชั่วคราว 4 จุดแล้วทุกจุดมีเทสต์ fail จริงก่อน revert · ระหว่างทาง Claude ตรวจ source ของ Werkzeug แล้วพบว่าค่า default ของ scrypt (N=2^15) ต่ำกว่าขั้นต่ำของ OWASP จึงตั้งค่า N=2^17 เองและเขียนเทสต์กันค่าเปลี่ยน · step DK-05 ใน CI รันเทียบกับ service จริงบน SQLite ได้ `auth OK` แต่บน Postgres ยังรอผลจาก CI เพราะ Docker daemon ไม่ได้เปิด · รอบแรกสั่งห้าม commit/push ไว้ แล้วสั่งให้รีวิว diff เทียบ #5/#6, NFR-004/005/007 และขอบเขต PR A ก่อนจึงค่อย commit แยกตามเรื่องและ push โดยยังไม่เปิด PR |
 
 > **TODO:** วชิรวิทย์และกฤตเมธ — ช่วยกรอกแถวของตัวเองให้ละเอียดขึ้น (prompt ที่ใช้จริง, ช่วง session, และรายละเอียดของสิ่งที่ตรวจ/แก้) เพราะมีแค่เจ้าของงานที่รู้ข้อมูลนี้แน่ชัด
 
@@ -271,6 +272,56 @@ prompt จริงที่พิมพ์ในรอบ session นี้ แ
 
 **บทเรียนจริงจากรอบนี้:** การแยกงานเป็น "prompt คนสั่ง ChatGPT" กับ "Claude Code ตรวจผลจริงในเครื่องทุกรอบ" ทำให้จับข้อผิดพลาดเชิงกระบวนการได้ก่อนที่จะสะสม เช่น ตรวจพบว่าถ้าไม่เพิ่ม `hypothesis` ลง `requirements-dev.txt` ทัน CI จะพังทันทีที่ push เพราะ `pytest src/tests -v` ใน `ci.yml` ยัง import `test_tokens_property.py` ไม่ได้ — จับได้ก่อนสั่งขั้นถัดไปเพราะ Claude Code รันคำสั่งเดียวกับที่ CI จะรันจริงในเครื่องก่อนเสมอ ไม่ใช่เชื่อคำรายงานว่า "ผ่านแล้ว" เพียว ๆ
 
+### งาน Sprint 2 — User & Auth Service (ไม่ผูกกับ Lab)
+
+ไม่พบใบงาน Lab ที่กำหนดงานนี้หรือกำหนดชื่อ branch ไว้ (ค้นในรีโป และค้นชื่อไฟล์ใน Desktop, Downloads, Documents ของเครื่องแล้ว) จึงแยกหัวข้อไว้ต่างหากต่อจาก Lab 9
+
+#### Prompt 14 — ตรวจสถานะงาน, merge PR #63 และทำ User & Auth Service (อติชาติ, Claude Code, 2026-09-25)
+
+**prompt จริงที่พิมพ์ (คำต่อคำ ส่วนการตัดบรรทัดของข้อ 2–4 เป็นไปตามที่ terminal ห่อบรรทัดไว้):**
+
+```
+1) เช็คงานทั้งหมดให้หน่อย ว่าตอนนี้ยังเหลืออะไรอีกมั้ย ในส่วนของฉันนะ
+
+2) ทำงานต่อจากสรุปสถานะนี้ เริ่มด้วย merge PR #63 โดยเลือก Create a merge commit แล้ว pull main ตามขั้นตอนเดิม จากนั้นตรวจข้อกำหนดของ
+   Issue #5 และ #6 กับโครงสร้างและรูปแบบเดิมในโปรเจกต์ แล้วเสนอแผนทำระบบสมัครสมาชิกและ login/logout ที่ป้องกันการปลอม uploader_name
+   ด้วย สรุปแผนและไฟล์ที่จะเกี่ยวข้องก่อนเริ่มแก้โค้ด ยังไม่ต้องจัดการ PR #62 หรืองานที่รอคนอื่น
+
+3) 1. แยกเป็นสอง PR โดยทำ auth-service ใน PR A ก่อน แล้วค่อยทำการบังคับ login ตอนอัปโหลดใน PR B หลัง PR A merge
+   2. ให้ PR B อ้างอิง #31 ด้วย Refs #31 และจำกัดส่วนของรอบนั้นไว้ที่การยืนยันตัวตนกับการกำหนด uploader จากบัญชีผู้ใช้ อย่าเปลี่ยนผู้รับผิดชอบ #31
+   3. ให้ผู้ใช้ตั้ง display_name เอง ความยาว 1–120 ตัวอักษร
+   4. อ่านโดเมนที่อนุญาตจาก ALLOWED_EMAIL_DOMAINS โดยค่าเริ่มต้นเป็น up.ac.th
+   5. ใช้ JWT อายุ 8 ชั่วโมง ไม่มี refresh token และเก็บ session ฝั่งเซิร์ฟเวอร์เพื่อเพิกถอน token ตอน logout ได้ทันที
+   6. ตรวจใบงานก่อนตั้งชื่อ branch ถ้าไม่ได้ระบุชื่อไว้ ให้ใช้ feature/auth-service
+
+   เริ่มจาก main ที่อัปเดตหลัง merge PR #63 แล้วตรวจคำแนะนำใน repo ก่อนแก้ไฟล์ ทำเฉพาะ PR A รวม auth-service, tests, เอกสาร, Docker
+   และ CI ตามแผน ปรับรายละเอียดให้ตรงกับโครงสร้างจริงและข้อกำหนด NFR โดยบันทึกเหตุผลการเลือก Werkzeug scrypt ว่าเทียบเท่ากับ bcrypt ตาม
+   NFR-004 ใน ADR หากยังใช้วิธีนี้อยู่
+
+   ยังไม่ต้องแก้ notes-service เพื่อบังคับ login ตอนอัปโหลด และยังไม่ต้อง commit, push, เปิด PR หรือ merge เมื่อเสร็จให้สรุปไฟล์ที่เปลี่ยน
+   ผลทดสอบ และสิ่งที่ยังค้าง
+
+4) ตรวจ diff ของ branch feature/auth-service เทียบกับ main และรีวิวให้ครบตามข้อกำหนด #5/#6, NFR-004/005/007 และขอบเขต PR A ตรวจ
+   AI_USAGE.md ด้วย เติมส่วน “รับจาก AI ตรงๆ” เฉพาะรายการที่ยืนยันได้จากประวัติหรือ diff อย่าเดา
+
+   ถ้าไม่พบปัญหาที่ต้องแก้และ AI_USAGE.md ถูกต้องแล้ว ให้ stage เฉพาะไฟล์ของ PR A แบ่ง commit ตามเรื่อง service/tests, Docker/CI, เอกสาร
+   และ AI_USAGE ตามความเหมาะสม ตรวจ staged diff ก่อนแต่ละ commit แล้ว push branch feature/auth-service ขึ้น origin
+
+   ถ้าพบปัญหาหรือยืนยันรายการใน AI_USAGE.md ไม่ได้ ให้สรุปสิ่งที่ติดและหยุดก่อน commit/push อย่าเปิด PR หรือ merge และอย่าแตะ PR B หรือ notes-
+   service ใช้ผลทดสอบที่รายงานไว้แล้ว เว้นแต่มีการแก้โค้ดระหว่างรีวิวหรือต้องทดสอบเพื่อยืนยันข้อค้นพบ รายงานผลรีวิว commit hash และผล push
+   กลับมา.
+```
+
+เทียบกับ Five S's:
+
+- **Single task** ผ่าน ข้อ 2 แยก "เสนอแผน" ออกจาก "ลงมือทำ" ชัดเจน ส่วนข้อ 3 จำกัดไว้ที่ PR A และห้ามแตะ notes-service ตรง ๆ ต่างจาก Prompt 11 ที่ hardening กับสอง story ปนกันจนต้องมาแยก PR ทีหลัง
+- **Specific** ผ่านเต็ม ทางเลือกสถาปัตยกรรมที่ AI เสนอ (แยก PR, ความยาวชื่อ, โดเมน, อายุ token, การเพิกถอน, ชื่อ branch) ถูกล็อกด้วยคำตอบของคนทั้ง 6 ข้อก่อนเริ่มเขียนโค้ด AI จึงไม่ต้องเดาเอง
+- **Structured** ผ่าน ข้อ 3 มีครบทั้งการตัดสินใจเป็นข้อ ๆ, ขอบเขต, ข้อห้าม (ไม่ commit/push/PR/merge) และสิ่งที่ต้องรายงานกลับ ส่วนข้อ 4 แยกเป็นสองทางชัดเจน คือถ้ารีวิวผ่านให้ commit/push ถ้าติดให้หยุดก่อน commit
+- **Surrounding** ผ่าน สั่งให้ "ตรวจคำแนะนำใน repo ก่อนแก้ไฟล์" และ "ปรับให้ตรงกับโครงสร้างจริง" แทนการแปะโค้ดมาเอง เพราะ AI อ่านรีโปได้เอง
+- **Short** ข้อ 1 สั้นมากและใช้ได้ผลเพราะเป็นงานสำรวจ ส่วนข้อ 3 ยาวแต่ส่วนใหญ่คือคำตอบของการตัดสินใจ ซึ่งตัดทิ้งไม่ได้
+
+**บทเรียนจริงจากรอบนี้:** คำว่า "หากยังใช้วิธีนี้อยู่" ในข้อ 3 เปิดช่องให้ทบทวนแทนที่จะรับข้อเสนอเดิมไปเลย และช่องนี้ได้ใช้จริง พอตรวจ source ของ Werkzeug กับ OWASP Password Storage Cheat Sheet ก็พบว่า "ใช้ scrypt ของ Werkzeug" ตามที่เสนอไว้ในแผนยังไม่พอ เพราะค่า default ของ Werkzeug (N=2^15) ต่ำกว่าขั้นต่ำของ OWASP (N=2^17) ถ้าเขียนใน ADR ว่า "เทียบเท่า bcrypt" โดยใช้ค่า default จะเป็นการเคลมที่ไม่จริง จึงต้องตั้งค่าเองและเขียนเทสต์กันไว้ · อีกข้อคือสถานะที่สรุปไว้จากรอบก่อนคลาดเคลื่อน (เข้าใจว่า issue #8 ยังเปิด ทั้งที่ปิดไปตั้งแต่ 2026-09-07) จับได้เพราะข้อ 1 ถูกตอบด้วยการเช็ค GitHub จริง ไม่ใช่ตอบจากบันทึกเดิม
+
 ### รายการที่ยังไม่ระบุ Lab
 
 รายการต่อไปนี้ไม่ได้ระบุ Lab ไว้ในข้อมูลเดิม จึงแยกมาไว้ท้ายหัวข้อนี้
@@ -396,6 +447,7 @@ user story ระดับ Must ของ Sprint 1 ที่ปิดไปแ�
 | `prototypes/sprint1/note-utils.js` และ `note-utils.test.js` ทั้งไฟล์ (Lab 7) | Claude Code (2026-08-26) | generate ทั้งสองไฟล์ อติชาติอ่านทุกบรรทัด รันเทสต์เองด้วย `node --test` และเปิดหน้าเว็บจริงเทียบก่อน/หลัง แต่ไม่ได้แก้โค้ดในไฟล์เพิ่มเติม รายละเอียดดู [docs/refactoring-journal.md](docs/refactoring-journal.md) |
 | `.github/workflows/ci.yml`, `src/tests/*` และ `docs/testing/readme.md` (Lab 8) | Claude Code (2026-08-31) | generate ทั้งหมด อติชาติตรวจว่าเทสต์รันผ่านจริงทั้งสองชุดและตรวจว่าตาราง test report ตรงกับ output ที่เห็น (รวมถึงแถวที่ยังไม่ได้รัน ซึ่งถูกกำกับว่า "รอ CI" ไม่ใช่ "ผ่าน") แต่ไม่ได้แก้โค้ดในไฟล์เพิ่มเติม |
 | `services/notes-service/*` ทั้งโฟลเดอร์, `docker-compose.yml`, `src/tests/test_notes_*.py`, ADR-003 (US-08) | Claude Code (2026-08-31) | generate ทั้งหมด อติชาติตรวจ endpoint เทียบ AC ของ #8 ทีละข้อ และตรวจว่าเทสต์ที่อ้างว่าผ่านนั้นรันจริง แต่ไม่ได้แก้โค้ดเพิ่ม · ขอบเขตที่ AI เลือกเอง (service เดียว, เก็บไฟล์บนดิสก์, ยังไม่มี auth) ถูกบันทึกไว้ใน [ADR-003](docs/architecture/adr/0003-tracer-bullet-scope.th.md) เพื่อให้ทีมรีวิว/ค้านได้ ไม่ใช่ตัดสินใจเงียบ ๆ |
+| `services/auth-service/*` ทั้งโฟลเดอร์, `src/tests/test_auth_*.py`, ส่วนที่เพิ่มใน `src/tests/conftest.py`/`docker-compose.yml`/`.github/workflows/ci.yml`, ADR-005 ทั้ง EN/TH และส่วนที่แก้ในเอกสาร README/test plan (US-05/US-06, branch `feature/auth-service`) | Claude Code (2026-09-25) | generate ทั้งหมดใน session เดียว และไม่มีคนแก้บรรทัดใดก่อน commit (ยืนยันจากประวัติ session ว่าทุกบรรทัดใน diff เทียบกับ `main` ถูกเขียนโดยเครื่องมือ และ branch นี้ไม่มี commit ใดก่อนหน้านี้ที่คนจะแก้ไว้) · สิ่งที่มาจากคน: การตัดสินใจทั้ง 6 ข้อของอติชาติที่ล็อกการออกแบบไว้ (ดู Prompt 14) · **ยังไม่ผ่านการรีวิวโค้ดโดยคนในทีม** ที่ทำไปแล้วคือเทสต์อัตโนมัติกับการรีวิว diff ด้วยเครื่องมือ จึงยังต้องรอ review ใน PR |
 
 ส่วนที่ตามหลักฐานแล้วน่าจะเป็นงานที่คนเขียน/แก้เอง ไม่ใช่รับจาก AI ตรง ๆ: ฟังก์ชัน `esc()` กัน XSS และการ clamp ค่าใน `stars()` ของหน้าค้นหา ก่อน Lab 7 (เข้ามาในรอบที่ PR #37 ถูก CHANGES_REQUESTED จึงเป็นผลจากรีวิวของคนในทีม) แต่ใน Lab 7 ฟังก์ชันสองตัวนี้ถูกย้าย/เขียนใหม่เป็น `escapeHtml`/`formatStars` ใน `note-utils.js` โดย Claude Code แล้ว (แถวด้านบน) จึงไม่ใช่ "ไม่แก้จาก AI" อีกต่อไปสำหรับตำแหน่งใหม่นี้ ส่วนที่ยังเป็นของคนเขียนเองเหมือนเดิม: การตัดสินใจเรื่อง Tracer vs Prototype และเนื้อหา reflection รายบุคคลทั้งสามไฟล์
 

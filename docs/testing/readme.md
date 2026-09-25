@@ -101,18 +101,97 @@ Stats Service ที่คืน mock data กับ prototype ฝั่ง fron
 | # | Test case | ขั้นตอน | ผลที่คาดหวัง |
 | --- | --- | --- | --- |
 | DK-01 | ทั้ง stack build และสตาร์ตได้ | `docker compose up -d --build` | exit code 0 |
-| DK-02 | ทุก service ตอบ health | `curl :5000/health`, `:5001/health` (retry 20 ครั้ง ห่างละ 3 วิ) | `200` ทั้งคู่ |
+| DK-02 | ทุก service ตอบ health | `curl :5000/health`, `:5001/health`, `:5002/health` (retry 20 ครั้ง ห่างละ 3 วิ) | `200` ทั้งหมด |
 | DK-03 | end-to-end ของ US-08 | อัปโหลดพร้อม metadata → กรองด้วย `faculty`+`year_level`+`q` → ดาวน์โหลด | `count = 1` และไฟล์ที่ดาวน์โหลดตรงกับต้นฉบับ (`cmp`) |
 | DK-04 | validation ทำงานจริงบน stack ที่รัน | `POST /notes` ส่งแค่ `title` | `400` |
+| DK-05 | สมัคร → login → ใช้ token → logout บน Postgres จริง (US-05/US-06) | `curl` ไปที่ `:5002/auth/*` | สมัคร `201` · สมัครซ้ำ `409` · โดเมนอื่น `400` · รหัสผิดกับอีเมลที่ไม่มีได้ body เดียวกัน · `me` ได้ชื่อถูก · logout `204` แล้ว `me` ด้วย token เดิมได้ `401` |
+
+### 2.7 Auth Service — ตรวจข้อมูลสมัครและ hash รหัสผ่าน (`pytest`, US-05 #5)
+
+ไฟล์ [`test_auth_credentials.py`](../../src/tests/test_auth_credentials.py) — pure function ไม่ต้องมี Flask/DB
+
+| # | Test case | Input | ผลที่คาดหวัง |
+| --- | --- | --- | --- |
+| AC-01 | ข้อมูลถูกต้องผ่าน และถูก normalize | อีเมลตัวใหญ่มีช่องว่าง, ชื่อมีช่องว่างหัวท้าย | อีเมลเป็นตัวพิมพ์เล็ก, ชื่อถูก trim |
+| AC-02 | ช่องที่ขาดรายงานครบในครั้งเดียว | body ว่าง | error ครบ `email`, `password`, `display_name` |
+| AC-03 | อีเมลนอกโดเมนมหาวิทยาลัย | `gmail.com`, `mail.up.ac.th`, `up.ac.th.example.com`, `notup.ac.th` | ปฏิเสธทั้ง 4 เคส (ไม่นับ subdomain และโดเมนที่ต่อท้ายหลอก) |
+| AC-04 | อีเมลผิดรูป | ไม่มี `@`, local ว่าง, `@` สองตัว, มีช่องว่าง | `"รูปแบบอีเมลไม่ถูกต้อง"` |
+| AC-05 | อีเมลยาวเกิน RFC | 255 ตัวอักษร | `"ยาวเกิน 254 ตัวอักษร"` |
+| AC-06 | ขอบของความยาวรหัสผ่าน | 7 / 8 / 128 / 129 | ผ่านเฉพาะ 8 และ 128 |
+| AC-07 | รหัสผ่านไม่ถูกตัดช่องว่าง | `"  pass  "` | ผ่านและเก็บตามที่พิมพ์ |
+| AC-08 | ขอบของความยาว `display_name` | ว่าง / มีแต่ช่องว่าง / 1 / 120 / 121 | ผ่านเฉพาะ 1 และ 120 |
+| AC-09 | ค่าที่ไม่ใช่ข้อความ | ตัวเลข, list จาก JSON | ได้ error ไม่ crash |
+| AC-10 | แปลงค่า `ALLOWED_EMAIL_DOMAINS` | ไม่ตั้ง, ค่าว่าง, ตัวใหญ่, มี `@` และ comma เกิน | ค่าว่างกลับเป็น `up.ac.th` ไม่ใช่ลิสต์ว่าง |
+| AC-11 | hash ไม่มี plaintext และใช้ cost ตาม ADR-005 | hash รหัสผ่านจริง | ขึ้นต้นด้วย `scrypt:131072:8:1$` · ตรวจรหัสถูกผ่าน รหัสผิดไม่ผ่าน |
+| AC-12 | salt ทำให้รหัสเดียวกันได้ hash ต่างกัน | hash รหัสเดียวกันสองครั้ง | hash ไม่เท่ากัน แต่ตรวจผ่านทั้งคู่ |
+
+### 2.8 Auth Service — JWT (`pytest`, US-06 #6)
+
+ไฟล์ [`test_auth_tokens.py`](../../src/tests/test_auth_tokens.py) — ตรวจเฉพาะลายเซ็นกับเวลาหมดอายุ
+
+| # | Test case | Input | ผลที่คาดหวัง |
+| --- | --- | --- | --- |
+| AT-01 | อายุ token เริ่มต้น | `DEFAULT_TTL` | 8 ชั่วโมง |
+| AT-02 | encode แล้ว decode ได้ claim เดิม | token ที่เพิ่งออก | `sub`, `jti`, `iss`, `exp` ตรง |
+| AT-03 | token หมดอายุ | ออกเมื่อ 9 ชั่วโมงก่อน | ไม่ผ่าน |
+| AT-04 | เซ็นด้วย secret อื่น | secret ต่างกัน | ไม่ผ่าน |
+| AT-05 | แก้ payload แต่ใช้ลายเซ็นเดิม | เปลี่ยน `sub` เป็น user อื่น | ไม่ผ่าน |
+| AT-06 | token ไม่เซ็น (`alg: none`) | JWT ที่ไม่มีลายเซ็น | ไม่ผ่าน |
+| AT-07 | token ที่ไม่มี `jti` | ลายเซ็นถูกแต่ขาด claim | ไม่ผ่าน เพราะผูกกับ session ไม่ได้ |
+| AT-08 | ค่าขยะ | `None`, `""`, `"not-a-jwt"` | ไม่ผ่านและไม่ raise |
+| AT-09 | secret ไม่ได้ตั้งหรือสั้นเกิน | `None`, `""`, 31 ไบต์ | service ไม่ยอมสตาร์ต |
+| AT-10 | `jti` ไม่ซ้ำ | สุ่ม 1,000 ครั้ง | ไม่ซ้ำเลย |
+
+### 2.9 Auth Service — API (`pytest`, US-05 #5 + US-06 #6)
+
+ไฟล์ [`test_auth_api.py`](../../src/tests/test_auth_api.py) — Flask test client + SQLite ชั่วคราว
+เทสต์ส่วนใหญ่ลด cost ของ scrypt ลงเพื่อความเร็ว ส่วน cost จริงของ production ตรวจใน AA-03 และ AC-11
+
+| # | Test case | Request | ผลที่คาดหวัง |
+| --- | --- | --- | --- |
+| AA-01 | health check | `GET /health` | `200`, `service = auth-service` |
+| AA-02 | สมัครสำเร็จโดยไม่คืนรหัสผ่าน | `POST /auth/register` | `201` · ไม่มี `password`/`password_hash` ใน response · ในตาราง `users` มีแค่ hash |
+| AA-03 | app ที่ไม่ได้ตั้งค่าเก็บรหัสด้วย cost จริง | สมัครผ่าน app ค่า default | hash ขึ้นต้นด้วย `scrypt:131072:8:1$` |
+| AA-04 | สมัครด้วยอีเมลนอกโดเมน | `someone@gmail.com` | `400` + ข้อความบอกโดเมนที่อนุญาต |
+| AA-05 | error ครบทุกช่องในครั้งเดียว | อีเมลผิด + รหัสสั้น + ไม่มีชื่อ | `400` error ครบสามช่อง |
+| AA-06 | อีเมลซ้ำแบบไม่สนตัวพิมพ์ | สมัครซ้ำด้วย `...@UP.AC.TH` | `409 email_taken` |
+| AA-07 | รับ form data ได้ด้วย | `curl -d` แบบ form | `201` |
+| AA-08 | ตั้งหลายโดเมนได้ | `ALLOWED_EMAIL_DOMAINS="up.ac.th, cmu.ac.th"` | `cmu.ac.th` ผ่าน, `gmail.com` ไม่ผ่าน |
+| AA-09 | body ใหญ่เกิน | 20 KB | `413` เป็น JSON |
+| AA-10 | login ได้ Bearer token อายุ 8 ชั่วโมง | `POST /auth/login` | `200` · `expires_at` ห่างจากตอนนี้ประมาณ 8 ชั่วโมง |
+| AA-11 | อีเมลตอน login ไม่สนตัวพิมพ์ | `...@UP.ac.th` | `200` |
+| AA-12 | รหัสผิดกับอีเมลที่ไม่มีได้คำตอบเดียวกัน | login สองแบบ | `401` ทั้งคู่ และ body เท่ากันทุกไบต์ (AC ข้อ 3 ของ #6) |
+| AA-13 | รหัสผ่านยาวผิดปกติ | 10,000 ตัวอักษร | `401 invalid_credentials` |
+| AA-14 | login โดยไม่กรอก | body ว่าง | `400` บอกว่าช่องไหนว่าง |
+| AA-15 | `me` คืนบัญชีของ token | `GET /auth/me` | `200` + `display_name` ถูก |
+| AA-16 | ไม่มี Bearer token ที่ใช้ได้ | ไม่มี header, `Bearer` เปล่า, ขยะ, `Basic` | `401` + `WWW-Authenticate: Bearer` |
+| AA-17 | token หมดอายุ | ตั้ง ttl ติดลบ | `401` |
+| AA-18 | ลายเซ็นถูกแต่ไม่มี session ในฐานข้อมูล | token ที่สร้างเองด้วย secret จริง | `401` — พิสูจน์ว่าไม่ได้เชื่อ JWT อย่างเดียว |
+| AA-19 | token จาก secret อื่น | ฐานข้อมูลเดียวกัน secret ต่างกัน | `401` |
+| AA-20 | logout แล้ว token ใช้ไม่ได้ทันที | logout แล้วเรียก `me` และ logout ซ้ำ | `204` แล้ว `401` ทั้งสองครั้ง (AC ข้อ 2 ของ #6) |
+| AA-21 | logout เพิกถอนเฉพาะ session ของตัวเอง | login สองเครื่องแล้ว logout เครื่องเดียว | เครื่องที่ logout ได้ `401` อีกเครื่องยัง `200` |
+| AA-22 | logout โดยไม่มี token | `POST /auth/logout` | `401` |
+| AA-23 | login ใหม่หลัง logout | login อีกครั้ง | token ใหม่ใช้ได้ |
+| AA-24 | ไม่มี secret หรือ `AUTH_TOKEN_TTL_HOURS` ผิด | สร้าง app | service ไม่ยอมสตาร์ต |
+
+**ตรวจว่าเทสต์จับบั๊กได้จริง (2026-09-25):** ลองทำโค้ดพังชั่วคราว 4 จุดแล้วรันใหม่ ทุกจุดมีเทสต์ที่ fail จริง จากนั้น revert แล้วผ่านครบ
+
+| โค้ดที่ทำพัง | เทสต์ที่จับได้ |
+| --- | --- |
+| ไม่เช็ค `revoked_at` ตอนตรวจ token | AA-20, AA-21 |
+| เทียบโดเมนด้วย `endswith` แทนการตรงตัว | AC-03 (`mail.up.ac.th`, `notup.ac.th`) |
+| login ตอบต่างกันเมื่ออีเมลไม่มีในระบบ | AA-12 |
+| ยอมรับ `alg: none` | AT-06 |
 
 ## 3. Test Report
 
-**รันล่าสุด:** 2026-09-06 (เครื่อง local, Windows 11)
+**รันล่าสุด:** 2026-09-25 (เครื่อง local, Windows 11)
 
 | ชุด | คำสั่ง | ผล |
 | --- | --- | --- |
-| JS unit | `cd prototypes/sprint1 && node --test` | ✅ 7 passed / 0 failed (119 ms) |
-| Python unit + integration | `pytest src/tests -v` | ✅ 48 passed / 0 failed (1.01 s) — stats 4, notes validation 17, notes API 27 |
+| JS unit | `cd prototypes/sprint1 && node --test` | ✅ 7 passed / 0 failed (88 ms) |
+| Python unit + integration | `pytest src/tests -v` | ✅ 153 passed / 0 failed (~4 s) — stats 4, notes validation 17 + boundary 19, notes API 33, edit-token property 2, fizzbuzz 5, auth credentials 29, auth tokens 14, auth API 30 |
+| Auth smoke (DK-05) แบบไม่ใช้ Docker | รัน `services/auth-service/app.py` บน SQLite แล้วรันสคริปต์ของ step DK-05 ที่ดึงออกมาจาก `ci.yml` ตรง ๆ | ✅ `auth OK` · บน Postgres จริงยังรอผลจาก CI เพราะ Docker daemon ไม่ได้เปิดบนเครื่องที่ใช้เขียน |
 | Container smoke (compose e2e) | `docker compose up` + `curl` | ✅ ผ่านบน CI ([run #33351842320](https://github.com/Software-Engineering-Concepts-2026/se-sec2-team-05/actions/runs/33351842320), 1m6s) — log ยืนยัน `created note #1` และ `end-to-end OK` · ไม่ได้รัน local เพราะ Docker daemon ไม่ได้เปิดบนเครื่องที่ใช้เขียน |
 
 **ผลรันบน CI (PR #56):** ทั้ง 3 job ผ่านหมด — `js-tests` 13s, `python-tests` 13s, `docker-build` 1m6s

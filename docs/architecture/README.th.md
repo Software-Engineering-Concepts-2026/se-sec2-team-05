@@ -59,8 +59,9 @@
 - [ADR-002 — ใช้ RESTful API สำหรับการสื่อสารระหว่าง Service](./adr/0002-use-restful-api-internal-communication.th.md)
 - [ADR-003 — จำกัดขอบเขตของ slice แรกที่รันได้ ให้เหลือ service เดียวและเก็บไฟล์บนดิสก์](./adr/0003-tracer-bullet-scope.th.md)
 - [ADR-004 — ใช้ edit token ต่อโน้ตเป็นตัวแทนการตรวจสอบเจ้าของชั่วคราว](./adr/0004-per-note-edit-token.th.md)
+- [ADR-005 — User & Auth Service ที่ออก JWT โดยมี session ฝั่งเซิร์ฟเวอร์รองรับ](./adr/0005-auth-jwt-with-server-side-sessions.th.md)
 
-> ⚠️ C4 Container diagram ด้านบนอธิบายสถาปัตยกรรม **เป้าหมาย** สิ่งที่ `docker compose up` ยกขึ้นมาจริงตอนนี้แคบกว่านั้น — มีแค่ `notes-service` กับ `stats-service` ยังไม่มี gateway และยังไม่มี auth ดูรายละเอียดใน ADR-003
+> ⚠️ C4 Container diagram ด้านบนอธิบายสถาปัตยกรรม **เป้าหมาย** สิ่งที่ `docker compose up` ยกขึ้นมาจริงตอนนี้แคบกว่านั้น — มี `notes-service`, `auth-service` และ `stats-service` ยังไม่มี gateway และ `notes-service` ยังไม่ได้เรียก `auth-service` ดูรายละเอียดใน ADR-003 และ ADR-005
 
 ## แก้ไขแผนภาพ
 

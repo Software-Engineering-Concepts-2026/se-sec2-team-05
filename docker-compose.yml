@@ -1,6 +1,6 @@
 # สภาพแวดล้อม dev ของ NoteShare — ยกทุก service ขึ้นพร้อมกันด้วย `docker compose up`
-# ตอนนี้มี 2 service ตาม C4 Container diagram: Notes Service (US-08) และ Stats Service
-# ยังไม่มี API Gateway และ User & Auth Service (รอ #5, #6)
+# ตอนนี้มี 3 service ตาม C4 Container diagram: Notes Service (US-08), User & Auth Service
+# (US-05/US-06) และ Stats Service — ยังไม่มี API Gateway (ดู ADR-003, ADR-005)
 services:
   db:
     image: postgres:16-alpine
@@ -28,6 +28,20 @@ services:
       - "5001:5001"
     volumes:
       - notes-files:/data/notes
+    depends_on:
+      db:
+        condition: service_healthy
+
+  auth-service:
+    build: ./services/auth-service
+    environment:
+      DATABASE_URL: postgresql+psycopg://noteshare:noteshare_dev@db:5432/noteshare
+      # dev เท่านั้น — production ต้องมาจาก secret ของ host ห้าม commit ค่าจริง
+      AUTH_JWT_SECRET: noteshare_dev_only_jwt_secret_change_me_0123456789
+      ALLOWED_EMAIL_DOMAINS: up.ac.th
+      AUTH_TOKEN_TTL_HOURS: "8"
+    ports:
+      - "5002:5002"
     depends_on:
       db:
         condition: service_healthy
