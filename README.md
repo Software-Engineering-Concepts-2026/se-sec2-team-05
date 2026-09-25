@@ -30,15 +30,17 @@ This section explains how to get a local copy of the project up and running for 
     ```bash
     docker compose up --build
     ```
-    ยกขึ้นมาสามตัว: PostgreSQL, [Notes Service](./services/notes-service/README.md) ที่ `localhost:5001`
+    ยกขึ้นมาสี่ตัว: PostgreSQL, [Notes Service](./services/notes-service/README.md) ที่ `localhost:5001`,
+    [User & Auth Service](./services/auth-service/README.md) ที่ `localhost:5002`
     และ Stats Service ที่ `localhost:5000` — ตรวจว่าขึ้นแล้วด้วย `curl localhost:5001/health`
 
     ```bash
     docker compose down -v   # ลบ volume ด้วย จำเป็นเมื่อ schema เปลี่ยน (ยังไม่มี migration)
     ```
 
-    > ℹ️ ตอนนี้ยังยกไม่ครบตาม C4 Container diagram — ยังไม่มี API Gateway และ User & Auth Service
-    > เหตุผลอยู่ใน [ADR-003](./docs/architecture/adr/0003-tracer-bullet-scope.th.md)
+    > ℹ️ ตอนนี้ยังยกไม่ครบตาม C4 Container diagram — ยังไม่มี API Gateway และ Notes Service
+    > ยังไม่ได้เรียก User & Auth Service ตอนอัปโหลด เหตุผลอยู่ใน
+    > [ADR-003](./docs/architecture/adr/0003-tracer-bullet-scope.th.md) และ [ADR-005](./docs/architecture/adr/0005-auth-jwt-with-server-side-sessions.th.md)
 
 ---
 
@@ -88,8 +90,9 @@ Key architectural decisions and diagrams are documented in the `/docs/architectu
 | Service | Port | สถานะ |
 | --- | --- | --- |
 | **[Notes Service](./services/notes-service/README.md)** | 5001 | อัปโหลด/ค้นหา/ดาวน์โหลด/แก้ไข/ลบโน้ตพร้อม metadata (US-08, US-19, US-20) — ยังไม่มี auth |
+| **[User & Auth Service](./services/auth-service/README.md)** | 5002 | สมัครสมาชิกด้วยอีเมลมหาวิทยาลัย, login/logout ด้วย JWT ที่เพิกถอนได้ทันที (US-05, US-06) — notes-service ยังไม่ได้เรียกใช้ |
 | **Stats Service** | 5000 | คืนสถิติ mock ยังไม่ต่อ DB |
-| API Gateway, User & Auth Service | — | ยังไม่ได้สร้าง (#5, #6) |
+| API Gateway | — | ยังไม่ได้สร้าง |
 
 ## 👥 Requirements
 
