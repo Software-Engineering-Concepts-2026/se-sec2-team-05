@@ -25,6 +25,7 @@
 | 2026-08-31, feature/lab8-ci-tests | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | ตั้ง CI ตัวแรกของโปรเจกต์: เขียน `.github/workflows/ci.yml` (3 job — เทสต์ JS, เทสต์ Python, build + smoke-test Docker image), เขียน `src/tests/test_stats_service.py` + `conftest.py` + `requirements-dev.txt` สำหรับ Stats Service, เขียน `docs/testing/readme.md` (test plan + test case + report) และ `src/tests/README.md`, ล้าง branch local ที่ merge แล้ว 14 อัน | อติชาติสั่งให้รันเทสต์จริงก่อนยืนยัน — `pytest src/tests` ผ่าน 4/4 และ `node --test` ผ่าน 7/7 บนเครื่อง (Claude รันให้เห็น output จริง ไม่ได้เคลม) · ส่วน job `docker-build` ยังไม่ได้รัน local เพราะ Docker daemon ไม่ได้เปิด จึงระบุไว้ใน test report ว่ารอผลจาก CI ไม่ได้เขียนว่าผ่านแล้ว · ระหว่างทางเจอว่า `pip install` พังบน Windows เพราะคอมเมนต์ภาษาไทยใน `requirements-dev.txt` (pip อ่านไฟล์ด้วย locale encoding cp1252) จึงเปลี่ยนคอมเมนต์เป็น ASCII |
 | 2026-08-31, feature/us08-note-metadata-service | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | เขียน Notes Service ทั้งตัวสำหรับ US-08 (#8): `app.py` (5 endpoint), `models.py`, `validation.py`, `storage.py`, `Dockerfile`, `README.md` ของ service + `docker-compose.yml` (Postgres + 2 service) + เทสต์ 28 เคสใน `src/tests/` + ADR-003 ทั้ง EN/TH + อัปเดต CI ให้ทดสอบ end-to-end ผ่าน compose | อติชาติสั่งให้รันเทสต์จริงทุกครั้งก่อนยอมรับ (`pytest` 32/32, `node --test` 7/7) · ระหว่างทาง Claude ทำเทสต์ของ stats-service พังเองเพราะทุก service มีไฟล์ `app.py` ชื่อซ้ำกัน แล้ว `import app` ไปเจอ notes-service แทน — Claude เจอเองตอนรันเทสต์ แก้ด้วยการโหลดผ่าน importlib ในชื่อโมดูลที่ไม่ซ้ำ และเขียนเหตุผลไว้ใน `conftest.py` แล้ว · Claude ยังเจอว่า `import app.py` สร้าง `notes.db` และโฟลเดอร์ `C:\data\notes` ทิ้งไว้บนเครื่อง จึงชี้ไป temp dir ใน conftest และลบของที่ค้างทิ้ง |
 | 2026-09-06, PR #57 + hardening + US-19/US-20 | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | ตรวจสถานะโปรเจกต์ทั้งรีโปแล้วพบว่า PR #56 ถูก merge เข้า `feature/lab8-ci-tests` แทน `main` ทำให้ Notes Service ไม่เคยขึ้น `main` เลย จึงเปิด PR #57 แก้ · งาน hardening: ตั้ง `MAX_CONTENT_LENGTH` + errorhandler 413, clamp `limit`/`offset` ที่ขอบล่าง, เพิ่ม `.venv/` ใน `.gitignore`, เขียนเทสต์ commit ล้มแล้วไม่เหลือไฟล์กำพร้าที่ค้างไว้ใน test plan · งาน US-19/US-20: `PATCH`/`DELETE /notes/<id>`, `tokens.py` (edit token ต่อโน้ต), คอลัมน์ `edit_token_hash`/`updated_at`, โหมด partial ของ `validate_metadata`, ADR-004 ทั้ง EN/TH, เทสต์ 13 เคส และ smoke test ของ edit/delete ใน CI | อติชาติสั่งให้รันเทสต์จริงทุกครั้งก่อนยอมรับ — `pytest src/tests` ผ่าน 48/48 และ `node --test` ผ่าน 7/7 บนเครื่อง · อติชาติเป็นคนเลือกแนวทางตรวจสอบเจ้าของเองจากสามตัวเลือกที่เสนอมา (uploader_name / edit token / รอ Auth Service) โดยเลือก edit token เพราะเป็นทางเดียวที่บังคับ AC "เจ้าของเท่านั้น" ได้จริงและทดสอบได้ · ระหว่างทางอติชาติสั่งแก้ข้อเสนอเดิมเรื่อง `MAX_CONTENT_LENGTH` ที่ตั้งเท่าขนาดไฟล์สูงสุดพอดี ซึ่งจะทำให้ไฟล์ 20 MB ถูกปฏิเสธเพราะ multipart overhead จึงเผื่อไว้ 1 MB · job `docker-build` ยังไม่ได้รัน local เพราะ Docker daemon ไม่ได้เปิด จึงรอผลจาก CI ไม่ได้เขียนใน test report ว่าผ่านแล้ว |
+| 2026-09-18, feature/lab9-testing | อติชาติ ผาแสนเถิน | ChatGPT, Claude Code (Anthropic) | Lab 9 (Unit Test/TDD/Property-Based Test/CI/Saboteur): Claude Code อ่านโค้ดจริงในรีโปแล้วร่าง prompt ให้อติชาติเอาไปสั่ง ChatGPT ทำทีละขั้น ได้ผลลัพธ์คือ `src/tests/test_notes_validation_boundary.py` (19 boundary/equivalence test ของ `validate_metadata`/`validate_file`), `src/fizzbuzz.py` + `src/tests/test_fizzbuzz.py` (TDD kata ครบ Red-Green-Refactor 4 รอบ + helper `is_multiple`), `src/tests/test_tokens_property.py` (2 property ด้วย Hypothesis บน `tokens.py`), แก้ `src/tests/requirements-dev.txt` (เพิ่ม `hypothesis`, `pytest-cov`) และ `.github/workflows/ci.yml` (เพิ่ม `--cov` ใน job `python-tests`), `docs/saboteur-journal.md` (เจาะ boundary บนของ `year_level` แบบ off-by-one แล้ว revert) | อติชาติรัน ChatGPT เองทีละขั้นแล้วรายงานผลกลับมาให้ Claude Code ตรวจ — Claude Code เปิด/รันไฟล์จริงในเครื่องเพื่อยืนยันทุกรอบ (diff, `pytest -v`, coverage report) ก่อนให้ prompt ขั้นถัดไป ไม่เชื่อรายงานเปล่า ๆ · commit history ถูกแยกย่อยตามลำดับ Red-Green-Refactor จริงที่เกิดขึ้น ไม่ใช่ squash เป็นก้อนเดียว |
 
 > **TODO:** วชิรวิทย์และกฤตเมธ — ช่วยกรอกแถวของตัวเองให้ละเอียดขึ้น (prompt ที่ใช้จริง, ช่วง session, และรายละเอียดของสิ่งที่ตรวจ/แก้) เพราะมีแค่เจ้าของงานที่รู้ข้อมูลนี้แน่ชัด
 
@@ -226,6 +227,49 @@ prompt จริงที่พิมพ์ในรอบ session นี้ แ
 ข้อแรก ข้อห้ามที่เขียนไว้ล่วงหน้าได้ผลจริง จุดที่ชัดที่สุดคือรีวิวรอบแรกจับได้ว่าเทสต์ `test_filter_multiple_file_types_combine_with_or` ของ PR #60 **เขียวแบบหลอก** เพราะ helper `upload()` เขียน `form["file"] = ...` ทับค่าที่ส่งเข้ามาทุกครั้ง ทำให้โน้ตที่ตั้งใจอัปเป็น PNG ถูกบันทึกเป็น `application/pdf` เทสต์จึงผ่านเพราะเป็น pdf สองไฟล์ ไม่ได้พิสูจน์ `in_()` เลย — และรอบสองก็พิสูจน์กลับด้วยการย้อนโค้ดที่แก้แล้วดูว่าเทสต์ FAIL จริง แทนที่จะเชื่อว่า "เทสต์ผ่านแล้วแปลว่าถูก"
 
 ข้อสอง prompt ชุดนี้ทำให้เกิดปัญหาเชิงกระบวนการที่ prompt เองไม่ได้กันไว้ คือ prompt ข้อ 4 สั่งให้ผู้รีวิวเป็นคนแก้และ push ขึ้น branch ของเจ้าของ PR แล้ว prompt ข้อ 7 ก็สั่งให้ approve งานเดียวกันนั้น ผลคือ commit `f84f192` ในสายงานของวชิรวิทย์มีชื่ออติชาติเป็นผู้เขียน และคนที่ approve ก็คือคนที่แก้เอง ซึ่งขัดกับเจตนาของกฎ "1 approve ก่อน merge" ที่ต้องการให้มีคนที่สองมองงาน · ได้บันทึกไว้ใน comment ของ PR #60 อย่างโปร่งใสแล้วและเปิดช่องให้เพิ่ม approve ซ้อนจากคนที่ไม่ได้แก้ · **รอบหน้าถ้าเจอ PR ของคนอื่นที่ต้องแก้ ควรส่งรายการที่ต้องแก้ให้เจ้าของ PR ทำเอง ไม่ push ทับ** แล้วผู้รีวิวจึงจะ approve ได้โดยไม่มีข้อกังขา
+
+### Lab 9
+
+#### Prompt 13 — Unit Test/TDD/Property-Based Test/CI/Saboteur (อติชาติ, ChatGPT + Claude Code, 2026-09-18)
+
+**บริบท:** อติชาติทำงานผ่าน ChatGPT โดยให้ Claude Code ช่วยร่าง prompt ให้ทีละขั้น (อ้างโค้ดจริงในไฟล์ของโปรเจกต์ ไม่ใช่ตัวอย่างลอย ๆ จากใบงาน) แล้วเอาไปพิมพ์ใน ChatGPT เอง จากนั้นรายงานผลกลับมาให้ Claude Code ตรวจก่อนได้ prompt ขั้นถัดไป ทำสลับกันแบบนี้ตลอดทั้ง 4 ส่วนของ Lab 9
+
+**prompt ที่ Claude Code ร่างให้ (คำต่อคำ ทยอยให้ทีละขั้นตามที่อติชาติรายงานผลกลับมา):**
+
+```
+1) Unit Test (Equivalence + Boundary) จาก validation.py
+   ให้วิเคราะห์ Equivalence Partition/Boundary ของ validate_metadata และ
+   validate_file แล้วเขียน pytest อย่างน้อย 5 เคสใน
+   src/tests/test_notes_validation_boundary.py แบบ Arrange-Act-Assert
+   ห้ามเขียนเทสต์ที่ตรวจแค่ว่าฟังก์ชันถูกเรียก ต้องตรวจ return value จริง
+
+2) TDD FizzBuzz แบบ Red-Green-Refactor ทีละสเตปเดียว ห้ามข้ามไปเขียนโค้ด
+   สมบูรณ์ทีเดียว — ให้เขียนเทสต์ 1 เคสก่อนแล้วรอผล Red, บอกโค้ดขั้นต่ำสุด
+   ให้ผ่านเฉพาะเคสนั้นแล้วรอผล Green, ทำซ้ำไปทีละเคส (1, 3, 5, 15, และเคส
+   non-multiple เช่น 7) แล้วค่อย Refactor แยก helper is_multiple(n, factor)
+   ท้ายสุด — ทุกสเตปห้าม commit เอง ต้องรายงานผลรันจริงกลับมาก่อนไปสเตปต่อไป
+
+3) Property-Based Test ด้วย Hypothesis บน tokens.py (hash_token,
+   token_matches) ใน src/tests/test_tokens_property.py อย่างน้อย 2 property
+   ที่พิสูจน์ behavior จริง (token match กับ hash ของตัวเอง, token ที่ต่าง
+   กันต้องไม่ match) ห้ามเขียน property ที่เช็คแค่ isinstance
+
+4) เพิ่ม hypothesis/pytest-cov ลง src/tests/requirements-dev.txt (คงคอมเมนต์
+   เดิม) และแก้ .github/workflows/ci.yml เฉพาะ step "Run pytest" ของ job
+   python-tests ให้มี --cov ห้ามแก้ job อื่น
+
+5) Saboteur Testing: แก้เงื่อนไข boundary บนของ year_level ใน validation.py
+   ให้ผิดแบบ off-by-one ชั่วคราว, รัน pytest ยืนยันว่า boundary test ที่เขียน
+   ไว้ในข้อ 1 จับได้จริง, revert กลับทันทีแล้วยืนยันว่ากลับมา all passed,
+   สรุปเป็น docs/saboteur-journal.md (โค้ดที่ทำผิด/เทสต์ที่ควร fail/ผลก่อน/
+   test ใหม่ถ้ามี/ผลหลัง revert) ห้าม commit ทั้งโค้ดที่ทำพังและ journal
+```
+
+ทุก prompt ในชุดนี้มีเงื่อนไขหยุดร่วมกัน (ถ้าเทสต์ที่ควรผ่านกลับ fail หรือ revert แล้วยังไม่ all passed ให้หยุดรายงานก่อน ห้ามแก้ไปเรื่อย ๆ เอง) และขอบเขตที่ตัดกันทุกครั้ง (ห้ามแก้ไฟล์อื่นนอกจากที่ระบุ ห้าม commit เอง)
+
+เทียบกับ Five S's: **Single task** ผ่านเต็ม แยกเป็น prompt ย่อยทีละสเตปของ TDD โดยเฉพาะ ไม่ยอมให้ ChatGPT ข้ามจาก Red ไป Green หลายเคสพร้อมกัน ตรงข้ามกับ prompt กว้าง ๆ ในรอบก่อน ๆ ของไฟล์นี้ **Specific** ผ่าน (ระบุไฟล์ปลายทาง, ชื่อฟังก์ชัน, จำนวน property ขั้นต่ำ, ห้ามเขียนแบบ isinstance) **Structured** ผ่าน (ขอบเขต + เงื่อนไขหยุดแยกจากงานหลักทุกรอบ) **Surrounding** ผ่าน (แปะโค้ดจริงของ `tokens.py`/`validation.py` ไปด้วยเสมอ ไม่ให้ ChatGPT เดาโครงสร้างเอง) **Short** ผ่านสำหรับ prompt เดี่ยว ๆ แต่รวมทั้งชุดยาวเพราะมีหลายสเตปจริง ๆ
+
+**บทเรียนจริงจากรอบนี้:** การแยกงานเป็น "prompt คนสั่ง ChatGPT" กับ "Claude Code ตรวจผลจริงในเครื่องทุกรอบ" ทำให้จับข้อผิดพลาดเชิงกระบวนการได้ก่อนที่จะสะสม เช่น ตรวจพบว่าถ้าไม่เพิ่ม `hypothesis` ลง `requirements-dev.txt` ทัน CI จะพังทันทีที่ push เพราะ `pytest src/tests -v` ใน `ci.yml` ยัง import `test_tokens_property.py` ไม่ได้ — จับได้ก่อนสั่งขั้นถัดไปเพราะ Claude Code รันคำสั่งเดียวกับที่ CI จะรันจริงในเครื่องก่อนเสมอ ไม่ใช่เชื่อคำรายงานว่า "ผ่านแล้ว" เพียว ๆ
 
 ### รายการที่ยังไม่ระบุ Lab
 
