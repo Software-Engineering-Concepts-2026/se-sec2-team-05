@@ -6,6 +6,7 @@
 
 import io
 
+import pypdfium2
 import pytest
 from PIL import Image
 
@@ -19,6 +20,17 @@ PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 def make_image(fmt, size=(1600, 1200), mode="RGB"):
     buffer = io.BytesIO()
     Image.new(mode, size, "white").save(buffer, format=fmt)
+    return buffer.getvalue()
+
+
+def make_pdf(page_sizes):
+    """สร้าง PDF จริงด้วย pdfium — ให้แต่ละหน้าขนาดต่างกัน เพื่อดูจากขนาดรูปว่า render หน้าไหน"""
+    pdf = pypdfium2.PdfDocument.new()
+    for width, height in page_sizes:
+        pdf.new_page(width, height)
+    buffer = io.BytesIO()
+    pdf.save(buffer)
+    pdf.close()
     return buffer.getvalue()
 
 
@@ -90,6 +102,38 @@ def test_preview_is_generated_once_and_then_served_from_storage(env):
 
     assert second.status_code == 200
     assert second.data == first.data
+
+
+def test_pdf_preview_is_first_page_as_png(env):
+    client, _, _ = env
+    note = upload(client, make_pdf([(600, 800), (300, 300)]), "a.pdf", "application/pdf")
+
+    response = client.get(f"/notes/{note['id']}/preview")
+
+    assert response.status_code == 200
+    assert response.mimetype == "image/png"
+    assert response.data.startswith(PNG_MAGIC)
+    # หน้า 1 ขนาด 600x800pt ลดสเกลให้กว้าง 800px ส่วนหน้า 2 (300x300pt) จะได้ 600x600
+    assert result_size(response) == (800, 1067)
+
+
+def test_pdf_preview_is_cached_like_images(env):
+    client, _, root = env
+    note = upload(client, make_pdf([(600, 800)]), "a.pdf", "application/pdf")
+
+    client.get(f"/notes/{note['id']}/preview")
+
+    assert len(list((root / "previews").glob("*.png"))) == 1
+
+
+def test_preview_of_fake_pdf_returns_422(env):
+    client, _, _ = env
+    note = upload(client, b"%PDF-1.4 fake note", "fake.pdf", "application/pdf")
+
+    response = client.get(f"/notes/{note['id']}/preview")
+
+    assert response.status_code == 422
+    assert response.get_json() == {"error": "preview_unavailable"}
 
 
 def test_preview_of_unknown_note_returns_404(env):
@@ -203,4 +247,35 @@ def test_render_rejects_content_type_mismatch():
 
 def test_render_rejects_unsupported_content_type():
     with pytest.raises(PreviewUnavailable):
-        render_preview(io.BytesIO(b"%PDF-1.4"), "application/pdf")
+        render_preview(io.BytesIO(b"hello"), "text/plain")
+
+
+def test_render_pdf_uses_only_the_first_page():
+    data = render_preview(io.BytesIO(make_pdf([(300, 300), (600, 800)])), "application/pdf")
+
+    # หน้า 1 ขนาด 300x300pt render ที่ 2 เท่า = 600x600 ถ้าเป็นหน้า 2 จะกว้าง 800
+    assert Image.open(io.BytesIO(data)).size == (600, 600)
+
+
+def test_render_pdf_never_exceeds_max_width():
+    data = render_preview(io.BytesIO(make_pdf([(2000, 1000)])), "application/pdf")
+
+    assert Image.open(io.BytesIO(data)).size == (PREVIEW_MAX_WIDTH, 400)
+
+
+def test_render_rejects_pdf_without_pages():
+    with pytest.raises(PreviewUnavailable):
+        render_preview(io.BytesIO(make_pdf([])), "application/pdf")
+
+
+def test_render_rejects_pdf_with_oversized_first_page():
+    # หน้าแคบแต่สูงผิดปกติ (เกินที่ PDF spec แนะนำ) render แล้วจะเกินเพดานพิกเซล
+    with pytest.raises(PreviewUnavailable):
+        render_preview(io.BytesIO(make_pdf([(100, 300000)])), "application/pdf")
+
+
+def test_render_rejects_corrupted_pdf():
+    truncated = make_pdf([(600, 800)])[:60]
+
+    with pytest.raises(PreviewUnavailable):
+        render_preview(io.BytesIO(truncated), "application/pdf")
