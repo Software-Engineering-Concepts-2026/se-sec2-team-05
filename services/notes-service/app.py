@@ -14,6 +14,7 @@ Endpoint:
 ส่วนการแก้/ลบใช้ edit token ต่อโน้ตเป็นตัวกันชั่วคราว (ดู ADR-004 และ tokens.py)
 """
 
+import io
 import os
 from datetime import date, datetime, timezone
 
@@ -292,7 +293,11 @@ def create_app(database_url: str | None = None, storage=None) -> Flask:
                     return jsonify(error="preview_unavailable"), 422
             file_storage.save_bytes(preview_key, data)
 
-        response = send_file(file_storage.open(preview_key), mimetype="image/png")
+        # รูปตัวอย่างเล็ก (ไม่กี่ร้อย KB) อ่านเข้า memory แล้วปิดไฟล์ทันที ไม่ต้องถือ file handle
+        # ค้างไว้ให้ WSGI server มาปิดทีหลังเหมือนการส่งไฟล์เต็มของ /download
+        with file_storage.open(preview_key) as preview_file:
+            data = preview_file.read()
+        response = send_file(io.BytesIO(data), mimetype="image/png")
         response.headers["Cache-Control"] = PREVIEW_CACHE_CONTROL
         return response
 
