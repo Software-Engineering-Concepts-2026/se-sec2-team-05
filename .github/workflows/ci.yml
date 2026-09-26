@@ -44,10 +44,11 @@ jobs:
         run: |
           pip install -r services/stats-service/requirements.txt
           pip install -r services/notes-service/requirements.txt
+          pip install -r services/auth-service/requirements.txt
           pip install -r src/tests/requirements-dev.txt
 
       - name: Run pytest
-        run: pytest src/tests -v
+        run: pytest src/tests -v --cov=services/notes-service --cov=services/auth-service --cov=src --cov-report=term-missing
 
   docker-build:
     name: Build & smoke-test stack
@@ -63,7 +64,7 @@ jobs:
       # gunicorn/postgres ใช้เวลา boot ไม่กี่วินาที — retry แทนการ sleep ตายตัว
       - name: Wait for services to become healthy
         run: |
-          for url in http://localhost:5000/health http://localhost:5001/health; do
+          for url in http://localhost:5000/health http://localhost:5001/health http://localhost:5002/health; do
             ok=false
             for i in $(seq 1 20); do
               if curl -fsS "$url" > /dev/null; then ok=true; break; fi
@@ -120,6 +121,38 @@ jobs:
           test "$status" = "204"
           test "$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:5001/notes/$note_id")" = "404"
           echo "edit/delete OK"
+
+      # เส้นทางของ US-05/US-06 บน Postgres จริง: สมัคร -> login -> ใช้ token -> logout -> token ต้องใช้ไม่ได้ทันที
+      - name: End-to-end smoke test (register -> login -> me -> logout)
+        run: |
+          set -euo pipefail
+          auth=http://localhost:5002/auth
+          member='{"email":"ci.smoke@up.ac.th","password":"ci smoke password","display_name":"CI Smoke"}'
+
+          status=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$auth/register" -H 'Content-Type: application/json' -d "$member")
+          test "$status" = "201"
+          # อีเมลซ้ำต้องไม่ได้บัญชีที่สอง
+          status=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$auth/register" -H 'Content-Type: application/json' -d "$member")
+          test "$status" = "409"
+          # อีเมลนอกโดเมนมหาวิทยาลัยต้องสมัครไม่ได้
+          status=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$auth/register" -H 'Content-Type: application/json'             -d '{"email":"someone@gmail.com","password":"ci smoke password","display_name":"x"}')
+          test "$status" = "400"
+
+          # รหัสผิดกับอีเมลที่ไม่มีต้องได้คำตอบเดียวกัน (กัน enumeration)
+          wrong=$(curl -s -X POST "$auth/login" -H 'Content-Type: application/json' -d '{"email":"ci.smoke@up.ac.th","password":"nope nope"}')
+          unknown=$(curl -s -X POST "$auth/login" -H 'Content-Type: application/json' -d '{"email":"nobody@up.ac.th","password":"nope nope"}')
+          test "$wrong" = "$unknown"
+          test "$(echo "$wrong" | jq -r '.error')" = "invalid_credentials"
+
+          token=$(curl -fsS -X POST "$auth/login" -H 'Content-Type: application/json'             -d '{"email":"ci.smoke@up.ac.th","password":"ci smoke password"}' | jq -r '.access_token')
+          test "$token" != "null"
+          test "$(curl -fsS "$auth/me" -H "Authorization: Bearer $token" | jq -r '.display_name')" = "CI Smoke"
+
+          status=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$auth/logout" -H "Authorization: Bearer $token")
+          test "$status" = "204"
+          status=$(curl -s -o /dev/null -w '%{http_code}' "$auth/me" -H "Authorization: Bearer $token")
+          test "$status" = "401"
+          echo "auth OK"
 
       - name: Metadata validation is enforced
         run: |

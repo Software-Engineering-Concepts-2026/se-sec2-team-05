@@ -7,6 +7,9 @@
 | --- | --- | --- |
 | `test_stats_service.py` | endpoint `/health`, `/stats` ของ Stats Service | อติชาติ |
 | `conftest.py` | ทำให้ pytest มองเห็น `services/stats-service/app.py` (ยังไม่ได้ทำเป็น package) | อติชาติ |
+| `test_auth_credentials.py` | ตรวจข้อมูลสมัครสมาชิกและ hash รหัสผ่านของ User & Auth Service (US-05) | อติชาติ |
+| `test_auth_tokens.py` | ออก/ตรวจ JWT ของ User & Auth Service (US-06) | อติชาติ |
+| `test_auth_api.py` | endpoint `/auth/register`, `/auth/login`, `/auth/logout`, `/auth/me` (US-05, US-06) | อติชาติ |
 | `../../prototypes/sprint1/note-utils.test.js` | `escapeHtml`, `formatStars`, `compareNotes` | อติชาติ (Lab 7) |
 
 > ⚠️ **ยังขาด:** เทสต์ของ วชิรวิทย์ และ กฤตเมธ — ตามใบงานทุกคนต้องมีเทสต์เป็นของตัวเอง
@@ -20,6 +23,8 @@
 python -m venv venv
 # Windows: venv\Scripts\activate   |   macOS/Linux: source venv/bin/activate
 pip install -r services/stats-service/requirements.txt
+pip install -r services/notes-service/requirements.txt
+pip install -r services/auth-service/requirements.txt
 pip install -r src/tests/requirements-dev.txt
 pytest src/tests -v
 ```
