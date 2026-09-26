@@ -73,6 +73,7 @@ class Note(Base):
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "download_url": f"/notes/{self.id}/download",
+            "preview_url": f"/notes/{self.id}/preview",
         }
 
 
