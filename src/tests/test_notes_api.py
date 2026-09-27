@@ -89,6 +89,56 @@ def test_uploaded_file_can_be_downloaded_back_unchanged(client):
     assert response.data == b"%PDF-1.4 fake note"
     assert "note.pdf" in response.headers["Content-Disposition"]
 
+def test_new_note_starts_with_zero_downloads(client):
+    note_id = upload(client).get_json()["id"]
+
+    body = client.get(f"/notes/{note_id}").get_json()
+    assert body["download_count"] == 0
+
+
+def test_download_increments_count(client):
+    note_id = upload(client).get_json()["id"]
+
+    client.get(f"/notes/{note_id}/download")
+
+    body = client.get(f"/notes/{note_id}").get_json()
+    assert body["download_count"] == 1
+
+
+def test_repeated_downloads_accumulate_count(client):
+    note_id = upload(client).get_json()["id"]
+
+    for _ in range(3):
+        client.get(f"/notes/{note_id}/download")
+
+    body = client.get(f"/notes/{note_id}").get_json()
+    assert body["download_count"] == 3
+
+
+def test_download_of_missing_file_returns_error_json_and_does_not_count(client, tmp_path):
+    """ไฟล์หายจาก storage → error JSON (AC ข้อ 3 ของ #12) และ count ต้องไม่ขยับ"""
+    note_id = upload(client).get_json()["id"]
+    for stored in (tmp_path / "storage").iterdir():
+        stored.unlink()
+
+    response = client.get(f"/notes/{note_id}/download")
+
+    assert response.status_code == 404
+    assert response.get_json()["error"] == "file_not_found"
+    assert client.get(f"/notes/{note_id}").get_json()["download_count"] == 0
+
+
+def test_download_count_is_independent_per_note(client):
+    """โหลดโน้ตใบหนึ่งไม่ควรไปเพิ่ม count ของโน้ตใบอื่น"""
+    note_a = upload(client, subject_code="CS101").get_json()["id"]
+    note_b = upload(client, subject_code="CS201").get_json()["id"]
+
+    client.get(f"/notes/{note_a}/download")
+    client.get(f"/notes/{note_a}/download")
+
+    assert client.get(f"/notes/{note_a}").get_json()["download_count"] == 2
+    assert client.get(f"/notes/{note_b}").get_json()["download_count"] == 0
+
 
 def test_search_by_keyword_matches_subject_and_lesson(client):
     upload(client)
