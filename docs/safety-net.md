@@ -55,7 +55,13 @@ services\auth-service\credentials.py      58     30     24      0   44%   40-42,
 - `Unit tests (JS prototypes)` (`node --test`) และ `Build & smoke-test stack` (docker compose + curl end-to-end) — มีอยู่ก่อน Lab นี้
 - **Branch Protection:** `main` มี protection อยู่แล้วและบังคับ review (PR #66 ขึ้น `REVIEW_REQUIRED`) แต่ยัง**ไม่ได้บังคับ status check**
   ทีมมีสิทธิ์แค่ Maintain ตั้งเองไม่ได้ ขอให้ org owner เพิ่ม `lint` + `Unit tests (Stats Service)` เป็น required checks แล้ว — รอผล
-- **หลักฐาน:** ภาพหน้า PR ตอนขึ้น "Merging is blocked" — _รอหลังตั้ง required checks แล้วแกล้งทำเทสต์พัง_
+- **หลักฐาน:** แกล้งแก้ค่าที่คาดหวังของ AE-04 ให้ผิด (commit `d95253c`) → `Unit tests (Stats Service)` แดง, `Build & smoke-test stack` ถูกข้าม
+  → แก้กลับใน `55ce2e5` แล้วเขียวครบ
+
+  ![PR #66 ตอน CI แดง: Unit tests fail และ Merging is blocked](images/lab12b-merging-blocked.png)
+
+  _CI จับเทสต์ที่แกล้งทำพังได้ และ merge ถูกบล็อก แต่ตัวที่บล็อกคือกฎบังคับ review 1 คน ("At least 1 approving review is required")
+  เพราะ CI ยังไม่ได้ตั้งเป็น required check (ทีมมีสิทธิ์แค่ Maintain) — ถ้ามีคน approve ตอนนั้น ปุ่ม merge จะกดได้ทั้งที่เทสต์แดง_
 
 ## 5. บทเรียนที่ได้
 
