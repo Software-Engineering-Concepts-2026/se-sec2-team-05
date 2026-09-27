@@ -5,6 +5,8 @@ test_auth_credentials.py ทดสอบอีเมลผ่าน validate_reg
 ขอบความยาว 254 ทั้งสองฝั่ง และข้อความ error เมื่ออนุญาตหลายโดเมน
 """
 
+import pytest
+
 from credentials import MAX_EMAIL_LENGTH, email_error
 
 UP = ("up.ac.th",)
@@ -120,3 +122,22 @@ def test_rejection_message_lists_every_allowed_domain():
 
     # Assert
     assert result == "ต้องใช้อีเมลของมหาวิทยาลัย (@up.ac.th, @ict.up.ac.th)"
+
+
+# ทีมตกลงว่า "มี @ แต่ไม่มีโดเมน" คือรูปแบบผิด ไม่ใช่โดเมนผิด แต่โค้ดตอนนี้เช็ค local ว่าง
+# แต่ไม่เช็ค domain ว่าง จึงหลุดไปตกที่เงื่อนไขโดเมนแทน — เก็บเป็น xfail ไว้จนกว่าจะแก้
+# credentials.py (strict=True: ถ้าวันไหนแก้แล้วเทสต์ผ่าน CI จะแดงเตือนให้เอา xfail ออก)
+@pytest.mark.xfail(
+    strict=True,
+    reason="bug ที่เจอจาก Lab 12B: 'a@' ได้ error โดเมนแทน error รูปแบบ — ยังไม่แก้ credentials.py",
+)
+def test_email_without_domain_is_malformed():
+    """มี @ แต่ไม่มีโดเมนต้องได้ error รูปแบบ ไม่ใช่ error ว่าผิดโดเมน"""
+    # Arrange
+    email = "a@"
+
+    # Act
+    result = email_error(email, UP)
+
+    # Assert
+    assert result == "รูปแบบอีเมลไม่ถูกต้อง"
