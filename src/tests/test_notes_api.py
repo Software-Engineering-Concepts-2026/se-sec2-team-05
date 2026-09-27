@@ -10,7 +10,6 @@
 import io
 
 import pytest
-from werkzeug.datastructures import FileStorage
 
 from identity import IdentityUnavailable
 from storage import LocalFileStorage

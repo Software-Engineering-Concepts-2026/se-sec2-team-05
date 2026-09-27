@@ -10,6 +10,25 @@ on:
   pull_request:
 
 jobs:
+  # ตรวจโค้ด Python ด้วย ruff ตามกฎใน ruff.toml (Lab 12B) — ไม่ต้องติดตั้ง dependency ของ service
+  # ล็อกเวอร์ชันไว้ ไม่ให้ CI แดงเองวันที่ ruff ออกเวอร์ชันใหม่ที่เพิ่มกฎ
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install ruff
+        run: pip install ruff==0.16.0
+
+      - name: Run ruff
+        run: ruff check .
+
   js-tests:
     name: Unit tests (JS prototypes)
     runs-on: ubuntu-latest
