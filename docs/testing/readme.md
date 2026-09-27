@@ -219,14 +219,33 @@ Stats Service ที่คืน mock data กับ prototype ฝั่ง fron
 **ตรวจว่าเทสต์จับบั๊กได้จริง (2026-09-27):** ลองแก้ `POST /notes` ให้ปล่อยผ่านเมื่อ token ใช้ไม่ได้
 (ใส่บัญชี anonymous แทนการตอบ 401) มี 5 เทสต์ fail — NA-20 ทั้งสามแบบ, NA-21 และ NI-08 — จากนั้น revert แล้วผ่านครบ
 
+### 2.11 Auth Service — `email_error()` โดยตรง (`pytest`, US-05 #5, Lab 12B)
+
+ไฟล์ [`test_email_error.py`](../../src/tests/test_email_error.py) — เรียก `email_error()` ตรง ๆ ไม่ผ่าน `validate_registration()`
+ชุด AC-03 ถึง AC-05 ใน 2.7 ทดสอบอีเมลผ่านการ normalize เสมอ ไฟล์นี้ตรึงสัญญาของฟังก์ชันเอง
+(รับค่าที่ normalize แล้ว, ขอบความยาว 254 ทั้งสองฝั่ง, ข้อความเมื่อตั้งหลายโดเมน) · coverage ของ `credentials.py`
+เป็น 100% อยู่แล้วก่อนเพิ่มชุดนี้ จึงไม่ได้ทำให้ตัวเลขขึ้น
+
+| # | Test case | Input | ผลที่คาดหวัง |
+| --- | --- | --- | --- |
+| AE-01 | อีเมลมหาวิทยาลัยผ่าน | `67026168@up.ac.th` | `None` |
+| AE-02 | โดเมนที่สองที่อนุญาตผ่าน | `x@ict.up.ac.th` กับ (`up.ac.th`, `ict.up.ac.th`) | `None` |
+| AE-03 | ยาวพอดีเพดาน | 254 ตัวอักษร | `None` (ขอบฝั่งที่ต้องผ่าน — AC-05 เช็คแค่ 255) |
+| AE-04 | ยาวเกินเพดาน 1 ตัว | 255 ตัวอักษร | `"ยาวเกิน 254 ตัวอักษร"` |
+| AE-05 | ไม่ normalize เอง | `A@UP.AC.TH` | error โดเมน — คนเรียกต้องแปลงเป็นตัวพิมพ์เล็กก่อน |
+| AE-06 | ค่าว่าง | `""` | `"จำเป็นต้องกรอก"` |
+| AE-07 | whitespace ที่ไม่ใช่ช่องว่าง | `a\t@up.ac.th` | `"รูปแบบอีเมลไม่ถูกต้อง"` |
+| AE-08 | ข้อความ error บอกครบทุกโดเมน | `x@gmail.com` กับ (`up.ac.th`, `ict.up.ac.th`) | `"ต้องใช้อีเมลของมหาวิทยาลัย (@up.ac.th, @ict.up.ac.th)"` |
+| AE-09 | มี `@` แต่ไม่มีโดเมน | `a@` | `"รูปแบบอีเมลไม่ถูกต้อง"` — **xfail**: โค้ดตอนนี้คืน error โดเมน เพราะเช็ค local ว่างแต่ไม่เช็ค domain ว่าง ทีมตกลงว่าเป็นบั๊ก ยังไม่ได้แก้ `credentials.py` · ตั้ง `strict=True` ไว้ ถ้าแก้แล้วเทสต์ผ่าน CI จะแดงเตือนให้เอา xfail ออก |
+
 ## 3. Test Report
 
-**รันล่าสุด:** 2026-09-27 (เครื่อง local, Windows 11, branch `feature/notes-require-login`)
+**รันล่าสุด:** 2026-09-27 (เครื่อง local, Windows 11, branch `feature/safety-net`)
 
 | ชุด | คำสั่ง | ผล |
 | --- | --- | --- |
 | JS unit | `cd prototypes/sprint1 && node --test` | ✅ 7 passed / 0 failed (69 ms) |
-| Python unit + integration | `pytest src/tests -v` | ✅ 181 passed / 0 failed (~14 s) — stats 4, notes validation 18 + boundary 19, notes API 47, notes identity 13, edit-token property 2, fizzbuzz 5, auth credentials 29, auth tokens 14, auth API 30 · coverage รวม 99% (`identity.py` 100%) |
+| Python unit + integration | `pytest src/tests -v` | ✅ 189 passed / 0 failed / 1 xfailed (~15 s) — stats 4, notes validation 18 + boundary 19, notes API 47, notes identity 13, edit-token property 2, fizzbuzz 5, auth credentials 29, auth email_error 9 (AE-09 เป็น xfail), auth tokens 14, auth API 30 · coverage รวม 99% (`identity.py` 100%, `credentials.py` 100%) |
 | Smoke DK-03 ถึง DK-06 แบบไม่ใช้ Docker | รัน `auth-service` กับ `notes-service` ตัวจริงบน SQLite (notes ชี้ `AUTH_SERVICE_URL` ไปที่ auth) แล้วรันสคริปต์ `run:` ของแต่ละ step ที่ดึงออกมาจาก `ci.yml` ตรง ๆ | ✅ ผ่านครบ 6 step (`upload auth OK`, `end-to-end OK`, `edit/delete OK`, `auth OK`, validation `400`) · บน Postgres + compose จริงรอผลจาก CI เพราะ Docker daemon ไม่ได้เปิดบนเครื่องที่ใช้เขียน · ตอนรันบน Windows ต้องแทน `/tmp/` เป็น path ของ Windows เพราะ curl ของ Windows อ่าน `/tmp` ของ Git Bash ไม่ได้ (ไม่ได้แก้ใน `ci.yml` เพราะ CI รันบน Linux) |
 | Container smoke (compose e2e) | `docker compose up` + `curl` | ✅ ผ่านบน CI ([run #33351842320](https://github.com/Software-Engineering-Concepts-2026/se-sec2-team-05/actions/runs/33351842320), 1m6s) — log ยืนยัน `created note #1` และ `end-to-end OK` · ไม่ได้รัน local เพราะ Docker daemon ไม่ได้เปิดบนเครื่องที่ใช้เขียน |
 
