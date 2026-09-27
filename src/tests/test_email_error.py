@@ -70,7 +70,7 @@ def test_email_one_over_max_length_is_rejected():
     result = email_error(email, UP)
 
     # Assert
-    assert result == "ยาวเกิน 255 ตัวอักษร"  # TEMP BREAK: พิสูจน์ว่า CI แดงแล้ว merge ไม่ได้ — ต้องแก้กลับเป็น 254
+    assert result == "ยาวเกิน 254 ตัวอักษร"
 
 
 def test_uppercase_domain_is_rejected_because_caller_must_normalize():
