@@ -4,9 +4,10 @@ Service สมัครสมาชิกและเข้า/ออกจา�
 และ [US-06 (#6)](https://github.com/Software-Engineering-Concepts-2026/se-sec2-team-05/issues/6)
 การออกแบบ token/session และเหตุผลที่เลือก scrypt อยู่ใน [ADR-005](../../docs/architecture/adr/0005-auth-jwt-with-server-side-sessions.th.md)
 
-> ⚠️ **notes-service ยังไม่ได้เรียกใช้ service นี้** — การอัปโหลดยังรับ `uploader_name` จากฟอร์ม
-> จนกว่างานบังคับ login ตอนอัปโหลด (refs #31) จะเสร็จ · ยังไม่มีการยืนยันอีเมลทางเมล
-> ใครก็สมัครด้วยอีเมล `@up.ac.th` ของคนอื่นได้ จึงห้าม deploy ออกสู่สาธารณะ
+> ℹ️ **notes-service เรียก `GET /auth/me` เพื่อยืนยันตัวตนตอน `POST /notes` อัปโหลด** (refs #31) —
+> ชื่อผู้อัปโหลดมาจาก `display_name` ของบัญชี ไม่ได้รับจากฟอร์ม
+>
+> ⚠️ ยังไม่มีการยืนยันอีเมลทางเมล ใครก็สมัครด้วยอีเมล `@up.ac.th` ของคนอื่นได้ จึงห้าม deploy ออกสู่สาธารณะ
 
 ## รันในเครื่อง
 

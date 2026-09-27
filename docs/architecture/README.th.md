@@ -61,7 +61,7 @@
 - [ADR-004 — ใช้ edit token ต่อโน้ตเป็นตัวแทนการตรวจสอบเจ้าของชั่วคราว](./adr/0004-per-note-edit-token.th.md)
 - [ADR-005 — User & Auth Service ที่ออก JWT โดยมี session ฝั่งเซิร์ฟเวอร์รองรับ](./adr/0005-auth-jwt-with-server-side-sessions.th.md)
 
-> ⚠️ C4 Container diagram ด้านบนอธิบายสถาปัตยกรรม **เป้าหมาย** สิ่งที่ `docker compose up` ยกขึ้นมาจริงตอนนี้แคบกว่านั้น — มี `notes-service`, `auth-service` และ `stats-service` ยังไม่มี gateway และ `notes-service` ยังไม่ได้เรียก `auth-service` ดูรายละเอียดใน ADR-003 และ ADR-005
+> ⚠️ C4 Container diagram ด้านบนอธิบายสถาปัตยกรรม **เป้าหมาย** สิ่งที่ `docker compose up` ยกขึ้นมาจริงตอนนี้แคบกว่านั้น — มี `notes-service`, `auth-service` และ `stats-service` ยังไม่มี gateway และ `notes-service` เรียก `auth-service` (`GET /auth/me`) เฉพาะตอนตรวจตัวตนผู้อัปโหลด การอ่านยังเปิดหมด ส่วนการแก้/ลบยังใช้ edit token ของ ADR-004 ดูรายละเอียดใน ADR-003, ADR-004 และ ADR-005
 
 ## แก้ไขแผนภาพ
 

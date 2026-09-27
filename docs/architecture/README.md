@@ -60,7 +60,7 @@ Per-layer rationale and the alternatives we weighed are in [tech_stack.md](./tec
 - [ADR-004 — Per-Note Edit Tokens as a Temporary Stand-In for Ownership Checks](./adr/0004-per-note-edit-token.md)
 - [ADR-005 — User & Auth Service with JWT Access Tokens Backed by Server-Side Sessions](./adr/0005-auth-jwt-with-server-side-sessions.md)
 
-> ⚠️ The C4 Container diagram above describes the **target** architecture. What `docker compose up` actually starts today is narrower — `notes-service`, `auth-service` and `stats-service`, with no gateway, and `notes-service` does not call `auth-service` yet. See ADR-003 and ADR-005.
+> ⚠️ The C4 Container diagram above describes the **target** architecture. What `docker compose up` actually starts today is narrower — `notes-service`, `auth-service` and `stats-service`, with no gateway. `notes-service` calls `auth-service` (`GET /auth/me`) only to authenticate uploads; reads stay open and edits/deletes still use ADR-004's edit tokens. See ADR-003, ADR-004 and ADR-005.
 
 ## Editing the diagrams
 

@@ -2,15 +2,16 @@
 
 Endpoint:
     GET  /health              health check (รูปแบบเดียวกับ stats-service)
-    POST /notes               อัปโหลดไฟล์ + metadata (multipart/form-data)
+    POST /notes               อัปโหลดไฟล์ + metadata (multipart/form-data) ต้อง login (US-31)
     GET  /notes               ค้นหา/กรองด้วย metadata ที่กรอกไว้ (AC ข้อ 4)
     GET  /notes/<id>          รายละเอียดโน้ตหนึ่งรายการ
     PATCH  /notes/<id>        แก้ metadata บางส่วน (US-19) ต้องมี X-Note-Token
     DELETE /notes/<id>        ลบโน้ตพร้อมไฟล์ (US-20) ต้องมี X-Note-Token
     GET  /notes/<id>/download ดาวน์โหลดไฟล์จริง
 
-ยังไม่มี auth — endpoint ที่อ่านอย่างเดียวเปิดหมด จนกว่า #5/#6 (User & Auth) จะเสร็จ
-ส่วนการแก้/ลบใช้ edit token ต่อโน้ตเป็นตัวกันชั่วคราว (ดู ADR-004 และ tokens.py)
+การอัปโหลดต้องส่ง `Authorization: Bearer <token>` ที่ได้จาก auth-service ชื่อผู้อัปโหลด
+มาจากบัญชีนั้น ไม่รับจากฟอร์ม (ดู identity.py) — endpoint ที่อ่านอย่างเดียวยังเปิดหมด
+ส่วนการแก้/ลบยังใช้ edit token ต่อโน้ตเหมือนเดิม (ดู ADR-004 และ tokens.py)
 """
 
 import os
@@ -19,6 +20,7 @@ from datetime import date, datetime, timezone
 from flask import Flask, jsonify, request, send_file
 from sqlalchemy import select, update
 
+from identity import IdentityUnavailable, identity_from_env
 from models import Note, build_session_factory
 from storage import storage_from_env
 from tokens import HEADER_NAME, issue_token, token_matches
@@ -51,7 +53,7 @@ EXT_TO_CONTENT_TYPE = {
 }
 
 
-def create_app(database_url: str | None = None, storage=None) -> Flask:
+def create_app(database_url: str | None = None, storage=None, identity=None) -> Flask:
     app = Flask(__name__)
     # ตัดคำขอที่ใหญ่เกินตั้งแต่ชั้น Werkzeug ไม่ต้องรอให้ validate_file เห็นขนาด
     # เพราะกว่าจะถึงตรงนั้น request body ถูกอ่านเข้ามาครบแล้ว
@@ -60,6 +62,7 @@ def create_app(database_url: str | None = None, storage=None) -> Flask:
         database_url or os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL)
     )
     file_storage = storage or storage_from_env()
+    current_user = identity or identity_from_env()
 
     @app.get("/health")
     def health():
@@ -86,6 +89,14 @@ def create_app(database_url: str | None = None, storage=None) -> Flask:
 
     @app.post("/notes")
     def create_note():
+        # ตรวจตัวตนก่อนแตะ body — ถ้าไม่ผ่านจะไม่มีการอ่านไฟล์หรือบันทึกอะไรลง storage เลย
+        try:
+            user = current_user(request.headers.get("Authorization"))
+        except IdentityUnavailable:
+            return jsonify(error="auth_unavailable"), 503
+        if user is None:
+            return jsonify(error="unauthorized"), 401, {"WWW-Authenticate": "Bearer"}
+
         cleaned, errors = validate_metadata(request.form)
         content_type, size_bytes, file_error = validate_file(request.files.get("file"))
         if file_error:
@@ -101,6 +112,9 @@ def create_app(database_url: str | None = None, storage=None) -> Flask:
         token, token_hash = issue_token()
         note = Note(
             **cleaned,
+            # US-31: เจ้าของโน้ตมาจากบัญชีที่ login เสมอ uploader_name ในฟอร์ม (ถ้ามี) ถูกเมิน
+            uploader_id=user["id"],
+            uploader_name=user["display_name"],
             file_name=upload.filename,
             content_type=content_type,
             size_bytes=size_bytes,
