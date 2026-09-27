@@ -40,8 +40,12 @@ class Note(Base):
     size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
     storage_key: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
 
-    # เจ้าของโน้ต — ยังเป็น string ไปก่อนจนกว่า User & Auth service จะมีจริง (#5, #6)
-    uploader_name: Mapped[str] = mapped_column(String(120), nullable=False, default="anonymous")
+    # เจ้าของโน้ต (US-31) — มาจากบัญชีที่ login ตอนอัปโหลด ไม่ได้มาจากฟอร์ม
+    # uploader_id คือ id ใน `users` ของ auth-service ไม่ได้ทำเป็น foreign key เพราะตารางนั้น
+    # เป็นของอีก service (ADR-005) ส่วน uploader_name เป็นชื่อ ณ ตอนอัปโหลด ใช้แสดงเครดิต
+    # โดยไม่ต้องถาม auth-service ทุกครั้งที่แสดงรายการโน้ต · ยังไม่ส่ง uploader_id ออกใน API
+    uploader_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    uploader_name: Mapped[str] = mapped_column(String(120), nullable=False)
 
     # hash ของ edit token ที่ใช้พิสูจน์ความเป็นเจ้าของตอนแก้/ลบ (US-19, US-20)
     # เก็บเฉพาะ hash ตัว token จริงคืนให้ผู้สร้างครั้งเดียวตอน POST แล้วไม่เก็บไว้ที่ไหนอีก

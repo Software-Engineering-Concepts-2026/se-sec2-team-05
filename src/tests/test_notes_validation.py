@@ -26,7 +26,14 @@ def test_valid_form_passes_and_casts_year_level():
 
     assert errors == {}
     assert cleaned["year_level"] == 2  # cast เป็น int แล้ว ไม่ใช่ "2"
-    assert cleaned["uploader_name"] == "anonymous"  # ยังไม่มี auth (#5, #6)
+
+
+def test_uploader_name_in_form_is_ignored():
+    """US-31: ชื่อผู้อัปโหลดมาจากบัญชีที่ login (app.py) ฟอร์มจะส่งอะไรมาก็ไม่ถูกใช้"""
+    cleaned, errors = validate_metadata({**VALID_FORM, "uploader_name": "คนอื่น"})
+
+    assert errors == {}
+    assert "uploader_name" not in cleaned
 
 
 def test_missing_required_fields_are_all_reported_at_once():

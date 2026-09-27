@@ -58,8 +58,11 @@ Stats Service ที่คืน mock data กับ prototype ฝั่ง fron
 | NV-12 | ไฟล์ว่าง | 0 byte | `"ไฟล์ว่าง"` |
 | NV-13 | ไฟล์ใหญ่เกิน 20 MB | 20 MB + 1 byte | ถูกปฏิเสธ |
 | NV-14 | หลัง validate แล้ว stream ต้องถูก rewind | อ่าน stream ซ้ำ | ได้เนื้อไฟล์เดิม (ถ้าลืม `seek(0)` ไฟล์ที่เซฟจะว่าง) |
+| NV-15 | `uploader_name` ในฟอร์มไม่ถูกใช้ (US-31) | ฟอร์มครบ + `uploader_name=คนอื่น` | ไม่มี error และไม่มี `uploader_name` ในผลลัพธ์ — ชื่อมาจากบัญชีที่ `app.py` |
 
 ### 2.4 Notes Service — API (`pytest`, US-08 AC ข้อ 4)
+
+ทุกเคสที่อัปโหลดส่ง Bearer token ของบัญชีทดสอบ ผ่าน `FakeIdentity` ที่ inject แทน auth-service (US-31)
 
 | # | Test case | Request | ผลที่คาดหวัง |
 | --- | --- | --- | --- |
@@ -82,6 +85,13 @@ Stats Service ที่คืน mock data กับ prototype ฝั่ง fron
 | NA-17 | ดาวน์โหลดซ้ำสะสมยอด | ดาวน์โหลด 3 ครั้ง | `download_count = 3` |
 | NA-18 | ไฟล์หายจาก storage ต้องไม่นับ | ลบไฟล์ออกจาก storage แล้วดาวน์โหลด | `404` `{"error": "file_not_found"}` และ `download_count` ยังเป็น 0 (AC ข้อ 3 ของ #12) |
 | NA-19 | ยอดดาวน์โหลดแยกรายโน้ต | โหลดโน้ต A 2 ครั้ง | A = 2, B = 0 |
+| NA-20 | อัปโหลดโดยไม่ได้ login ไม่ได้ (US-31) | ไม่มี header, token ที่ไม่รู้จัก, ลืม `Bearer` | `401` `{"error": "unauthorized"}` + `WWW-Authenticate: Bearer` · DB และ storage ว่าง |
+| NA-21 | ตรวจ login ก่อน validate ฟอร์ม | ไม่ login + ฟอร์มขาดฟิลด์ | `401` ไม่ใช่ `400` |
+| NA-22 | ชื่อผู้อัปโหลดมาจากบัญชี ไม่ใช่ฟอร์ม (AC 1–3 ของ #31) | ส่ง `uploader_name=คนอื่นที่อยากสวมรอย` | `uploader_name` = `display_name` ของบัญชี ทั้งใน response, `GET /notes/<id>` และ `GET /notes` |
+| NA-23 | เก็บ `uploader_id` แต่ไม่ส่งออก | อ่านคอลัมน์ใน DB ตรง ๆ | `uploader_id` = id ของบัญชี · ไม่มี `uploader_id` ใน response |
+| NA-24 | auth-service ล่ม | identity โยน `IdentityUnavailable` | `503` `{"error": "auth_unavailable"}` · storage ว่าง |
+| NA-25 | endpoint อ่านอย่างเดียวยังเปิด | `GET /notes`, `/notes/<id>`, `/download` โดยไม่ login | `200` ทั้งหมด และไม่มีการเรียก auth-service เพิ่ม |
+| NA-26 | login อย่างเดียวแก้/ลบไม่ได้ (ADR-004 ยังใช้) | `PATCH`/`DELETE` ด้วย Bearer token แต่ไม่มี edit token | `403` ทั้งคู่ · ด้วย edit token ลบได้ `204` |
 
 ### 2.5 Notes Service — แก้ไข/ลบโน้ต (`pytest`, US-19 #19 + US-20 #20)
 
@@ -107,9 +117,10 @@ Stats Service ที่คืน mock data กับ prototype ฝั่ง fron
 | --- | --- | --- | --- |
 | DK-01 | ทั้ง stack build และสตาร์ตได้ | `docker compose up -d --build` | exit code 0 |
 | DK-02 | ทุก service ตอบ health | `curl :5000/health`, `:5001/health`, `:5002/health` (retry 20 ครั้ง ห่างละ 3 วิ) | `200` ทั้งหมด |
-| DK-03 | end-to-end ของ US-08 | อัปโหลดพร้อม metadata → กรองด้วย `faculty`+`year_level`+`q` → ดาวน์โหลด | `count = 1` และไฟล์ที่ดาวน์โหลดตรงกับต้นฉบับ (`cmp`) |
-| DK-04 | validation ทำงานจริงบน stack ที่รัน | `POST /notes` ส่งแค่ `title` | `400` |
+| DK-03 | end-to-end ของ US-08 | อัปโหลด (พร้อม token ของบัญชีผู้อัปโหลด) พร้อม metadata → กรองด้วย `faculty`+`year_level`+`q` → ดาวน์โหลด | `count = 1` และไฟล์ที่ดาวน์โหลดตรงกับต้นฉบับ (`cmp`) |
+| DK-04 | validation ทำงานจริงบน stack ที่รัน | `POST /notes` (มี token) ส่งแค่ `title` | `400` |
 | DK-05 | สมัคร → login → ใช้ token → logout บน Postgres จริง (US-05/US-06) | `curl` ไปที่ `:5002/auth/*` | สมัคร `201` · สมัครซ้ำ `409` · โดเมนอื่น `400` · รหัสผิดกับอีเมลที่ไม่มีได้ body เดียวกัน · `me` ได้ชื่อถูก · logout `204` แล้ว `me` ด้วย token เดิมได้ `401` |
+| DK-06 | อัปโหลดต้อง login และเครดิตมาจากบัญชี (US-31) บน stack จริง | สมัคร + login บัญชี `CI Uploader` แล้ว `POST /notes` สามแบบ (ไม่มี token / token มั่ว / token จริง + `uploader_name=spoofed name`) | สองแบบแรกได้ `401` · แบบที่สามได้ `uploader_name = CI Uploader` · `count = 1` (ครั้งที่ไม่ผ่านไม่ถูกบันทึก) · notes-service คุยกับ auth-service ผ่านเครือข่ายของ compose จริง |
 
 ### 2.7 Auth Service — ตรวจข้อมูลสมัครและ hash รหัสผ่าน (`pytest`, US-05 #5)
 
@@ -188,15 +199,35 @@ Stats Service ที่คืน mock data กับ prototype ฝั่ง fron
 | login ตอบต่างกันเมื่ออีเมลไม่มีในระบบ | AA-12 |
 | ยอมรับ `alg: none` | AT-06 |
 
+### 2.10 Notes Service — ตรวจตัวตนกับ auth-service ตัวจริง (`pytest`, US-31 #31)
+
+ไฟล์ [`test_notes_identity.py`](../../src/tests/test_notes_identity.py) — ยก auth-service ตัวจริง (SQLite ชั่วคราว)
+ขึ้นเป็น HTTP server ในเธรดของเทสต์ แล้วให้ `HttpIdentity` คุยผ่าน urllib จริง ไม่ต้องใช้ Docker
+ส่วนที่ `FakeIdentity` ใน 2.4 เช็คไม่ได้ (รูปแบบ response ของ `/auth/me` และการคุย HTTP) อยู่ในไฟล์นี้
+
+| # | Test case | Input | ผลที่คาดหวัง |
+| --- | --- | --- | --- |
+| NI-01 | token ที่ใช้ได้ได้บัญชีกลับมา | login จริงแล้วส่ง `Bearer <token>` | `{"id": int, "display_name": ...}` ตรงกับที่สมัคร |
+| NI-02 | logout แล้วใช้ไม่ได้ทันที | logout แล้วส่ง token เดิม | `None` |
+| NI-03 | ไม่มี token หรือ token ใช้ไม่ได้ | `None`, `""`, `Bearer not-a-jwt`, `Basic ...` | `None` ทั้งหมด |
+| NI-04 | auth-service ตอบผิดปกติไม่ถือเป็น "token ใช้ไม่ได้" | stub ตอบ `500`, HTML, JSON ผิดรูป | `IdentityUnavailable` ทั้งสามแบบ (→ `503` ไม่ใช่ `401`) |
+| NI-05 | auth-service ช้าเกิน | stub หน่วง 1 วินาที, timeout 0.2 วินาที | `IdentityUnavailable` |
+| NI-06 | ต่อ auth-service ไม่ติด | พอร์ตที่ไม่มีใครฟัง | `IdentityUnavailable` |
+| NI-07 | อ่านที่อยู่จาก env | `AUTH_SERVICE_URL=http://auth-service:5002/` | เรียก `http://auth-service:5002/auth/me` |
+| NI-08 | ต่อครบสอง service | สมัคร → login → อัปโหลด (แนบ `uploader_name` ปลอม) → logout → อัปโหลดซ้ำ | `201` ด้วยชื่อจากบัญชี แล้ว `401` · มีโน้ตใบเดียว |
+
+**ตรวจว่าเทสต์จับบั๊กได้จริง (2026-09-27):** ลองแก้ `POST /notes` ให้ปล่อยผ่านเมื่อ token ใช้ไม่ได้
+(ใส่บัญชี anonymous แทนการตอบ 401) มี 5 เทสต์ fail — NA-20 ทั้งสามแบบ, NA-21 และ NI-08 — จากนั้น revert แล้วผ่านครบ
+
 ## 3. Test Report
 
-**รันล่าสุด:** 2026-09-25 (เครื่อง local, Windows 11)
+**รันล่าสุด:** 2026-09-27 (เครื่อง local, Windows 11, branch `feature/notes-require-login`)
 
 | ชุด | คำสั่ง | ผล |
 | --- | --- | --- |
-| JS unit | `cd prototypes/sprint1 && node --test` | ✅ 7 passed / 0 failed (88 ms) |
-| Python unit + integration | `pytest src/tests -v` | ✅ 153 passed / 0 failed (~4 s) — stats 4, notes validation 17 + boundary 19, notes API 33, edit-token property 2, fizzbuzz 5, auth credentials 29, auth tokens 14, auth API 30 |
-| Auth smoke (DK-05) แบบไม่ใช้ Docker | รัน `services/auth-service/app.py` บน SQLite แล้วรันสคริปต์ของ step DK-05 ที่ดึงออกมาจาก `ci.yml` ตรง ๆ | ✅ `auth OK` · บน Postgres จริงยังรอผลจาก CI เพราะ Docker daemon ไม่ได้เปิดบนเครื่องที่ใช้เขียน |
+| JS unit | `cd prototypes/sprint1 && node --test` | ✅ 7 passed / 0 failed (69 ms) |
+| Python unit + integration | `pytest src/tests -v` | ✅ 181 passed / 0 failed (~14 s) — stats 4, notes validation 18 + boundary 19, notes API 47, notes identity 13, edit-token property 2, fizzbuzz 5, auth credentials 29, auth tokens 14, auth API 30 · coverage รวม 99% (`identity.py` 100%) |
+| Smoke DK-03 ถึง DK-06 แบบไม่ใช้ Docker | รัน `auth-service` กับ `notes-service` ตัวจริงบน SQLite (notes ชี้ `AUTH_SERVICE_URL` ไปที่ auth) แล้วรันสคริปต์ `run:` ของแต่ละ step ที่ดึงออกมาจาก `ci.yml` ตรง ๆ | ✅ ผ่านครบ 6 step (`upload auth OK`, `end-to-end OK`, `edit/delete OK`, `auth OK`, validation `400`) · บน Postgres + compose จริงรอผลจาก CI เพราะ Docker daemon ไม่ได้เปิดบนเครื่องที่ใช้เขียน · ตอนรันบน Windows ต้องแทน `/tmp/` เป็น path ของ Windows เพราะ curl ของ Windows อ่าน `/tmp` ของ Git Bash ไม่ได้ (ไม่ได้แก้ใน `ci.yml` เพราะ CI รันบน Linux) |
 | Container smoke (compose e2e) | `docker compose up` + `curl` | ✅ ผ่านบน CI ([run #33351842320](https://github.com/Software-Engineering-Concepts-2026/se-sec2-team-05/actions/runs/33351842320), 1m6s) — log ยืนยัน `created note #1` และ `end-to-end OK` · ไม่ได้รัน local เพราะ Docker daemon ไม่ได้เปิดบนเครื่องที่ใช้เขียน |
 
 **ผลรันบน CI (PR #56):** ทั้ง 3 job ผ่านหมด — `js-tests` 13s, `python-tests` 13s, `docker-build` 1m6s

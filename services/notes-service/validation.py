@@ -33,7 +33,7 @@ MAX_LENGTHS = {
 
 # ฟิลด์ที่ผู้ใช้แก้ไม่ได้หลังสร้างโน้ตแล้ว (US-19) — ไฟล์ต้องอัปโหลดใหม่ ส่วนเจ้าของ
 # กับเวลาสร้างเป็นข้อมูลที่ระบบเป็นคนกำหนด ส่งมาใน PATCH ก็จะถูกเมิน ไม่ใช่ error
-IMMUTABLE_FIELDS = ("uploader_name", "created_at", "file", "file_name", "storage_key")
+IMMUTABLE_FIELDS = ("uploader_id", "uploader_name", "created_at", "file", "file_name", "storage_key")
 
 # ฟิลด์ที่ไม่บังคับ ล้างค่าได้ด้วยการส่งค่าว่างมาใน PATCH
 OPTIONAL_FIELDS = ("topic", "class_date", "description")
@@ -98,11 +98,6 @@ def validate_metadata(form, partial=False):
             errors[field] = f"ยาวเกิน {limit} ตัวอักษร"
             continue
         cleaned[field] = value
-
-    if not partial:
-        uploader = (form.get("uploader_name") or "").strip()
-        # ยังไม่มี auth (#5, #6) จึงรับชื่อจากฟอร์มไปก่อน — เมื่อมี session จริงให้ดึงจาก token แทน
-        cleaned["uploader_name"] = uploader or "anonymous"
 
     return cleaned, errors
 
