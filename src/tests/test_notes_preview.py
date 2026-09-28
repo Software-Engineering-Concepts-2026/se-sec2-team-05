@@ -12,7 +12,7 @@ from PIL import Image
 
 from preview import MAX_SOURCE_PIXELS, PREVIEW_MAX_WIDTH, PreviewUnavailable, render_preview
 from storage import LocalFileStorage
-from test_notes_api import BASE_FORM
+from test_notes_api import AUTH_HEADER, BASE_FORM, FakeIdentity
 
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 
@@ -37,14 +37,20 @@ def make_pdf(page_sizes):
 @pytest.fixture
 def env(tmp_path, notes_create_app):
     storage = LocalFileStorage(str(tmp_path / "storage"))
-    app = notes_create_app(database_url=f"sqlite:///{tmp_path / 'test.db'}", storage=storage)
+    app = notes_create_app(
+        database_url=f"sqlite:///{tmp_path / 'test.db'}",
+        storage=storage,
+        identity=FakeIdentity(),
+    )
     app.config.update(TESTING=True)
     return app.test_client(), storage, tmp_path / "storage"
 
 
 def upload(client, data, name, mimetype, **overrides):
     form = {**BASE_FORM, **overrides, "file": (io.BytesIO(data), name, mimetype)}
-    response = client.post("/notes", data=form, content_type="multipart/form-data")
+    response = client.post(
+        "/notes", data=form, headers=AUTH_HEADER, content_type="multipart/form-data"
+    )
     assert response.status_code == 201
     return response.get_json()
 
