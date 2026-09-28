@@ -40,13 +40,20 @@ class Note(Base):
     size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
     storage_key: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
 
-    # เจ้าของโน้ต — ยังเป็น string ไปก่อนจนกว่า User & Auth service จะมีจริง (#5, #6)
-    uploader_name: Mapped[str] = mapped_column(String(120), nullable=False, default="anonymous")
+    # เจ้าของโน้ต (US-31) — มาจากบัญชีที่ login ตอนอัปโหลด ไม่ได้มาจากฟอร์ม
+    # uploader_id คือ id ใน `users` ของ auth-service ไม่ได้ทำเป็น foreign key เพราะตารางนั้น
+    # เป็นของอีก service (ADR-005) ส่วน uploader_name เป็นชื่อ ณ ตอนอัปโหลด ใช้แสดงเครดิต
+    # โดยไม่ต้องถาม auth-service ทุกครั้งที่แสดงรายการโน้ต · ยังไม่ส่ง uploader_id ออกใน API
+    uploader_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    uploader_name: Mapped[str] = mapped_column(String(120), nullable=False)
 
     # hash ของ edit token ที่ใช้พิสูจน์ความเป็นเจ้าของตอนแก้/ลบ (US-19, US-20)
     # เก็บเฉพาะ hash ตัว token จริงคืนให้ผู้สร้างครั้งเดียวตอน POST แล้วไม่เก็บไว้ที่ไหนอีก
     # ดู ADR-004 — เป็นของชั่วคราว รื้อทิ้งเมื่อ #5/#6 เสร็จ
     edit_token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+
+    # --- US-12: นับจำนวนดาวน์โหลด (ใช้เป็นสถิติให้เจ้าของโน้ตดูใน #16) ---
+    download_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
@@ -70,6 +77,7 @@ class Note(Base):
             "content_type": self.content_type,
             "size_bytes": self.size_bytes,
             "uploader_name": self.uploader_name,
+            "download_count": self.download_count,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "download_url": f"/notes/{self.id}/download",
@@ -92,3 +100,5 @@ def build_session_factory(database_url: str):
     engine = create_engine(database_url, future=True)
     Base.metadata.create_all(engine)
     return sessionmaker(bind=engine, expire_on_commit=False)
+
+

@@ -10,6 +10,25 @@ on:
   pull_request:
 
 jobs:
+  # ตรวจโค้ด Python ด้วย ruff ตามกฎใน ruff.toml (Lab 12B) — ไม่ต้องติดตั้ง dependency ของ service
+  # ล็อกเวอร์ชันไว้ ไม่ให้ CI แดงเองวันที่ ruff ออกเวอร์ชันใหม่ที่เพิ่มกฎ
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install ruff
+        run: pip install ruff==0.16.0
+
+      - name: Run ruff
+        run: ruff check .
+
   js-tests:
     name: Unit tests (JS prototypes)
     runs-on: ubuntu-latest
@@ -78,13 +97,46 @@ jobs:
             echo "$url OK"
           done
 
+      # US-31: การอัปโหลดต้อง login — เตรียมบัญชีผู้อัปโหลดไว้ให้ smoke test ของ notes ทุกขั้นใช้ร่วมกัน
+      - name: Log in an uploader account for the notes smoke tests
+        run: |
+          set -euo pipefail
+          auth=http://localhost:5002/auth
+          uploader='{"email":"ci.uploader@up.ac.th","password":"ci uploader password","display_name":"CI Uploader"}'
+          curl -fsS -o /dev/null -X POST "$auth/register" -H 'Content-Type: application/json' -d "$uploader"
+          upload_token=$(curl -fsS -X POST "$auth/login" -H 'Content-Type: application/json' \
+            -d '{"email":"ci.uploader@up.ac.th","password":"ci uploader password"}' | jq -r '.access_token')
+          test "$upload_token" != "null"
+          echo "::add-mask::$upload_token"
+          echo "UPLOAD_TOKEN=$upload_token" >> "$GITHUB_ENV"
+
+      # US-31 บน stack จริง: ไม่ login ต้องอัปโหลดไม่ได้ และชื่อผู้อัปโหลดต้องมาจากบัญชี ไม่ใช่จากฟอร์ม
+      - name: Upload requires login and credits the account
+        run: |
+          set -euo pipefail
+          printf '%s' '%PDF-1.4 ci auth note' > /tmp/auth.pdf
+          form=(-F 'title=CI auth note' -F 'subject_name=Networks' -F 'subject_code=CS401' -F 'faculty=ICT'
+                -F 'year_level=4' -F 'lesson=TCP' -F 'uploader_name=spoofed name' -F 'file=@/tmp/auth.pdf;type=application/pdf')
+
+          status=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:5001/notes "${form[@]}")
+          test "$status" = "401"
+          status=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:5001/notes \
+            -H 'Authorization: Bearer not-a-real-token' "${form[@]}")
+          test "$status" = "401"
+
+          created=$(curl -fsS -X POST http://localhost:5001/notes -H "Authorization: Bearer $UPLOAD_TOKEN" "${form[@]}")
+          test "$(echo "$created" | jq -r '.uploader_name')" = "CI Uploader"
+          # ครั้งที่ไม่ได้ login ต้องไม่มีโน้ตถูกสร้าง มีแค่ใบที่ login แล้วใบเดียว
+          test "$(curl -fsS 'http://localhost:5001/notes?subject_code=CS401' | jq '.count')" -eq 1
+          echo "upload auth OK"
+
       # เส้นทาง end-to-end ของ US-08: อัปโหลดพร้อม metadata -> กรองเจอ -> ดาวน์โหลดไฟล์เดิมกลับมา
       - name: End-to-end smoke test (upload -> filter -> download)
         run: |
           set -euo pipefail
           # ใช้ printf '%s' เพราะ '%PDF' ถูกตีความเป็น format specifier ที่ไม่มีอยู่จริง
           printf '%s' '%PDF-1.4 ci smoke note' > /tmp/note.pdf
-          note_id=$(curl -fsS -X POST http://localhost:5001/notes             -F 'title=CI smoke note'             -F 'subject_name=Data Structures'             -F 'subject_code=CS201'             -F 'faculty=ICT'             -F 'year_level=2'             -F 'lesson=Linked List'             -F 'class_date=2026-08-20'             -F 'file=@/tmp/note.pdf;type=application/pdf' | jq -r '.id')
+          note_id=$(curl -fsS -X POST http://localhost:5001/notes -H "Authorization: Bearer $UPLOAD_TOKEN"             -F 'title=CI smoke note'             -F 'subject_name=Data Structures'             -F 'subject_code=CS201'             -F 'faculty=ICT'             -F 'year_level=2'             -F 'lesson=Linked List'             -F 'class_date=2026-08-20'             -F 'file=@/tmp/note.pdf;type=application/pdf' | jq -r '.id')
           echo "created note #$note_id"
 
           count=$(curl -fsS 'http://localhost:5001/notes?faculty=ICT&year_level=2&q=CS201' | jq '.count')
@@ -99,7 +151,7 @@ jobs:
         run: |
           set -euo pipefail
           printf '%s' '%PDF-1.4 ci edit note' > /tmp/edit.pdf
-          created=$(curl -fsS -X POST http://localhost:5001/notes             -F 'title=CI edit note'             -F 'subject_name=Algorithms'             -F 'subject_code=CS301'             -F 'faculty=ICT'             -F 'year_level=3'             -F 'lesson=Sorting'             -F 'file=@/tmp/edit.pdf;type=application/pdf')
+          created=$(curl -fsS -X POST http://localhost:5001/notes -H "Authorization: Bearer $UPLOAD_TOKEN"             -F 'title=CI edit note'             -F 'subject_name=Algorithms'             -F 'subject_code=CS301'             -F 'faculty=ICT'             -F 'year_level=3'             -F 'lesson=Sorting'             -F 'file=@/tmp/edit.pdf;type=application/pdf')
           note_id=$(echo "$created" | jq -r '.id')
           token=$(echo "$created" | jq -r '.edit_token')
           test "$token" != "null"
@@ -156,7 +208,8 @@ jobs:
 
       - name: Metadata validation is enforced
         run: |
-          status=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:5001/notes -F 'title=missing everything else')
+          status=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:5001/notes \
+            -H "Authorization: Bearer $UPLOAD_TOKEN" -F 'title=missing everything else')
           test "$status" = "400"
 
       - name: Dump logs on failure

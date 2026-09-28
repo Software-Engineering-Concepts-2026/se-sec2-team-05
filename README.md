@@ -38,9 +38,11 @@ This section explains how to get a local copy of the project up and running for 
     docker compose down -v   # ลบ volume ด้วย จำเป็นเมื่อ schema เปลี่ยน (ยังไม่มี migration)
     ```
 
-    > ℹ️ ตอนนี้ยังยกไม่ครบตาม C4 Container diagram — ยังไม่มี API Gateway และ Notes Service
-    > ยังไม่ได้เรียก User & Auth Service ตอนอัปโหลด เหตุผลอยู่ใน
-    > [ADR-003](./docs/architecture/adr/0003-tracer-bullet-scope.th.md) และ [ADR-005](./docs/architecture/adr/0005-auth-jwt-with-server-side-sessions.th.md)
+    > ℹ️ ตอนนี้ยังยกไม่ครบตาม C4 Container diagram — ยังไม่มี API Gateway · การอัปโหลดโน้ตต้อง login
+    > แล้ว (Notes Service ตรวจ token ผ่าน `GET /auth/me` ของ User & Auth Service) แต่การอ่านยังเปิดหมด
+    > และการแก้/ลบยังใช้ edit token ต่อโน้ต เหตุผลอยู่ใน
+    > [ADR-003](./docs/architecture/adr/0003-tracer-bullet-scope.th.md), [ADR-004](./docs/architecture/adr/0004-per-note-edit-token.th.md)
+    > และ [ADR-005](./docs/architecture/adr/0005-auth-jwt-with-server-side-sessions.th.md)
 
 ---
 
@@ -89,8 +91,8 @@ Key architectural decisions and diagrams are documented in the `/docs/architectu
 
 | Service | Port | สถานะ |
 | --- | --- | --- |
-| **[Notes Service](./services/notes-service/README.md)** | 5001 | อัปโหลด/ค้นหา/ดาวน์โหลด/แก้ไข/ลบโน้ตพร้อม metadata (US-08, US-19, US-20) — ยังไม่มี auth |
-| **[User & Auth Service](./services/auth-service/README.md)** | 5002 | สมัครสมาชิกด้วยอีเมลมหาวิทยาลัย, login/logout ด้วย JWT ที่เพิกถอนได้ทันที (US-05, US-06) — notes-service ยังไม่ได้เรียกใช้ |
+| **[Notes Service](./services/notes-service/README.md)** | 5001 | อัปโหลด/ค้นหา/ดาวน์โหลด/แก้ไข/ลบโน้ตพร้อม metadata (US-08, US-19, US-20) — อัปโหลดต้อง login และแนบชื่อจากบัญชี (US-31) |
+| **[User & Auth Service](./services/auth-service/README.md)** | 5002 | สมัครสมาชิกด้วยอีเมลมหาวิทยาลัย, login/logout ด้วย JWT ที่เพิกถอนได้ทันที (US-05, US-06) — notes-service ใช้ตรวจ token ตอนอัปโหลด |
 | **Stats Service** | 5000 | คืนสถิติ mock ยังไม่ต่อ DB |
 | API Gateway | — | ยังไม่ได้สร้าง |
 

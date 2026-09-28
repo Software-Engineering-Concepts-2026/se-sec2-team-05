@@ -2,14 +2,35 @@
 
 รันจริงผ่าน Flask test client + SQLite ชั่วคราว + โฟลเดอร์ storage ชั่วคราว
 ครอบ AC ข้อ 4 โดยเฉพาะ: metadata ที่กรอกต้องใช้เป็นเงื่อนไขค้นหา/กรองได้จริง
+
+การอัปโหลดต้อง login (US-31) — เทสต์ในไฟล์นี้ inject `FakeIdentity` แทน auth-service
+ส่วนการคุยกับ auth-service ตัวจริงอยู่ใน test_notes_identity.py
 """
 
 import io
 
 import pytest
-from werkzeug.datastructures import FileStorage
 
+from identity import IdentityUnavailable
 from storage import LocalFileStorage
+
+MEMBER = {"id": 7, "display_name": "อติชาติ"}
+AUTH_HEADER = {"Authorization": "Bearer valid-member-token"}
+
+
+class FakeIdentity:
+    """แทน auth-service: รู้จัก token เดียว นอกนั้นถือว่าใช้ไม่ได้ · `down=True` จำลอง service ล่ม"""
+
+    def __init__(self):
+        self.down = False
+        self.calls = 0
+
+    def __call__(self, authorization):
+        self.calls += 1
+        if self.down:
+            raise IdentityUnavailable("auth-service is down")
+        return dict(MEMBER) if authorization == AUTH_HEADER["Authorization"] else None
+
 
 BASE_FORM = {
     "title": "สรุปบทที่ 3",
@@ -22,20 +43,29 @@ BASE_FORM = {
 
 
 @pytest.fixture
-def client(tmp_path, notes_create_app):
+def identity():
+    return FakeIdentity()
+
+
+@pytest.fixture
+def client(tmp_path, notes_create_app, identity):
     app = notes_create_app(
         database_url=f"sqlite:///{tmp_path / 'test.db'}",
         storage=LocalFileStorage(str(tmp_path / "storage")),
+        identity=identity,
     )
     app.config.update(TESTING=True)
     return app.test_client()
 
 
-def upload(client, **overrides):
-    """อัปโหลดโน้ตด้วย BASE_FORM — ส่ง `file=` มา override ไฟล์ default (pdf) ได้"""
+def upload(client, headers=AUTH_HEADER, **overrides):
+    """อัปโหลดโน้ตด้วย BASE_FORM ในนามของ MEMBER — ส่ง `file=` มา override ไฟล์ default (pdf) ได้
+
+    ส่ง `headers={}` เพื่ออัปโหลดแบบไม่ได้ login
+    """
     form = {**BASE_FORM, **overrides}
     form.setdefault("file", (io.BytesIO(b"%PDF-1.4 fake note"), "note.pdf", "application/pdf"))
-    return client.post("/notes", data=form, content_type="multipart/form-data")
+    return client.post("/notes", data=form, headers=headers, content_type="multipart/form-data")
 
 
 def test_health(client):
@@ -62,6 +92,7 @@ def test_upload_without_required_metadata_is_rejected_before_saving(client):
     response = client.post(
         "/notes",
         data={"title": "ไม่มีอะไรเลย", "file": (io.BytesIO(b"%PDF-1.4"), "n.pdf", "application/pdf")},
+        headers=AUTH_HEADER,
         content_type="multipart/form-data",
     )
 
@@ -74,7 +105,9 @@ def test_upload_without_required_metadata_is_rejected_before_saving(client):
 
 
 def test_upload_without_file_is_rejected(client):
-    response = client.post("/notes", data=BASE_FORM, content_type="multipart/form-data")
+    response = client.post(
+        "/notes", data=BASE_FORM, headers=AUTH_HEADER, content_type="multipart/form-data"
+    )
 
     assert response.status_code == 400
     assert response.get_json()["fields"]["file"] == "ต้องแนบไฟล์โน้ต"
@@ -88,6 +121,56 @@ def test_uploaded_file_can_be_downloaded_back_unchanged(client):
     assert response.status_code == 200
     assert response.data == b"%PDF-1.4 fake note"
     assert "note.pdf" in response.headers["Content-Disposition"]
+
+def test_new_note_starts_with_zero_downloads(client):
+    note_id = upload(client).get_json()["id"]
+
+    body = client.get(f"/notes/{note_id}").get_json()
+    assert body["download_count"] == 0
+
+
+def test_download_increments_count(client):
+    note_id = upload(client).get_json()["id"]
+
+    client.get(f"/notes/{note_id}/download")
+
+    body = client.get(f"/notes/{note_id}").get_json()
+    assert body["download_count"] == 1
+
+
+def test_repeated_downloads_accumulate_count(client):
+    note_id = upload(client).get_json()["id"]
+
+    for _ in range(3):
+        client.get(f"/notes/{note_id}/download")
+
+    body = client.get(f"/notes/{note_id}").get_json()
+    assert body["download_count"] == 3
+
+
+def test_download_of_missing_file_returns_error_json_and_does_not_count(client, tmp_path):
+    """ไฟล์หายจาก storage → error JSON (AC ข้อ 3 ของ #12) และ count ต้องไม่ขยับ"""
+    note_id = upload(client).get_json()["id"]
+    for stored in (tmp_path / "storage").iterdir():
+        stored.unlink()
+
+    response = client.get(f"/notes/{note_id}/download")
+
+    assert response.status_code == 404
+    assert response.get_json()["error"] == "file_not_found"
+    assert client.get(f"/notes/{note_id}").get_json()["download_count"] == 0
+
+
+def test_download_count_is_independent_per_note(client):
+    """โหลดโน้ตใบหนึ่งไม่ควรไปเพิ่ม count ของโน้ตใบอื่น"""
+    note_a = upload(client, subject_code="CS101").get_json()["id"]
+    note_b = upload(client, subject_code="CS201").get_json()["id"]
+
+    client.get(f"/notes/{note_a}/download")
+    client.get(f"/notes/{note_a}/download")
+
+    assert client.get(f"/notes/{note_a}").get_json()["download_count"] == 2
+    assert client.get(f"/notes/{note_b}").get_json()["download_count"] == 0
 
 
 def test_search_by_keyword_matches_subject_and_lesson(client):
@@ -133,7 +216,7 @@ def test_stored_file_name_does_not_trust_user_supplied_path(client, tmp_path):
     form = {**BASE_FORM}
     form["file"] = (io.BytesIO(b"%PDF-1.4"), "../../evil.pdf", "application/pdf")
 
-    note_id = client.post("/notes", data=form, content_type="multipart/form-data").get_json()["id"]
+    note_id = upload(client, file=form["file"]).get_json()["id"]
 
     # ชื่อเดิมยังถูกเก็บไว้แสดงผล แต่ไฟล์จริงต้องอยู่ในโฟลเดอร์ storage เท่านั้น
     assert client.get(f"/notes/{note_id}").get_json()["file_name"] == "../../evil.pdf"
@@ -315,7 +398,7 @@ def test_patch_rejects_invalid_value_and_keeps_old_data(client):
 
 
 def test_patch_ignores_immutable_fields(client):
-    note_id, token = upload_with_token(client, uploader_name="อติชาติ")
+    note_id, token = upload_with_token(client)
 
     body = client.patch(
         f"/notes/{note_id}",
@@ -393,3 +476,95 @@ def test_edit_and_delete_unknown_note_returns_404(client):
 
     assert client.patch("/notes/999", data={"title": "x"}, headers={"X-Note-Token": token}).status_code == 404
     assert client.delete("/notes/999", headers={"X-Note-Token": token}).status_code == 404
+
+
+# --- US-31 (#31) อัปโหลดต้อง login และชื่อผู้อัปโหลดมาจากบัญชี ---------------------------
+
+
+def stored_files(tmp_path):
+    return list((tmp_path / "storage").iterdir())
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [
+        {},
+        {"Authorization": "Bearer not-a-real-token"},
+        {"Authorization": "valid-member-token"},  # ลืม scheme `Bearer`
+    ],
+    ids=["no-header", "unknown-token", "missing-bearer-scheme"],
+)
+def test_upload_without_valid_login_is_401_and_stores_nothing(client, tmp_path, headers):
+    response = upload(client, headers=headers)
+
+    assert response.status_code == 401
+    assert response.get_json() == {"error": "unauthorized"}
+    assert response.headers["WWW-Authenticate"] == "Bearer"
+    # ไม่ผ่านการตรวจตัวตนแล้วต้องไม่มีอะไรถูกบันทึกเลย ทั้งใน DB และ storage
+    assert client.get("/notes").get_json()["count"] == 0
+    assert stored_files(tmp_path) == []
+
+
+def test_login_is_checked_before_metadata_validation(client):
+    """ไม่ได้ login + ฟอร์มผิด ต้องได้ 401 ไม่ใช่ 400 — คนนอกไม่ควรใช้ endpoint นี้ลองรูปแบบฟอร์มได้"""
+    response = client.post("/notes", data={"title": "x"}, content_type="multipart/form-data")
+
+    assert response.status_code == 401
+
+
+def test_uploader_name_comes_from_the_account_not_the_form(client):
+    """AC ข้อ 1-2 ของ #31: แนบชื่อให้อัตโนมัติ และพิมพ์ชื่อคนอื่นใส่ฟอร์มเพื่อสวมรอยไม่ได้"""
+    body = upload(client, uploader_name="คนอื่นที่อยากสวมรอย").get_json()
+
+    assert body["uploader_name"] == MEMBER["display_name"]
+    # ชื่อเจ้าของต้องแสดงทุกที่ที่แสดงโน้ตใบนั้น (AC ข้อ 3) — ทั้งหน้ารายละเอียดและรายการค้นหา
+    assert client.get(f"/notes/{body['id']}").get_json()["uploader_name"] == MEMBER["display_name"]
+    assert client.get("/notes").get_json()["items"][0]["uploader_name"] == MEMBER["display_name"]
+
+
+def test_uploader_id_is_stored_but_not_exposed(client, tmp_path):
+    from sqlalchemy import create_engine, text
+
+    body = upload(client).get_json()
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+    with engine.connect() as conn:
+        stored = conn.execute(text("SELECT uploader_id FROM notes WHERE id = :id"), {"id": body["id"]})
+        assert stored.scalar_one() == MEMBER["id"]
+    engine.dispose()
+    # ยังไม่มี endpoint ไหนต้องใช้ id ของบัญชี จึงไม่ส่งออกไปใน response
+    assert "uploader_id" not in body
+    assert "uploader_id" not in client.get(f"/notes/{body['id']}").get_json()
+
+
+def test_upload_when_auth_service_is_down_is_503_and_stores_nothing(client, identity, tmp_path):
+    """auth-service ล่มไม่ใช่ความผิดของ token — ต้องไม่ตอบ 401 ให้ผู้ใช้เข้าใจผิดว่าต้อง login ใหม่"""
+    identity.down = True
+
+    response = upload(client)
+
+    assert response.status_code == 503
+    assert response.get_json() == {"error": "auth_unavailable"}
+    assert stored_files(tmp_path) == []
+
+
+def test_read_endpoints_stay_open_without_login(client, identity):
+    note_id = upload(client).get_json()["id"]
+    calls_after_upload = identity.calls
+
+    assert client.get("/notes").status_code == 200
+    assert client.get(f"/notes/{note_id}").status_code == 200
+    assert client.get(f"/notes/{note_id}/download").status_code == 200
+    # อ่านอย่างเดียวต้องไม่ไปถาม auth-service เลย
+    assert identity.calls == calls_after_upload
+
+
+def test_edit_and_delete_still_use_the_edit_token_not_the_login(client):
+    """ADR-004 ยังใช้อยู่: login อย่างเดียวไม่พอสำหรับแก้/ลบ ต้องมี edit token ของโน้ตใบนั้น"""
+    note_id, token = upload_with_token(client)
+
+    assert client.patch(
+        f"/notes/{note_id}", data={"title": "แก้ด้วย login"}, headers=AUTH_HEADER
+    ).status_code == 403
+    assert client.delete(f"/notes/{note_id}", headers=AUTH_HEADER).status_code == 403
+    assert client.delete(f"/notes/{note_id}", headers={"X-Note-Token": token}).status_code == 204

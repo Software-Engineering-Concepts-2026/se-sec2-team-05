@@ -11,7 +11,7 @@
 | Date/PR | Contributor | Tool(s) | What it was used for | How output was reviewed/edited |
 | --- | --- | --- | --- | --- |
 | 2026-07-10, PR #35 | อติชาติ ผาแสนเถิน | GitHub Copilot, ChatGPT | สร้าง interactive prototype หน้าอัปโหลดโน้ต (commit `cca0aa0` — "implement interactive upload-note mockup using copilot/chatgpt") | อติชาติตรวจและแก้ HTML/CSS ที่ generate มาก่อน commit |
-| 2026-07-10, ส่วนหนึ่งของ PR #37 | วชิรวิทย์ ศรีทอง | GitHub Copilot, Claude | สร้าง interactive mockup หน้าลงทะเบียน + prototype หน้าค้นหาโน้ต และแก้ชื่อไฟล์ wireframe (commits `e75dba8`, `7a455c6`, `0ea55bd`) | วชิรวิทย์ตรวจและแก้ไข HTML/CSS/XSS หลังจากที่ genereate มาก่อน comit  |
+| 2026-07-10, ส่วนหนึ่งของ PR #37 | วชิรวิทย์ ศรีทอง | GitHub Copilot, Claude, Gemini | สร้าง prototype หน้าค้นหาโน้ต (`wachirawit_search_note_prototype.html`/`.css`) พร้อม wireframe ของหน้าค้นหา และแก้ชื่อไฟล์ wireframe (commits `e75dba8`, `7a455c6`, `0ea55bd`) · หมายเหตุ: ข้อความ commit `e75dba8` และ `7a455c6` เขียนว่า "registration mockup" แต่เนื้อหาจริงคือหน้าค้นหา (`e75dba8` เพิ่มแค่ไฟล์ wireframe, `7a455c6` เพิ่ม html/css ของหน้าค้นหา) ไม่เคยมีหน้าลงทะเบียนใน repo · ใช้ Gemini ตรวจหาช่องโหว่ XSS และเสนอวิธีแก้ (ดู Prompt 5) | วชิรวิทย์ตรวจและแก้ HTML/JavaScript หลัง generate ก่อน commit `0ea55bd`: เพิ่ม `<label>` ให้ช่องกรอง, เพิ่ม `esc()` กัน XSS, clamp ค่าใน `stars()`, ปรับ logic ประวัติการค้นหา (ไม่บันทึกคำสั้นกว่า 2 ตัวอักษร, พิมพ์ต่อจากคำล่าสุดให้ทับ) · ไม่ได้แก้ CSS และข้อมูลจำลองหลัง commit แรก (ดูตาราง "ส่วนที่รับจาก AI ตรงๆ") |
 | 2026-07-10, PR #36 | กฤตเมธ ป้องตัน | GitHub Copilot, Gemini | สร้าง interactive prototype หน้า note-rating และแก้ brand/wireframe (commits `856e6ee`, `35aca15`, `a7321ba`) | กฤตเมธนำ Prompt ให้ Gemini ช่วยร่าง HTML/CSS และส่วนระบบให้คะแนนดาว/ความคิดเห็น (JavaScript) จากนั้นตรวจเช็กโครงสร้าง ปรับแต่ง UI ให้เข้ากับแบบร่าง และแก้ไขการเชื่อมโยงระบบ UI ดาว |
 | 2026-07 ~ 2026-08 (ongoing sessions) | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | ใช้หลายรอบ session สำหรับ: เอกสาร architecture (เขียน C4 diagrams, ร่าง ADR-001/002 รวม Alternatives section), จัด GitHub issue labels/milestones/acceptance criteria ให้ 19 user stories, `docs/requirements/user-stories.md`, `nfr.md`, เพิ่ม Frequency-of-Use ใน persona, ขยาย `main_scenario.md`, `prototypes/sprint1/README.md`, `tech_stack.md`, `docs/project-proposal.md`, `docs/definition-of-done.md` | อติชาติอ่าน ตรวจ และแก้เนื้อหาทั้งหมดก่อน commit ทุกครั้ง |
 | 2026-08-19, PR #41 + #43 | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | ตรวจงาน Lab 4 เทียบ rubric ทั้งใบแล้วแก้ส่วนที่ตก: เขียน `prototypes/sprint1/index.html` + `style.css` (หน้า hub), ถ่าย screenshot prototype ทั้งสี่หน้าด้วย headless browser, เพิ่มหัวข้อ Next step ใน `prototypes/sprint1/README.md`, เพิ่มหัวข้อ Prompts + "ส่วนที่รับจาก AI ตรงๆ" ในไฟล์นี้, กรอก Sprint 1 retro ใน `reflect.md`, เขียน PR description ของ #41/#43 ใหม่ | อติชาติอ่านทุกไฟล์และเปิด prototype ทดสอบในเบราว์เซอร์ก่อน commit · ส่วนที่ไม่ได้แก้บรรทัดใดเลยระบุไว้ในตาราง "ส่วนที่รับจาก AI ตรงๆ" ด้านล่าง |
@@ -27,6 +27,8 @@
 | 2026-09-06, PR #57 + hardening + US-19/US-20 | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | ตรวจสถานะโปรเจกต์ทั้งรีโปแล้วพบว่า PR #56 ถูก merge เข้า `feature/lab8-ci-tests` แทน `main` ทำให้ Notes Service ไม่เคยขึ้น `main` เลย จึงเปิด PR #57 แก้ · งาน hardening: ตั้ง `MAX_CONTENT_LENGTH` + errorhandler 413, clamp `limit`/`offset` ที่ขอบล่าง, เพิ่ม `.venv/` ใน `.gitignore`, เขียนเทสต์ commit ล้มแล้วไม่เหลือไฟล์กำพร้าที่ค้างไว้ใน test plan · งาน US-19/US-20: `PATCH`/`DELETE /notes/<id>`, `tokens.py` (edit token ต่อโน้ต), คอลัมน์ `edit_token_hash`/`updated_at`, โหมด partial ของ `validate_metadata`, ADR-004 ทั้ง EN/TH, เทสต์ 13 เคส และ smoke test ของ edit/delete ใน CI | อติชาติสั่งให้รันเทสต์จริงทุกครั้งก่อนยอมรับ — `pytest src/tests` ผ่าน 48/48 และ `node --test` ผ่าน 7/7 บนเครื่อง · อติชาติเป็นคนเลือกแนวทางตรวจสอบเจ้าของเองจากสามตัวเลือกที่เสนอมา (uploader_name / edit token / รอ Auth Service) โดยเลือก edit token เพราะเป็นทางเดียวที่บังคับ AC "เจ้าของเท่านั้น" ได้จริงและทดสอบได้ · ระหว่างทางอติชาติสั่งแก้ข้อเสนอเดิมเรื่อง `MAX_CONTENT_LENGTH` ที่ตั้งเท่าขนาดไฟล์สูงสุดพอดี ซึ่งจะทำให้ไฟล์ 20 MB ถูกปฏิเสธเพราะ multipart overhead จึงเผื่อไว้ 1 MB · job `docker-build` ยังไม่ได้รัน local เพราะ Docker daemon ไม่ได้เปิด จึงรอผลจาก CI ไม่ได้เขียนใน test report ว่าผ่านแล้ว |
 | 2026-09-18, feature/lab9-testing | อติชาติ ผาแสนเถิน | ChatGPT, Claude Code (Anthropic) | Lab 9 (Unit Test/TDD/Property-Based Test/CI/Saboteur): Claude Code อ่านโค้ดจริงในรีโปแล้วร่าง prompt ให้อติชาติเอาไปสั่ง ChatGPT ทำทีละขั้น ได้ผลลัพธ์คือ `src/tests/test_notes_validation_boundary.py` (19 boundary/equivalence test ของ `validate_metadata`/`validate_file`), `src/fizzbuzz.py` + `src/tests/test_fizzbuzz.py` (TDD kata ครบ Red-Green-Refactor 4 รอบ + helper `is_multiple`), `src/tests/test_tokens_property.py` (2 property ด้วย Hypothesis บน `tokens.py`), แก้ `src/tests/requirements-dev.txt` (เพิ่ม `hypothesis`, `pytest-cov`) และ `.github/workflows/ci.yml` (เพิ่ม `--cov` ใน job `python-tests`), `docs/saboteur-journal.md` (เจาะ boundary บนของ `year_level` แบบ off-by-one แล้ว revert) | อติชาติรัน ChatGPT เองทีละขั้นแล้วรายงานผลกลับมาให้ Claude Code ตรวจ — Claude Code เปิด/รันไฟล์จริงในเครื่องเพื่อยืนยันทุกรอบ (diff, `pytest -v`, coverage report) ก่อนให้ prompt ขั้นถัดไป ไม่เชื่อรายงานเปล่า ๆ · commit history ถูกแยกย่อยตามลำดับ Red-Green-Refactor จริงที่เกิดขึ้น ไม่ใช่ squash เป็นก้อนเดียว |
 | 2026-09-25, feature/auth-service | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | ตรวจสถานะงานทั้งหมด → merge PR #63 ตามคำสั่ง → วิเคราะห์ #5/#6 เทียบ NFR-004/005/007, C4, ADR-003/004 แล้วเสนอแผนให้เลือก → เขียน User & Auth Service ใหม่ทั้งตัว (US-05/US-06): `services/auth-service/` (`app.py`, `auth_models.py`, `credentials.py`, `auth_tokens.py`, `Dockerfile`, `requirements.txt`, `README.md`), เทสต์ 73 เคสใน `test_auth_credentials.py`/`test_auth_tokens.py`/`test_auth_api.py`, แก้ `conftest.py`, เพิ่ม service ใน `docker-compose.yml`, เพิ่ม install/coverage/health/smoke step ใน `ci.yml`, ADR-005 ทั้ง EN/TH, อัปเดต README ราก + architecture README ทั้งสองภาษา + test plan | อติชาติเป็นคนตัดสินใจเองทั้ง 6 ข้อที่ AI เสนอมา (แยกเป็น 2 PR, ให้ PR ถัดไปใช้ `Refs #31` โดยไม่เปลี่ยนผู้รับผิดชอบ, ผู้ใช้ตั้ง `display_name` เอง 1–120 ตัวอักษร, อ่านโดเมนจาก `ALLOWED_EMAIL_DOMAINS` ค่าเริ่มต้น `up.ac.th`, JWT อายุ 8 ชั่วโมงไม่มี refresh token แต่มี session ฝั่งเซิร์ฟเวอร์ให้ logout มีผลทันที, ตรวจใบงานก่อนตั้งชื่อ branch) และสั่งให้บันทึกเหตุผลที่ scrypt เทียบเท่า bcrypt ไว้ใน ADR · `pytest src/tests` ผ่าน 153/153 และ `node --test` ผ่าน 7/7 บนเครื่อง · ลองทำโค้ด auth พังชั่วคราว 4 จุดแล้วทุกจุดมีเทสต์ fail จริงก่อน revert · ระหว่างทาง Claude ตรวจ source ของ Werkzeug แล้วพบว่าค่า default ของ scrypt (N=2^15) ต่ำกว่าขั้นต่ำของ OWASP จึงตั้งค่า N=2^17 เองและเขียนเทสต์กันค่าเปลี่ยน · step DK-05 ใน CI รันเทียบกับ service จริงบน SQLite ได้ `auth OK` แต่บน Postgres ยังรอผลจาก CI เพราะ Docker daemon ไม่ได้เปิด · รอบแรกสั่งห้าม commit/push ไว้ แล้วสั่งให้รีวิว diff เทียบ #5/#6, NFR-004/005/007 และขอบเขต PR A ก่อนจึงค่อย commit แยกตามเรื่องและ push โดยยังไม่เปิด PR |
+| 2026-09-27, feature/notes-require-login | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | ตรวจสถานะ PR #62 และ branch ใหม่ `feature/preview-note` บน GitHub จริง → approve และ merge PR #62 ตามคำสั่งทีละขั้น (ตรวจเงื่อนไขซ้ำก่อนทุกครั้ง) → เสนอแผน PR B (US-31, Refs #31) ให้เลือก 4 ข้อ → ทำ PR B: `services/notes-service/identity.py` (ตรวจ Bearer token ผ่าน `GET /auth/me` ด้วย urllib), `POST /notes` ต้อง login และเอาชื่อผู้อัปโหลดจากบัญชี, คอลัมน์ `uploader_id`, เลิกรับ `uploader_name` จากฟอร์ม, `Dockerfile`/`docker-compose.yml`, smoke step DK-06 ใน `ci.yml` และแนบ token ให้ step เดิม, เทสต์ใหม่ใน `test_notes_api.py` + `test_notes_identity.py` (ยก auth-service ตัวจริงเป็น HTTP server ในเทสต์), README ของ notes-service/ราก/architecture ทั้งสองภาษา, test plan | อติชาติตัดสินใจเอง 4 ข้อจากทางเลือกที่เสนอ (เพิ่ม `uploader_id`, เมิน `uploader_name` ในฟอร์มแทนการตอบ 400, ใช้ urllib ไม่เพิ่ม dependency, ไม่เขียน ADR ใหม่) และล็อกกรอบไว้ก่อนเริ่ม (ตรวจผ่าน `/auth/me`, inject identity แบบเดียวกับ storage, คง edit token ของ ADR-004, `Refs #31` เท่านั้น) · `pytest src/tests` ผ่าน 181/181 coverage 99% และ `node --test` ผ่าน 7/7 · ลองให้ `POST /notes` ปล่อยผ่านเมื่อ token ใช้ไม่ได้ มีเทสต์ fail 5 ตัวก่อน revert · smoke step ทั้ง 6 ใน `ci.yml` ผ่านเมื่อรันกับ service จริงบน SQLite แต่บน compose + Postgres ยังรอผล CI เพราะ Docker daemon ไม่ได้เปิด · สั่งห้าม commit/push/เปิด PR ไว้ตลอดรอบนี้ |
+| 2026-09-27, PR #66 (feature/safety-net, Lab 12B) | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | Lab 12B Safety Net Sprint: merge PR #65 ตามคำสั่ง → วัด coverage ของ `validation.py` กับ `credentials.py` แล้วเสนอฟังก์ชัน `email_error()` พร้อมรายการ test case (happy/edge/error) → เขียน `src/tests/test_email_error.py` 9 ตัว (AE-09 `"a@"` เป็น `xfail(strict=True)`), เพิ่ม AE-01..09 ใน `docs/testing/readme.md` → เพิ่ม `ruff.toml` + job `lint` ใน `ci.yml` และลบ import ที่ไม่ได้ใช้ใน `test_notes_api.py` → push + เปิด PR #66 → ร่าง `docs/safety-net.md` ทั้ง 5 หัวข้อ → แกล้งทำเทสต์พังเพื่อเก็บหลักฐาน แล้วแก้กลับ | อติชาติเลือกเองว่า `"a@"` ควรได้ error รูปแบบ (ไม่ใช่ error โดเมนแบบที่โค้ดตอบอยู่) และสั่งห้ามแก้ `credentials.py` จึงเก็บเป็น xfail · สั่งทีละเฟส แต่ละเฟสมีเงื่อนไขหยุด (เทสต์เดิมแดง / conflict / CI แดง) · `pytest src/tests` ผ่าน 189 + xfail 1 coverage 99% (`credentials.py` 100%) · `ruff check .` ผ่าน · CI บน PR #66 ผ่านครบ 4 job และเปิด log ยืนยันว่ารัน ruff กับ pytest จริง ไม่ใช่เขียวหลอก · โค้ดเทสต์และ CI ในรอบนี้ AI เขียนทั้งหมด (ดูตาราง "ส่วนที่รับจาก AI ตรงๆ") |
 
 > **TODO:** วชิรวิทย์และกฤตเมธ — ช่วยกรอกแถวของตัวเองให้ละเอียดขึ้น (prompt ที่ใช้จริง, ช่วง session, และรายละเอียดของสิ่งที่ตรวจ/แก้) เพราะมีแค่เจ้าของงานที่รู้ข้อมูลนี้แน่ชัด
 
@@ -322,6 +324,127 @@ prompt จริงที่พิมพ์ในรอบ session นี้ แ
 
 **บทเรียนจริงจากรอบนี้:** คำว่า "หากยังใช้วิธีนี้อยู่" ในข้อ 3 เปิดช่องให้ทบทวนแทนที่จะรับข้อเสนอเดิมไปเลย และช่องนี้ได้ใช้จริง พอตรวจ source ของ Werkzeug กับ OWASP Password Storage Cheat Sheet ก็พบว่า "ใช้ scrypt ของ Werkzeug" ตามที่เสนอไว้ในแผนยังไม่พอ เพราะค่า default ของ Werkzeug (N=2^15) ต่ำกว่าขั้นต่ำของ OWASP (N=2^17) ถ้าเขียนใน ADR ว่า "เทียบเท่า bcrypt" โดยใช้ค่า default จะเป็นการเคลมที่ไม่จริง จึงต้องตั้งค่าเองและเขียนเทสต์กันไว้ · อีกข้อคือสถานะที่สรุปไว้จากรอบก่อนคลาดเคลื่อน (เข้าใจว่า issue #8 ยังเปิด ทั้งที่ปิดไปตั้งแต่ 2026-09-07) จับได้เพราะข้อ 1 ถูกตอบด้วยการเช็ค GitHub จริง ไม่ใช่ตอบจากบันทึกเดิม
 
+#### Prompt 15 — merge PR #62 และทำ PR B บังคับ login ตอนอัปโหลด (อติชาติ, Claude Code, 2026-09-27)
+
+รอบนี้เริ่มจากถามสถานะ ("ตอนนี้งานถึงไหนอะไรยังไงแล้ว รบกวนเช็คให้ที") แล้วสั่ง approve กับ merge PR #62 ทีละคำสั่ง
+แต่ละคำสั่งให้ตรวจเงื่อนไขซ้ำก่อนลงมือ และให้หยุดถ้าข้อใดไม่ตรง ซึ่งได้ใช้จริงครั้งหนึ่ง: คำสั่ง merge รอบแรกหยุดเพราะ PR ยังเป็น
+`CHANGES_REQUESTED` จึงต้อง approve ก่อน · จากนั้นถามว่า "แล้วงานของฉันควรทำอะไรต่อ" และได้ PR B เป็นงานถัดไป
+
+**prompt จริงที่ใช้กับ PR B (คำต่อคำ):** ข้อ 1 เป็นพรอมต์ที่ Claude Code ร่างไว้ในคำตอบก่อนหน้า แล้วอติชาติส่งกลับมาใช้ทั้งก้อน ส่วนข้อ 2 เป็นคำตอบของการตัดสินใจ
+
+```
+1) งาน: เริ่ม PR B — notes-service บังคับ login ตอนอัปโหลด (Refs #31)
+
+   ขั้นตอน
+   1. git fetch แล้วยืนยันว่า main = origin/main = 28b12be และ working tree สะอาด
+   2. อ่าน issue #31, ADR-004, ADR-005, services/auth-service/README.md และ services/notes-service/app.py
+      แล้วเสนอแผนก่อนลงมือ: ไฟล์ที่จะแก้, สัญญา API ที่เปลี่ยน, ผลต่อเทสต์และ CI smoke test, เอกสารที่ต้องอัปเดต
+   3. หยุดรอให้ฉันอนุมัติแผนก่อน ห้ามสร้าง branch หรือแก้ไฟล์
+
+   กรอบที่ตัดสินใจไว้แล้ว (ห้ามเปลี่ยน)
+   - POST /notes ต้องมี Bearer token ตรวจผ่าน auth-service GET /auth/me
+     ใช้ identity ที่ inject ได้ใน create_app แบบเดียวกับ storage
+   - uploader มาจากบัญชีที่ login ไม่รับจาก form
+   - คง edit token ของ ADR-004 ไว้ (เทสต์ property ของ Lab 9 ใช้ tokens.py)
+   - branch ใหม่แยกจาก main 28b12be, PR ใช้ Refs #31 เท่านั้น ห้าม Closes และห้ามเปลี่ยน assignee ของ #31
+
+   ข้อห้าม
+   - ห้ามแตะ feature/preview-note
+   - ห้าม push, เปิด PR หรือ commit จนกว่าฉันจะสั่ง
+   - ถ้าเจอจุดที่ขัดกับกรอบข้างบน ให้หยุดและรายงาน ห้ามตัดสินใจเอง
+
+2) เดินหน้าทำ PR B: บังคับ login ตอนอัปโหลด (Refs #31) ตามแผนก่อนหน้า โดยใช้คำตอบเหล่านี้:
+
+   - D1: เลือก (ข) เพิ่ม uploader_id เพื่อเก็บ id ของบัญชีผู้ส่ง
+   - D2: เลือก (ก) ถ้ามี uploader_name ในฟอร์ม ให้ละเลยและใช้ชื่อจากบัญชี
+   - D3: เลือก (ก) ใช้ urllib ไม่เพิ่ม dependency
+   - D4: เลือก (ก) ไม่สร้าง ADR ใหม่
+
+   ก่อนเริ่ม ตรวจว่า main และ origin/main ยังอยู่ที่ 28b12be และ working tree สะอาด จากนั้นสร้าง branch feature/notes-require-login
+   จาก commit นี้ แล้วลงมือทำตามแผน รวมถึงปรับหรือเพิ่ม tests, CI smoke test และเอกสารที่ระบุไว้
+
+   อย่าแก้ tokens.py, auth-service หรือ feature/preview-note และอย่า commit, push หรือเปิด PR
+
+   เมื่อเสร็จ ให้รัน tests และ smoke checks ที่เกี่ยวข้อง แล้วสรุปไฟล์ที่เปลี่ยน ผลตรวจ และข้อจำกัดที่ยังเหลือ
+```
+
+เทียบกับ Five S's:
+
+- **Single task** ผ่าน แยก "เสนอแผน" (ข้อ 1) ออกจาก "ลงมือทำ" (ข้อ 2) และตัด preview-note ของวชิรวิทย์ออกจากขอบเขตชัดเจน
+- **Specific** ผ่าน ข้อ 1 ล็อกสิ่งที่ตัดสินไปแล้วตั้งแต่ Prompt 14 ไว้เป็น "กรอบ" ส่วนเรื่องที่ยังเปิดอยู่ 4 ข้อ (D1–D4) ถูกถามกลับมาเป็นทางเลือกพร้อมคำแนะนำ แล้วตอบด้วยคำตอบสั้น ๆ ในข้อ 2 AI จึงไม่ต้องเลือกแทน
+- **Structured** ผ่าน มีขั้นตอน, กรอบ, ข้อห้าม และเงื่อนไขหยุด ("ถ้าเจอจุดที่ขัดกับกรอบ ให้หยุดและรายงาน") แยกหัวข้อกันชัด
+- **Surrounding** ผ่าน ระบุไฟล์ที่ต้องอ่านก่อน (issue #31, ADR-004/005, README ของ auth-service, `app.py`) แทนการอธิบายโค้ดเอง และระบุ commit ฐาน `28b12be` ให้ตรวจก่อนเริ่ม
+- **Short** ข้อ 2 สั้นเพราะอ้างถึงแผนก่อนหน้า ไม่ต้องเขียนรายละเอียดซ้ำ
+
+**บทเรียนจริงจากรอบนี้:** คำว่า "อย่าแก้ auth-service" ในข้อ 2 ครอบถึงไฟล์ `services/auth-service/README.md` ด้วยหรือไม่ ตีความได้สองแบบ รอบแรกจึงไม่ได้แก้ แต่รายงานไว้ว่าข้อความเตือนในไฟล์นั้น ("notes-service ยังไม่ได้เรียกใช้ service นี้") ล้าสมัยแล้ว จากนั้นอติชาติสั่งแก้เฉพาะข้อความนั้นก่อน commit · อีกข้อคือเทสต์ที่ใช้ตัวปลอมแทน auth-service พิสูจน์ได้แค่ว่า notes-service ใช้ผลการตรวจถูก แต่พิสูจน์ไม่ได้ว่าคุยกับ auth-service ตัวจริงถูก จึงเพิ่ม `test_notes_identity.py` ที่ยก auth-service ขึ้นเป็น HTTP server ในเทสต์ แทนที่จะรอให้ smoke test บน CI เป็นที่แรกที่จับสัญญาระหว่างสอง service ได้
+
+### Lab 12B
+
+#### Prompt 16 — Lab 12B Safety Net Sprint: เทสต์ + CI (อติชาติ, Claude Code, 2026-09-27)
+
+- **เครื่องมือที่ใช้:** Claude Code
+- **ที่มาของ prompt:** เริ่มจากส่งภาพหน้าจอใบงาน Lab 12B ทั้งชุดแล้วสั่ง "ช่วยสรุปมาให้ทั้งหมดก่อนว่าควรจะทำอะไรบ้าง"
+  จากนั้นทุกเฟสใช้พรอมต์ที่ Claude Code ร่างไว้ท้ายคำตอบก่อนหน้า แล้วอติชาติส่งกลับมาใช้ทั้งก้อน (คำต่อคำด้านล่าง)
+
+**Prompt 1 — ใช้เป็นไอเดีย test case (brainstorm):** ผลที่ได้คือฟังก์ชันที่แนะนำ (`email_error()`) กับตาราง test case 8 เคส
+และข้อสังเกตว่า `"a@"` ได้ error โดเมนแทน error รูปแบบ ทีมเลือกใช้ทั้ง 8 เคส และตัดสินเองว่า `"a@"` ควรเป็น error รูปแบบ
+
+```
+1. merge PR #65 แบบ "Create a merge commit" โดยล็อก head ไว้ที่ b21f77b (--match-head-commit ใช้ SHA เต็ม) — ถ้า head เปลี่ยนหรือ CI ไม่เขียว ให้หยุดและรายงาน
+2. pull main ล่าสุดแบบ ff-only แล้วยืนยันว่า issue ที่ PR #65 ปิดถูกปิดจริง
+3. สร้าง branch feature/safety-net จาก main ใหม่
+4. รัน coverage ของ validation.py และ credentials.py แล้วเสนอว่าฟังก์ชันไหนเหมาะที่สุด พร้อมรายการ test case (happy/edge/error) ยังไม่ต้องเขียนโค้ดเทสต์
+ขอบเขต/ข้อห้าม:
+- ห้ามลบ branch feature/notes-require-login
+- ห้าม push / เปิด PR จนกว่าจะสั่ง
+- ห้ามแก้ ci.yml, AI_USAGE.md, reflect.md ในรอบนี้
+- ห้าม force-push และห้าม commit ตรงเข้า main
+เงื่อนไขหยุด: ถ้าเจอ conflict หรือเทสต์เดิมแดง ให้หยุดทันทีแล้วรายงาน ห้ามแก้เอง
+```
+
+**Prompt 2 — เขียนเทสต์:**
+
+```
+เขียนเทสต์ Lab 12B สำหรับ email_error() ตามลำดับนี้:
+1. สร้างไฟล์ src/tests/test_email_error.py เขียนเทสต์เคส #1–#8 ตามตารางที่เสนอ (โครง AAA + docstring 1 บรรทัด)
+2. เคส "a@": ให้คาดหวังว่า <ได้ error รูปแบบ / ได้ error โดเมน> ← ฉันจะเลือกเอง
+3. รันเทสต์แบบเดียวกับ CI (.venv pytest src/tests + --cov) แล้วรายงานผลและตัวเลข coverage
+4. commit บน feature/safety-net ข้อความ "test(auth): add unit tests for email_error (Lab12B phase B)"
+ขอบเขต/ข้อห้าม:
+- ห้ามแก้ credentials.py แม้เทสต์ "a@" จะแดง
+- ห้าม push / เปิด PR จนกว่าจะสั่ง
+- ห้ามแก้ ci.yml, AI_USAGE.md, reflect.md ในรอบนี้
+- ห้าม force-push และห้าม commit ตรงเข้า main
+เงื่อนไขหยุด: ถ้าเทสต์เดิมตัวอื่นแดง ให้หยุดทันทีแล้วรายงาน ห้ามแก้เอง
+```
+
+**Prompt 3 — ใช้แก้/ตั้ง CI (`ci.yml` + ruff):**
+
+```
+Lab 12B เฟส C ตามลำดับนี้:
+1. เพิ่ม ruff.toml ที่ root: select = ["E4","E7","E9","F"] แล้วลบ import FileStorage ที่ไม่ได้ใช้ใน src/tests/test_notes_api.py
+2. เพิ่ม job "lint" ใน .github/workflows/ci.yml (ของเดิมห้ามแตะ): ruff ล็อกเวอร์ชันให้ตรงกับเครื่อง แล้วรัน ruff check .
+3. รัน ruff check . และ pytest แบบเดียวกับ CI บนเครื่องให้เขียวก่อน แล้ว commit "ci: add ruff lint job (Lab12B phase C)"
+4. push -u origin feature/safety-net แล้วเปิด PR ไป main ชื่อ "Lab12B: Safety Net Sprint — tests + CI" ใช้ template PR ของทีม
+5. รอ CI แล้วรายงานผลทุก job
+ขอบเขต/ข้อห้าม:
+- ห้าม merge / approve
+- ห้ามแก้ AI_USAGE.md, reflect.md และห้ามแก้ credentials.py
+- ห้าม force-push
+เงื่อนไขหยุด: ถ้า lint หรือเทสต์แดงบนเครื่อง หรือ CI แดง ให้หยุดทันทีแล้วรายงาน ห้ามแก้เอง
+```
+
+- **ส่วนที่รับจาก AI ตรง ๆ (ไม่แก้):** `src/tests/test_email_error.py`, `ruff.toml`, job `lint` ใน `ci.yml`, หัวข้อ 2.11 ใน `docs/testing/readme.md`
+  และ `docs/safety-net.md` ทั้ง 5 หัวข้อ (ดูตารางท้ายไฟล์)
+- **ตรวจสอบแล้วว่าเข้าใจทุกบรรทัดที่ส่ง:** [ ] ← ทีมติ๊กเองหลังอ่านครบ
+
+**บทเรียนจริงจากรอบนี้:**
+- Prompt 2 ถูกส่งไปทั้งที่ช่อง `<ได้ error รูปแบบ / ได้ error โดเมน>` ยังไม่ได้เลือก (เกิดสองรอบ) AI ไม่เดาแทน รอบแรกเขียนเฉพาะ 8 เคสที่ไม่ขึ้นกับการตัดสินใจนี้
+  แล้ว commit ไปก่อน รอบที่สองหยุดถามก่อน · พรอมต์ที่มีช่องให้เลือกต้องเติมให้ครบก่อนส่ง ไม่อย่างนั้นงานส่วนนั้นจะค้าง
+- ใบงานให้ `pip install ruff` แล้ว `ruff check .` แต่ ruff 0.16 เปิดกฎจัดลำดับ import (I001) กับกลุ่ม RUF เป็นค่า default ด้วย ถ้าทำตามใบงานตรง ๆ
+  CI จะแดง 14 จุดทั้ง repo ตั้งแต่วันแรก จึงระบุกฎเองใน `ruff.toml` และล็อกเวอร์ชันใน CI
+- `credentials.py` เป็น coverage 100% อยู่แล้ว แต่ยังเจอบั๊กได้ (AE-09) — coverage บอกว่าบรรทัดไหนถูกรัน ไม่ได้บอกว่าผลที่ได้ถูกหรือไม่
+
 ### รายการที่ยังไม่ระบุ Lab
 
 รายการต่อไปนี้ไม่ได้ระบุ Lab ไว้ในข้อมูลเดิม จึงแยกมาไว้ท้ายหัวข้อนี้
@@ -447,8 +570,11 @@ user story ระดับ Must ของ Sprint 1 ที่ปิดไปแ�
 | `prototypes/sprint1/note-utils.js` และ `note-utils.test.js` ทั้งไฟล์ (Lab 7) | Claude Code (2026-08-26) | generate ทั้งสองไฟล์ อติชาติอ่านทุกบรรทัด รันเทสต์เองด้วย `node --test` และเปิดหน้าเว็บจริงเทียบก่อน/หลัง แต่ไม่ได้แก้โค้ดในไฟล์เพิ่มเติม รายละเอียดดู [docs/refactoring-journal.md](docs/refactoring-journal.md) |
 | `.github/workflows/ci.yml`, `src/tests/*` และ `docs/testing/readme.md` (Lab 8) | Claude Code (2026-08-31) | generate ทั้งหมด อติชาติตรวจว่าเทสต์รันผ่านจริงทั้งสองชุดและตรวจว่าตาราง test report ตรงกับ output ที่เห็น (รวมถึงแถวที่ยังไม่ได้รัน ซึ่งถูกกำกับว่า "รอ CI" ไม่ใช่ "ผ่าน") แต่ไม่ได้แก้โค้ดในไฟล์เพิ่มเติม |
 | `services/notes-service/*` ทั้งโฟลเดอร์, `docker-compose.yml`, `src/tests/test_notes_*.py`, ADR-003 (US-08) | Claude Code (2026-08-31) | generate ทั้งหมด อติชาติตรวจ endpoint เทียบ AC ของ #8 ทีละข้อ และตรวจว่าเทสต์ที่อ้างว่าผ่านนั้นรันจริง แต่ไม่ได้แก้โค้ดเพิ่ม · ขอบเขตที่ AI เลือกเอง (service เดียว, เก็บไฟล์บนดิสก์, ยังไม่มี auth) ถูกบันทึกไว้ใน [ADR-003](docs/architecture/adr/0003-tracer-bullet-scope.th.md) เพื่อให้ทีมรีวิว/ค้านได้ ไม่ใช่ตัดสินใจเงียบ ๆ |
+| `prototypes/sprint1/wachirawit_search_note_prototype.css` ทั้งไฟล์ | Claude/Gemini (Prompt 4, commit `7a455c6`, 2026-07-10) | generate ทั้งไฟล์ ประวัติ git แสดงว่าไม่ถูกแก้อีกเลยหลัง commit แรก (วชิรวิทย์ตรวจหน้าตาในเบราว์เซอร์) |
+| ข้อมูลจำลอง `notes` (5 รายการ) ใน `wachirawit_search_note_prototype.html` | Claude/Gemini (Prompt 4, commit `7a455c6`) | generate มาตรงๆ เนื้อหาเหมือนเดิมทุกตัวอักษรตั้งแต่ commit แรกจนถึงปัจจุบัน |
+| logic กรอง (คณะ/ปี/ประเภทไฟล์/คำค้น) และเรียงผลลัพธ์ใน `render()` ของหน้าค้นหา | Claude/Gemini (Prompt 4, commit `7a455c6`) | เงื่อนไขกรองและการเรียงเหมือนเดิมตั้งแต่ commit แรก วชิรวิทย์แค่เปลี่ยนชื่อตัวแปร (ใน `0ea55bd`) ต่อมาถูกแยกไป `note-utils.js` ใน Lab 7 (ดูแถวของ Lab 7 ด้านบน) |
 | `services/auth-service/*` ทั้งโฟลเดอร์, `src/tests/test_auth_*.py`, ส่วนที่เพิ่มใน `src/tests/conftest.py`/`docker-compose.yml`/`.github/workflows/ci.yml`, ADR-005 ทั้ง EN/TH และส่วนที่แก้ในเอกสาร README/test plan (US-05/US-06, branch `feature/auth-service`) | Claude Code (2026-09-25) | generate ทั้งหมดใน session เดียว และไม่มีคนแก้บรรทัดใดก่อน commit (ยืนยันจากประวัติ session ว่าทุกบรรทัดใน diff เทียบกับ `main` ถูกเขียนโดยเครื่องมือ และ branch นี้ไม่มี commit ใดก่อนหน้านี้ที่คนจะแก้ไว้) · สิ่งที่มาจากคน: การตัดสินใจทั้ง 6 ข้อของอติชาติที่ล็อกการออกแบบไว้ (ดู Prompt 14) · **ยังไม่ผ่านการรีวิวโค้ดโดยคนในทีม** ที่ทำไปแล้วคือเทสต์อัตโนมัติกับการรีวิว diff ด้วยเครื่องมือ จึงยังต้องรอ review ใน PR |
+| `services/notes-service/identity.py` และ `src/tests/test_notes_identity.py` ทั้งไฟล์, ส่วนที่แก้ใน `services/notes-service/app.py`/`models.py`/`validation.py`/`Dockerfile`/`README.md`, `src/tests/test_notes_api.py`/`test_notes_validation.py`, `docker-compose.yml`, `.github/workflows/ci.yml` และเอกสาร README/test plan (US-31, branch `feature/notes-require-login`) | Claude Code (2026-09-27) | generate ทั้งหมดใน session เดียว ยังไม่มีคนแก้บรรทัดใดก่อน commit · สิ่งที่มาจากคน: กรอบ 4 ข้อจาก Prompt 14 และคำตอบ D1–D4 ใน Prompt 15 · **ยังไม่ผ่านการรีวิวโค้ดโดยคนในทีม** ที่ทำไปแล้วคือเทสต์อัตโนมัติ, saboteur test และ smoke บน SQLite |
+| `src/tests/test_email_error.py` ทั้งไฟล์, `ruff.toml`, job `lint` ใน `.github/workflows/ci.yml`, การลบ import ที่ไม่ได้ใช้ใน `src/tests/test_notes_api.py`, หัวข้อ 2.11 ใน `docs/testing/readme.md`, `docs/safety-net.md` ทั้ง 5 หัวข้อ และภาพหลักฐาน `docs/images/lab12b-merging-blocked.png` (Lab 12B) | Claude Code (Prompt 16, 2026-09-27) | generate ทั้งหมด ฟังก์ชัน `email_error()` เป็นข้อเสนอของ AI ที่อติชาติรับไป ส่วนความคาดหวังของเคส `"a@"` อติชาติเลือกเอง · ตรวจว่าเทสต์และ lint ผ่านทั้งบนเครื่องและบน CI ของ PR #66 · ใบงานกำหนดให้ทีมเขียนเองอย่างน้อยครึ่งหนึ่ง ส่วนนี้ยังไม่ถึง จึงเปิดเผยไว้ตามจริง · ข้อความเรื่องขอบ 254 ในหัวข้อ 5 ของ `docs/safety-net.md` ตรวจแล้วด้วยการลองเปลี่ยน `>` เป็น `>=` ในสำเนาชั่วคราว เทสต์เดิม 59 ตัวผ่านหมด มีแค่ AE-03 ที่แดง |
 
-ส่วนที่ตามหลักฐานแล้วน่าจะเป็นงานที่คนเขียน/แก้เอง ไม่ใช่รับจาก AI ตรง ๆ: ฟังก์ชัน `esc()` กัน XSS และการ clamp ค่าใน `stars()` ของหน้าค้นหา ก่อน Lab 7 (เข้ามาในรอบที่ PR #37 ถูก CHANGES_REQUESTED จึงเป็นผลจากรีวิวของคนในทีม) แต่ใน Lab 7 ฟังก์ชันสองตัวนี้ถูกย้าย/เขียนใหม่เป็น `escapeHtml`/`formatStars` ใน `note-utils.js` โดย Claude Code แล้ว (แถวด้านบน) จึงไม่ใช่ "ไม่แก้จาก AI" อีกต่อไปสำหรับตำแหน่งใหม่นี้ ส่วนที่ยังเป็นของคนเขียนเองเหมือนเดิม: การตัดสินใจเรื่อง Tracer vs Prototype และเนื้อหา reflection รายบุคคลทั้งสามไฟล์
-
->  **TODO:** วชิรวิทย์ — ตารางนี้ยังไม่ครบงานของตัวเอง ช่วยเติมส่วนที่รับจาก AI แบบไม่แก้ของตัวเอง และแก้แถวที่ระบุผิดด้วย
+ส่วนที่เป็นงานที่คนแก้เองบางส่วน ไม่ใช่รับจาก AI ตรง ๆ: ฟังก์ชัน `esc()` กัน XSS และการ clamp ค่าใน `stars()` ของหน้าค้นหา ก่อน Lab 7 (เข้ามาในรอบที่ PR #37 ถูก CHANGES_REQUESTED โดยทีมรีวิวพบช่องโหว่ XSS แล้ววชิรวิทย์ใช้ Gemini ช่วยหาจุดและเสนอวิธีแก้ตาม Prompt 5 ก่อนนำไปแก้ใน commit `0ea55bd` จึงเป็นงานที่ AI ช่วย ไม่ใช่เขียนเองล้วน) แต่ใน Lab 7 ฟังก์ชันสองตัวนี้ถูกย้าย/เขียนใหม่เป็น `escapeHtml`/`formatStars` ใน `note-utils.js` โดย Claude Code แล้ว (แถวด้านบน) จึงไม่ใช่ "ไม่แก้จาก AI" อีกต่อไปสำหรับตำแหน่งใหม่นี้ ส่วนที่ยังเป็นของคนเขียนเองเหมือนเดิม: การตัดสินใจเรื่อง Tracer vs Prototype และเนื้อหา reflection รายบุคคลทั้งสามไฟล์
