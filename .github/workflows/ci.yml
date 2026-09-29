@@ -212,6 +212,38 @@ jobs:
             -H "Authorization: Bearer $UPLOAD_TOKEN" -F 'title=missing everything else')
           test "$status" = "400"
 
+      # US-11 บน stack จริง: การ render preview ต้องทำงานผ่าน image จริง (ไม่ใช่แค่ import จาก
+      # source tree เหมือน unit test) เพราะเคยเจอบั๊กที่ Dockerfile ลืม copy preview.py เข้า image
+      # มาแล้วครั้งหนึ่ง (commit 8f25b9b) ซึ่ง unit test ตอนนั้นเขียวอยู่แต่ container พังจริง
+      - name: Preview endpoint renders on the real stack (US-11)
+        run: |
+          set -euo pipefail
+          # PNG 1x1 พิกเซลจริง (ไม่ใช่แค่ header ปลอม) เข้ารหัส base64 ไว้
+          echo 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=' \
+            | base64 -d > /tmp/preview.png
+
+          created=$(curl -fsS -X POST http://localhost:5001/notes -H "Authorization: Bearer $UPLOAD_TOKEN" \
+            -F 'title=CI preview note' -F 'subject_name=Graphics' -F 'subject_code=CS501' -F 'faculty=ICT' \
+            -F 'year_level=4' -F 'lesson=Rendering' -F 'file=@/tmp/preview.png;type=image/png')
+          preview_url=$(echo "$created" | jq -r '.preview_url')
+
+          # เรียกโดยไม่ส่ง Authorization เลย — endpoint นี้ต้องอ่านได้โดยไม่ login เหมือน /download
+          status=$(curl -s -D /tmp/preview-headers.txt -o /tmp/preview-out.png -w '%{http_code}' \
+            "http://localhost:5001$preview_url")
+          test "$status" = "200"
+          grep -qi '^content-type: image/png' /tmp/preview-headers.txt
+          python3 -c "assert open('/tmp/preview-out.png','rb').read(8) == b'\x89PNG\r\n\x1a\n'"
+
+          # ไฟล์ที่ประกาศเป็น image/png แต่เนื้อไม่ใช่รูปจริงต้องได้ 422 ไม่ใช่ 500
+          printf '%s' 'not a real png' > /tmp/fake.png
+          fake=$(curl -fsS -X POST http://localhost:5001/notes -H "Authorization: Bearer $UPLOAD_TOKEN" \
+            -F 'title=CI fake preview' -F 'subject_name=Graphics' -F 'subject_code=CS502' -F 'faculty=ICT' \
+            -F 'year_level=4' -F 'lesson=Rendering' -F 'file=@/tmp/fake.png;type=image/png')
+          fake_preview_url=$(echo "$fake" | jq -r '.preview_url')
+          status=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:5001$fake_preview_url")
+          test "$status" = "422"
+          echo "preview OK"
+
       - name: Dump logs on failure
         if: failure()
         run: docker compose logs

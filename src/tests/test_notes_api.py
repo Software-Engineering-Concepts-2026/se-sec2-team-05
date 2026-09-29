@@ -555,6 +555,9 @@ def test_read_endpoints_stay_open_without_login(client, identity):
     assert client.get("/notes").status_code == 200
     assert client.get(f"/notes/{note_id}").status_code == 200
     assert client.get(f"/notes/{note_id}/download").status_code == 200
+    # ไฟล์ default ของ upload() เป็น PDF ปลอม (แค่ header) เลย render preview ไม่ได้ (422)
+    # แต่ประเด็นที่เทสต์นี้ต้องพิสูจน์คือ "เข้าถึงได้โดยไม่ login" ไม่ใช่ "render สำเร็จ"
+    assert client.get(f"/notes/{note_id}/preview").status_code != 401
     # อ่านอย่างเดียวต้องไม่ไปถาม auth-service เลย
     assert identity.calls == calls_after_upload
 
