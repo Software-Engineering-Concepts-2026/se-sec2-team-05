@@ -5,7 +5,10 @@ Endpoint:
     POST /notes               อัปโหลดไฟล์ + metadata (multipart/form-data) ต้อง login (US-31)
     GET  /notes               ค้นหา/กรองด้วย metadata ที่กรอกไว้ (AC ข้อ 4)
     GET  /notes/<id>          รายละเอียดโน้ตหนึ่งรายการ
-    PATCH  /notes/<id>        แก้ metadata บางส่วน (US-19) ต้องมี X-Note-Token
+    POST /notes/<id>/comments แสดงความคิดเห็นใต้โน้ต (Issue #14)
+    GET  /notes/<id>/comments  รายการความคิดเห็น (Issue #14)
+    DELETE /notes/<id>/comments/<comment_id> ลบความคิดเห็นของตัวเอง (Issue #14)
+    PATCH /notes/<id>         แก้ metadata บางส่วน (US-19) ต้องมี X-Note-Token
     DELETE /notes/<id>        ลบโน้ตพร้อมไฟล์ (US-20) ต้องมี X-Note-Token
     GET  /notes/<id>/download ดาวน์โหลดไฟล์จริง
 
@@ -21,14 +24,41 @@ from flask import Flask, jsonify, request, send_file
 from sqlalchemy import select, update
 
 from identity import IdentityUnavailable, identity_from_env
-from models import Note, build_session_factory
+from models import Comment, Note, build_session_factory
 from storage import storage_from_env
 from tokens import HEADER_NAME, issue_token, token_matches
-from validation import ALLOWED_CONTENT_TYPES, MAX_FILE_BYTES, validate_file, validate_metadata
+from validation import (
+    ALLOWED_CONTENT_TYPES,
+    MAX_FILE_BYTES,
+    validate_file,
+    validate_metadata,
+)
 
 DEFAULT_DATABASE_URL = "sqlite:///notes.db"
 DEFAULT_PAGE_SIZE = 20
 MAX_PAGE_SIZE = 100
+
+# Issue #14 - Comment validation
+MAX_COMMENT_LENGTH = 1000
+
+
+def validate_comment_content(value):
+    """ตรวจสอบข้อความความคิดเห็นของ Issue #14"""
+    if not isinstance(value, str):
+        raise ValueError("comment content is required")
+
+    content = value.strip()
+
+    if not content:
+        raise ValueError("comment content cannot be empty")
+
+    if len(content) > MAX_COMMENT_LENGTH:
+        raise ValueError(
+            f"comment content must not exceed {MAX_COMMENT_LENGTH} characters"
+        )
+
+    return content
+
 
 # เพดานขนาด request ทั้งก้อน = ขนาดไฟล์สูงสุด + ที่เผื่อไว้ให้ multipart boundary กับฟิลด์ metadata
 # ตั้งให้สูงกว่า MAX_FILE_BYTES เล็กน้อยโดยตั้งใจ ไฟล์ที่เกินนิดเดียวจะได้ตกที่ validate_file
@@ -55,12 +85,15 @@ EXT_TO_CONTENT_TYPE = {
 
 def create_app(database_url: str | None = None, storage=None, identity=None) -> Flask:
     app = Flask(__name__)
+
     # ตัดคำขอที่ใหญ่เกินตั้งแต่ชั้น Werkzeug ไม่ต้องรอให้ validate_file เห็นขนาด
     # เพราะกว่าจะถึงตรงนั้น request body ถูกอ่านเข้ามาครบแล้ว
     app.config["MAX_CONTENT_LENGTH"] = MAX_REQUEST_BYTES
+
     session_factory = build_session_factory(
         database_url or os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL)
     )
+
     file_storage = storage or storage_from_env()
     current_user = identity or identity_from_env()
 
@@ -79,6 +112,7 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
         ถ้าไม่ดักไว้ Werkzeug จะคืนหน้า HTML ซึ่ง client ที่ parse JSON อยู่แล้วจะพัง
         """
         limit_mb = MAX_FILE_BYTES // (1024 * 1024)
+
         return (
             jsonify(
                 error="validation_failed",
@@ -94,11 +128,18 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
             user = current_user(request.headers.get("Authorization"))
         except IdentityUnavailable:
             return jsonify(error="auth_unavailable"), 503
+
         if user is None:
-            return jsonify(error="unauthorized"), 401, {"WWW-Authenticate": "Bearer"}
+            return jsonify(error="unauthorized"), 401, {
+                "WWW-Authenticate": "Bearer"
+            }
 
         cleaned, errors = validate_metadata(request.form)
-        content_type, size_bytes, file_error = validate_file(request.files.get("file"))
+
+        content_type, size_bytes, file_error = validate_file(
+            request.files.get("file")
+        )
+
         if file_error:
             errors["file"] = file_error
 
@@ -106,10 +147,12 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
             return jsonify(error="validation_failed", fields=errors), 400
 
         upload = request.files["file"]
+
         storage_key = file_storage.build_key(content_type)
         file_storage.save(storage_key, upload)
 
         token, token_hash = issue_token()
+
         note = Note(
             **cleaned,
             # US-31: เจ้าของโน้ตมาจากบัญชีที่ login เสมอ uploader_name ในฟอร์ม (ถ้ามี) ถูกเมิน
@@ -121,8 +164,10 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
             storage_key=storage_key,
             edit_token_hash=token_hash,
         )
+
         with session_factory() as session:
             session.add(note)
+
             try:
                 session.commit()
             except Exception:
@@ -130,6 +175,7 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
                 session.rollback()
                 file_storage.delete(storage_key)
                 raise
+
             # ครั้งเดียวที่ token ตัวจริงออกจาก service — ในฐานข้อมูลมีแค่ hash
             return jsonify(**note.to_dict(), edit_token=token), 201
 
@@ -140,8 +186,10 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
         stmt = select(Note)
 
         keyword = (args.get("q") or "").strip()
+
         if keyword:
             like = f"%{keyword}%"
+
             stmt = stmt.where(
                 Note.title.ilike(like)
                 | Note.subject_name.ilike(like)
@@ -155,23 +203,44 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
             ("subject_code", Note.subject_code),
         ):
             value = (args.get(field) or "").strip()
+
             if value:
                 stmt = stmt.where(column == value)
 
         if args.get("year_level"):
             try:
-                stmt = stmt.where(Note.year_level == int(args["year_level"]))
+                stmt = stmt.where(
+                    Note.year_level == int(args["year_level"])
+                )
             except ValueError:
-                return jsonify(error="invalid_filter", field="year_level"), 400
+                return jsonify(
+                    error="invalid_filter",
+                    field="year_level",
+                ), 400
 
         # US-10: กรองตามประเภทไฟล์ — รับหลายค่าพร้อมกันได้ (OR ภายในตัวกรองนี้)
         file_types = args.getlist("file_type")
+
         if file_types:
-            invalid = [ft for ft in file_types if ft not in EXT_TO_CONTENT_TYPE]
+            invalid = [
+                ft for ft in file_types
+                if ft not in EXT_TO_CONTENT_TYPE
+            ]
+
             if invalid:
-                return jsonify(error="invalid_filter", field="file_type"), 400
-            content_types = [EXT_TO_CONTENT_TYPE[ft] for ft in file_types]
-            stmt = stmt.where(Note.content_type.in_(content_types))
+                return jsonify(
+                    error="invalid_filter",
+                    field="file_type",
+                ), 400
+
+            content_types = [
+                EXT_TO_CONTENT_TYPE[ft]
+                for ft in file_types
+            ]
+
+            stmt = stmt.where(
+                Note.content_type.in_(content_types)
+            )
 
         for field, condition in (
             ("date_from", lambda d: Note.class_date >= d),
@@ -179,34 +248,190 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
         ):
             if args.get(field):
                 try:
-                    stmt = stmt.where(condition(date.fromisoformat(args[field])))
+                    stmt = stmt.where(
+                        condition(date.fromisoformat(args[field]))
+                    )
                 except ValueError:
-                    return jsonify(error="invalid_filter", field=field), 400
+                    return jsonify(
+                        error="invalid_filter",
+                        field=field,
+                    ), 400
 
         sort = args.get("sort", "new")
+
         if sort not in SORT_COLUMNS:
-            return jsonify(error="invalid_filter", field="sort"), 400
+            return jsonify(
+                error="invalid_filter",
+                field="sort",
+            ), 400
+
         stmt = stmt.order_by(SORT_COLUMNS[sort])
 
         try:
             # clamp ทั้งขอบบนและขอบล่าง — ค่าติดลบผ่าน int() ได้ แต่ LIMIT -1 มีความหมาย
             # ต่างกันระหว่าง SQLite (ไม่จำกัด) กับ Postgres (error) จึงกันไว้ที่ชั้นนี้
-            limit = max(1, min(int(args.get("limit", DEFAULT_PAGE_SIZE)), MAX_PAGE_SIZE))
-            offset = max(0, int(args.get("offset", 0)))
+            limit = max(
+                1,
+                min(
+                    int(args.get("limit", DEFAULT_PAGE_SIZE)),
+                    MAX_PAGE_SIZE,
+                ),
+            )
+
+            offset = max(
+                0,
+                int(args.get("offset", 0)),
+            )
+
         except ValueError:
-            return jsonify(error="invalid_filter", field="limit/offset"), 400
+            return jsonify(
+                error="invalid_filter",
+                field="limit/offset",
+            ), 400
 
         with session_factory() as session:
-            rows = session.scalars(stmt.limit(limit).offset(offset)).all()
-            return jsonify(items=[n.to_dict() for n in rows], count=len(rows))
+            rows = session.scalars(
+                stmt.limit(limit).offset(offset)
+            ).all()
+
+            return jsonify(
+                items=[n.to_dict() for n in rows],
+                count=len(rows),
+            )
 
     @app.get("/notes/<int:note_id>")
     def get_note(note_id):
         with session_factory() as session:
             note = session.get(Note, note_id)
+
             if note is None:
                 return jsonify(error="not_found"), 404
+
             return jsonify(note.to_dict())
+
+    # ============================================================
+    # Issue #14 - Comment on a Note
+    #
+    # User Story:
+    # ในฐานะสมาชิก ฉันต้องการแสดงความคิดเห็นใต้โน้ต
+    # เพื่อสอบถามหรือเสริมข้อมูลกับเจ้าของโน้ต
+    #
+    # Acceptance Criteria:
+    # 1. แสดงความคิดเห็นใต้โน้ตได้เมื่อเข้าสู่ระบบแล้ว
+    # 2. แสดงรายการความคิดเห็นเรียงตามเวลาล่าสุด
+    # 3. ลบความคิดเห็นของตัวเองได้
+    # ============================================================
+
+    @app.post("/notes/<int:note_id>/comments")
+    def create_comment(note_id):
+        # AC #1: ต้อง login ก่อนจึงจะแสดงความคิดเห็นได้
+        try:
+            user = current_user(
+                request.headers.get("Authorization")
+            )
+        except IdentityUnavailable:
+            return jsonify(error="auth_unavailable"), 503
+
+        if user is None:
+            return jsonify(error="unauthorized"), 401, {
+                "WWW-Authenticate": "Bearer"
+            }
+
+        payload = request.get_json(silent=True)
+
+        if not isinstance(payload, dict):
+            return jsonify(
+                error="validation_failed",
+                fields={"content": "required"},
+            ), 400
+
+        try:
+            content = validate_comment_content(
+                payload.get("content")
+            )
+        except ValueError as error:
+            return jsonify(
+                error="validation_failed",
+                fields={"content": str(error)},
+            ), 400
+
+        with session_factory() as session:
+            # ป้องกันการสร้าง comment ให้ note ที่ไม่มีอยู่จริง
+            note = session.get(Note, note_id)
+
+            if note is None:
+                return jsonify(error="not_found"), 404
+
+            comment = Comment(
+                note_id=note_id,
+                user_id=user["id"],
+                content=content,
+            )
+
+            session.add(comment)
+            session.commit()
+
+            return jsonify(comment.to_dict()), 201
+
+    @app.get("/notes/<int:note_id>/comments")
+    def get_comments(note_id):
+        with session_factory() as session:
+            # note ไม่มีจริง -> 404
+            note = session.get(Note, note_id)
+
+            if note is None:
+                return jsonify(error="not_found"), 404
+
+            # AC #2: เรียงความคิดเห็นจากใหม่ -> เก่า
+            # ใช้ id เป็นตัวสำรองกรณี created_at เท่ากัน
+            stmt = (
+                select(Comment)
+                .where(Comment.note_id == note_id)
+                .order_by(
+                    Comment.created_at.desc(),
+                    Comment.id.desc(),
+                )
+            )
+
+            comments = session.scalars(stmt).all()
+
+            return jsonify(
+                comments=[
+                    comment.to_dict()
+                    for comment in comments
+                ]
+            )
+
+    @app.delete("/notes/<int:note_id>/comments/<int:comment_id>")
+    def delete_comment(note_id, comment_id):
+        # AC #3: ต้อง login ก่อนลบ comment
+        try:
+            user = current_user(
+                request.headers.get("Authorization")
+            )
+        except IdentityUnavailable:
+            return jsonify(error="auth_unavailable"), 503
+
+        if user is None:
+            return jsonify(error="unauthorized"), 401, {
+                "WWW-Authenticate": "Bearer"
+            }
+
+        with session_factory() as session:
+            comment = session.get(Comment, comment_id)
+
+            # comment ไม่มี หรือ comment ไม่ได้อยู่ใต้ note นี้
+            if comment is None or comment.note_id != note_id:
+                return jsonify(error="not_found"), 404
+
+            # AC #3: ลบได้เฉพาะ comment ของตัวเอง
+            if comment.user_id != user["id"]:
+                return jsonify(error="forbidden"), 403
+
+            session.delete(comment)
+            session.commit()
+
+            return "", 204
 
     @app.patch("/notes/<int:note_id>")
     def update_note(note_id):
@@ -217,22 +442,39 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
         """
         with session_factory() as session:
             note = session.get(Note, note_id)
+
             if note is None:
                 return jsonify(error="not_found"), 404
-            if not token_matches(request.headers.get(HEADER_NAME), note.edit_token_hash):
+
+            if not token_matches(
+                request.headers.get(HEADER_NAME),
+                note.edit_token_hash,
+            ):
                 return jsonify(error="forbidden"), 403
 
-            cleaned, errors = validate_metadata(request.form, partial=True)
+            cleaned, errors = validate_metadata(
+                request.form,
+                partial=True,
+            )
+
             if errors:
-                return jsonify(error="validation_failed", fields=errors), 400
+                return jsonify(
+                    error="validation_failed",
+                    fields=errors,
+                ), 400
+
             if not cleaned:
-                return jsonify(error="no_fields_to_update"), 400
+                return jsonify(
+                    error="no_fields_to_update"
+                ), 400
 
             for field, value in cleaned.items():
                 setattr(note, field, value)
+
             note.updated_at = datetime.now(timezone.utc)
 
             session.commit()
+
             return jsonify(note.to_dict())
 
     @app.delete("/notes/<int:note_id>")
@@ -244,22 +486,30 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
         """
         with session_factory() as session:
             note = session.get(Note, note_id)
+
             if note is None:
                 return jsonify(error="not_found"), 404
-            if not token_matches(request.headers.get(HEADER_NAME), note.edit_token_hash):
+
+            if not token_matches(
+                request.headers.get(HEADER_NAME),
+                note.edit_token_hash,
+            ):
                 return jsonify(error="forbidden"), 403
 
             storage_key = note.storage_key
+
             session.delete(note)
             session.commit()
 
         file_storage.delete(storage_key)
+
         return "", 204
 
     @app.get("/notes/<int:note_id>/download")
     def download_note(note_id):
         with session_factory() as session:
             note = session.get(Note, note_id)
+
             if note is None:
                 return jsonify(error="not_found"), 404
 
@@ -275,6 +525,7 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
                 .where(Note.id == note_id)
                 .values(download_count=Note.download_count + 1)
             )
+
             session.commit()
 
             return send_file(

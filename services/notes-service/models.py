@@ -58,6 +58,7 @@ class Note(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
     )
+
     # ว่างจนกว่าจะถูกแก้ครั้งแรก — AC ข้อ 3 ของ #19 ขอแค่ "เวลาแก้ไขล่าสุด"
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
@@ -84,6 +85,60 @@ class Note(Base):
         }
 
 
+# ============================================================
+# Issue #14 - Comment on a Note
+# User Story:
+# ในฐานะสมาชิก ฉันต้องการแสดงความคิดเห็นใต้โน้ต
+# เพื่อสอบถามหรือเสริมข้อมูลกับเจ้าของโน้ต
+#
+# Acceptance Criteria:
+# 1. แสดงความคิดเห็นใต้โน้ตได้เมื่อเข้าสู่ระบบแล้ว
+# 2. แสดงรายการความคิดเห็นเรียงตามเวลาล่าสุด
+# 3. ลบความคิดเห็นของตัวเองได้
+# ============================================================
+
+class Comment(Base):
+    __tablename__ = "comments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    # โน้ตที่ความคิดเห็นนี้อยู่ใต้
+    note_id: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        index=True,
+    )
+
+    # ผู้เขียนความคิดเห็นจาก auth-service
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        index=True,
+    )
+
+    # เนื้อหาความคิดเห็น
+    content: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+
+    # ใช้เรียงความคิดเห็นจากใหม่ -> เก่า
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "note_id": self.note_id,
+            "user_id": self.user_id,
+            "content": self.content,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
 # index สำหรับเงื่อนไขกรองที่ใช้บ่อยตาม #10, #26
 Index("ix_notes_subject_code", Note.subject_code)
 Index("ix_notes_faculty_year", Note.faculty, Note.year_level)
@@ -99,5 +154,3 @@ def build_session_factory(database_url: str):
     engine = create_engine(database_url, future=True)
     Base.metadata.create_all(engine)
     return sessionmaker(bind=engine, expire_on_commit=False)
-
-
