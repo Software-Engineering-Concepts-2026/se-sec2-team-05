@@ -201,6 +201,50 @@ def test_filter_by_class_date_range(client):
     assert [n["subject_code"] for n in hits["items"]] == ["CS201"]
 
 
+def test_filter_by_topic_is_partial_and_case_insensitive(client):
+    upload(client, topic="Binary Search Tree", subject_code="CS201")
+    upload(client, topic="Hash Table", subject_code="CS202")
+
+    hits = client.get("/notes?topic=search tree").get_json()
+
+    assert [n["subject_code"] for n in hits["items"]] == ["CS201"]
+
+
+def test_filter_by_topic_does_not_match_unrelated_note_title(client):
+    # topic ต้องกรองแยกจาก q — ชื่อวิชามีคำว่า Tree แต่ topic ไม่มี ไม่ควรติด
+    upload(client, title="Tree ทั้งเทอม", topic="Recursion", subject_code="CS203")
+
+    hits = client.get("/notes?topic=Tree").get_json()
+
+    assert hits["count"] == 0
+
+
+def test_filter_by_topic_escapes_sql_wildcards(client):
+    upload(client, topic="50%", subject_code="CS204")
+    upload(client, topic="Recursion", subject_code="CS205")
+
+    hits = client.get("/notes?topic=50%").get_json()
+
+    assert [n["subject_code"] for n in hits["items"]] == ["CS204"]
+
+
+def test_filter_by_topic_excludes_notes_without_topic(client):
+    upload(client, subject_code="CS206")  # ไม่ส่ง topic มา — ไม่บังคับกรอก
+
+    hits = client.get("/notes?topic=anything").get_json()
+
+    assert hits["count"] == 0
+
+
+def test_filter_by_topic_with_no_match_returns_empty_not_error(client):
+    upload(client, topic="Recursion")
+
+    response = client.get("/notes?topic=Quantum Computing")
+
+    assert response.status_code == 200
+    assert response.get_json()["count"] == 0
+
+
 def test_invalid_filter_value_returns_400_not_500(client):
     assert client.get("/notes?year_level=สอง").status_code == 400
     assert client.get("/notes?date_from=20-08-2026").status_code == 400

@@ -169,6 +169,13 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
             if value:
                 stmt = stmt.where(column == value)
 
+        # US-26: กรองตามหัวข้อเลกเชอร์แบบ partial match — ต่างจาก `q` ตรงที่ค้นเฉพาะ
+        # Note.topic ไม่ปนกับชื่อวิชา/รหัส/บทเรียน · escape %,_ กัน wildcard หลุดจากค่าผู้ใช้
+        topic = (args.get("topic") or "").strip()
+        if topic:
+            escaped = topic.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            stmt = stmt.where(Note.topic.ilike(f"%{escaped}%", escape="\\"))
+
         if args.get("year_level"):
             try:
                 stmt = stmt.where(Note.year_level == int(args["year_level"]))
