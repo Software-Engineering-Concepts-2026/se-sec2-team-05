@@ -208,6 +208,78 @@ def test_filter_by_reversed_date_range_returns_400(client):
     assert response.get_json() == {"error": "invalid_filter", "field": "date_to"}
 
 
+def test_filter_by_class_date_range_includes_boundary_dates(client):
+    upload(client, class_date="2026-08-10", subject_code="CS210")  # ตรง date_from พอดี
+    upload(client, class_date="2026-08-31", subject_code="CS211")  # ตรง date_to พอดี
+    upload(client, class_date="2026-08-09", subject_code="CS212")  # ก่อนช่วง 1 วัน
+    upload(client, class_date="2026-09-01", subject_code="CS213")  # หลังช่วง 1 วัน
+
+    hits = client.get("/notes?date_from=2026-08-10&date_to=2026-08-31").get_json()
+
+    assert {n["subject_code"] for n in hits["items"]} == {"CS210", "CS211"}
+
+
+def test_filter_by_single_class_date(client):
+    upload(client, class_date="2026-08-10", subject_code="CS220")
+    upload(client, class_date="2026-08-11", subject_code="CS221")
+
+    hits = client.get("/notes?date_from=2026-08-10&date_to=2026-08-10").get_json()
+
+    assert [n["subject_code"] for n in hits["items"]] == ["CS220"]
+
+
+def test_filter_by_date_from_only(client):
+    upload(client, class_date="2026-08-01", subject_code="CS230")
+    upload(client, class_date="2026-08-20", subject_code="CS231")
+
+    hits = client.get("/notes?date_from=2026-08-10").get_json()
+
+    assert [n["subject_code"] for n in hits["items"]] == ["CS231"]
+
+
+def test_filter_by_class_date_excludes_notes_without_class_date(client):
+    upload(client, subject_code="CS240")  # ไม่ส่ง class_date — ไม่บังคับกรอก
+
+    hits = client.get("/notes?date_from=2026-01-01&date_to=2026-12-31").get_json()
+
+    assert hits["count"] == 0
+
+
+def test_filter_combines_topic_date_faculty_and_file_type(client):
+    # ตรงทุกเงื่อนไข (US-10 + US-26 พร้อมกัน)
+    upload(
+        client,
+        subject_code="CS250",
+        faculty="ICT",
+        topic="Binary Search Tree",
+        class_date="2026-08-15",
+        file=(io.BytesIO(b"%PDF-1.4"), "note.pdf", "application/pdf"),
+    )
+    upload(  # topic ไม่ตรง
+        client,
+        subject_code="CS251",
+        faculty="ICT",
+        topic="Hash Table",
+        class_date="2026-08-15",
+        file=(io.BytesIO(b"%PDF-1.4"), "note.pdf", "application/pdf"),
+    )
+    upload(  # faculty ไม่ตรง
+        client,
+        subject_code="CS252",
+        faculty="Business",
+        topic="Binary Search Tree",
+        class_date="2026-08-15",
+        file=(io.BytesIO(b"%PDF-1.4"), "note.pdf", "application/pdf"),
+    )
+
+    hits = client.get(
+        "/notes?topic=tree&faculty=ICT&file_type=pdf"
+        "&date_from=2026-08-01&date_to=2026-08-31"
+    ).get_json()
+
+    assert [n["subject_code"] for n in hits["items"]] == ["CS250"]
+
+
 def test_filter_by_topic_is_partial_and_case_insensitive(client):
     upload(client, topic="Binary Search Tree", subject_code="CS201")
     upload(client, topic="Hash Table", subject_code="CS202")
