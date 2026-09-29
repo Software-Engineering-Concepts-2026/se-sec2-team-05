@@ -201,6 +201,13 @@ def test_filter_by_class_date_range(client):
     assert [n["subject_code"] for n in hits["items"]] == ["CS201"]
 
 
+def test_filter_by_reversed_date_range_returns_400(client):
+    response = client.get("/notes?date_from=2026-08-31&date_to=2026-08-01")
+
+    assert response.status_code == 400
+    assert response.get_json() == {"error": "invalid_filter", "field": "date_to"}
+
+
 def test_filter_by_topic_is_partial_and_case_insensitive(client):
     upload(client, topic="Binary Search Tree", subject_code="CS201")
     upload(client, topic="Hash Table", subject_code="CS202")

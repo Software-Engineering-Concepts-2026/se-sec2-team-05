@@ -191,15 +191,24 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
             content_types = [EXT_TO_CONTENT_TYPE[ft] for ft in file_types]
             stmt = stmt.where(Note.content_type.in_(content_types))
 
-        for field, condition in (
-            ("date_from", lambda d: Note.class_date >= d),
-            ("date_to", lambda d: Note.class_date <= d),
-        ):
+        parsed_dates = {}
+        for field in ("date_from", "date_to"):
             if args.get(field):
                 try:
-                    stmt = stmt.where(condition(date.fromisoformat(args[field])))
+                    parsed_dates[field] = date.fromisoformat(args[field])
                 except ValueError:
                     return jsonify(error="invalid_filter", field=field), 400
+
+        # ช่วงกลับด้าน (date_from มาหลัง date_to) เดิมได้ผลว่างเงียบๆ — ผู้ใช้กรอกผิดควรรู้ว่าผิด
+        # ไม่ใช่เข้าใจว่าไม่มีโน้ตในช่วงนั้น
+        if "date_from" in parsed_dates and "date_to" in parsed_dates:
+            if parsed_dates["date_from"] > parsed_dates["date_to"]:
+                return jsonify(error="invalid_filter", field="date_to"), 400
+
+        if "date_from" in parsed_dates:
+            stmt = stmt.where(Note.class_date >= parsed_dates["date_from"])
+        if "date_to" in parsed_dates:
+            stmt = stmt.where(Note.class_date <= parsed_dates["date_to"])
 
         sort = args.get("sort", "new")
         if sort not in SORT_COLUMNS:
