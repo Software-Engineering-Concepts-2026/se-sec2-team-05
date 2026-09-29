@@ -273,8 +273,10 @@ Stats Service ที่คืน mock data กับ prototype ฝั่ง fron
 | NP-23 | ปฏิเสธ PDF ที่ไม่มีหน้าเลย | PDF 0 หน้า | `PreviewUnavailable` |
 | NP-24 | ปฏิเสธหน้าแรกที่ใหญ่ผิดปกติ | หน้าขนาด 100x300000pt | `PreviewUnavailable` |
 | NP-25 | ปฏิเสธ PDF ที่เสีย (truncate) | ตัดไฟล์ PDF ให้ขาด | `PreviewUnavailable` |
+| NP-26 | รูปจากกล้องมือถือหมุนตาม EXIF Orientation ก่อนย่อขนาด | JPEG 1200x800 ที่มี `exif[0x0112] = 6` | ผลลัพธ์เป็นแนวตั้ง 800x1200 ไม่ใช่แนวนอนตะแคง |
+| NP-27 | PDF หน้า A4 ไม่เกินความกว้างสูงสุดแม้ pdfium ปัดพิกเซลขึ้น | หน้า A4 (595x842pt) | กว้างไม่เกิน `PREVIEW_MAX_WIDTH` |
 
-**รันแยกยืนยัน (2026-09-28):** `pytest src/tests/test_notes_preview.py -v` ✅ 25 passed / 0 failed (~2 วิ)
+**รันแยกยืนยัน (2026-09-29):** `pytest src/tests/test_notes_preview.py -v` ✅ 27 passed / 0 failed (~2 วิ)
 รันด้วย Python 3.13 เพราะเครื่องที่ใช้เขียนมี Python 3.14 เป็นค่าเริ่มต้น ซึ่ง SQLAlchemy เวอร์ชันที่ pin ไว้ยังใช้กับ
 3.14 ไม่ได้ (`TypeError` ใน `sqlalchemy.util.typing`) — ไม่เกี่ยวกับโค้ดของ #11 · CI ใช้ Python 3.12 ตามที่ตั้งไว้ใน
 `ci.yml` จึงไม่เจอปัญหานี้ · การ render ภาพจริง (PNG/PDF ผ่าน docker compose, PDF ปลอมได้ 422) เคย verify
