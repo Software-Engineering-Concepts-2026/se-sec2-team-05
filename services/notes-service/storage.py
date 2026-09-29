@@ -29,6 +29,24 @@ class LocalFileStorage:
     def save(self, key: str, file_storage) -> None:
         file_storage.save(self._path(key))
 
+    def save_bytes(self, key: str, data: bytes) -> None:
+        """เขียนไบต์ลง key (ใช้กับรูปตัวอย่างที่ระบบสร้างเอง ไม่ใช่ไฟล์ที่ผู้ใช้อัปโหลด)
+
+        เขียนลงไฟล์ชั่วคราวแล้วค่อยเปลี่ยนชื่อ กันสอง request ที่สร้างรูปเดียวกันพร้อมกัน
+        จนอีกฝั่งอ่านเจอไฟล์ที่เขียนไม่เสร็จ
+        """
+        path = self._path(key)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_name(f"{path.name}.{uuid.uuid4().hex}.tmp")
+        try:
+            tmp.write_bytes(data)
+            os.replace(tmp, path)
+        finally:
+            tmp.unlink(missing_ok=True)
+
+    def exists(self, key: str) -> bool:
+        return self._path(key).is_file()
+
     def open(self, key: str):
         return open(self._path(key), "rb")
 

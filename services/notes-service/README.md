@@ -42,6 +42,7 @@ NOTES_STORAGE_DIR=./data python services/notes-service/app.py
 | `PATCH` | `/notes/<id>` | แก้ metadata บางส่วน — ต้องมี `X-Note-Token` (US-19) |
 | `DELETE` | `/notes/<id>` | ลบโน้ตพร้อมไฟล์ — ต้องมี `X-Note-Token` (US-20) → `204` |
 | `GET` | `/notes/<id>/download` | ดาวน์โหลดไฟล์จริง (ตั้งชื่อไฟล์ตามที่ผู้ใช้อัปโหลดมา) และนับยอดดาวน์โหลด (US-12) |
+| `GET` | `/notes/<id>/preview` | รูปตัวอย่างของโน้ต (PNG) ดูได้โดยไม่ต้องดาวน์โหลดไฟล์เต็ม ไม่นับ `download_count` (US-11) |
 
 ### `POST /notes`
 
@@ -109,6 +110,33 @@ request ที่ใหญ่เกิน 21 MB (ไฟล์ 20 MB + ที่�
 - ตาราง `notes` มีคอลัมน์ `download_count` เพิ่มมา ยังไม่มี migration จึงต้อง `docker compose down -v` ตอนอัปเดต schema
   (คอลัมน์ `uploader_id` ของ US-31 ก็เช่นกัน)
 
+### `GET /notes/<id>/preview` — ดูตัวอย่างก่อนดาวน์โหลด (US-11)
+
+ตอบเป็นรูป PNG กว้างไม่เกิน 800px (ไม่ขยายรูปที่เล็กอยู่แล้ว) แสดงผลแบบ inline พร้อม
+`Cache-Control: public, max-age=86400` ไม่ใช่ `attachment` เหมือน `/download` และ**ไม่นับ `download_count`**
+เพราะเป็นการดูตัวอย่างไม่ใช่การโหลดไฟล์เต็ม
+
+รูปแบบไฟล์ต้นฉบับ:
+
+- **PNG / JPEG** — decode ตรง ๆ แล้วย่อขนาด
+- **PDF** — render เฉพาะหน้าแรกด้วย pypdfium2 (สเกลให้กว้างไม่เกิน 800px, ~144 dpi สำหรับหน้าขนาดเล็ก)
+
+ตัวอย่างจะ render แค่ครั้งแรกที่มีคนขอ แล้วแคชไว้ใน storage ใต้ `previews/` คำขอครั้งถัดไปเสิร์ฟจากแคชโดยไม่
+render ซ้ำ และไฟล์ตัวอย่างจะถูกลบตามเมื่อโน้ตต้นฉบับถูก `DELETE`
+
+เนื้อไฟล์ถูกตรวจด้วย Pillow/pypdfium2 จริง ไม่เชื่อแค่ mimetype ที่ผู้ใช้ส่งตอนอัปโหลด (ต่างจาก validation
+ตอน `POST /notes` ที่เชื่อ mimetype) — ไฟล์เสีย/เนื้อไม่ตรงชนิด/ใหญ่ผิดปกติ (กัน decompression bomb) ตอบ `422`
+แทนที่จะหลุดเป็น `500`
+
+| กรณี | Response |
+| --- | --- |
+| render สำเร็จ | `200` + รูป `image/png` |
+| ไม่มีโน้ตนั้น | `404` `{"error": "not_found"}` |
+| มี record แต่ไฟล์หายจาก storage | `404` `{"error": "file_not_found"}` |
+| ไฟล์เสีย/ชนิดไม่ตรง/ยังไม่รองรับ/ใหญ่ผิดปกติ | `422` `{"error": "preview_unavailable"}` |
+
+response ของโน้ต (`GET /notes`, `GET /notes/<id>`) มีฟิลด์ `preview_url` ชี้มาที่ endpoint นี้เสมอ
+
 ### `PATCH /notes/<id>` และ `DELETE /notes/<id>` — ต้องมี edit token
 
 ตอน `POST /notes` สำเร็จ response จะมีฟิลด์ `edit_token` เพิ่มมา **ครั้งเดียวเท่านั้น**
@@ -165,7 +193,9 @@ curl -O -J http://localhost:5001/notes/1/download
 | `models.py` | ตาราง `notes` และ session factory |
 | `validation.py` | ตรวจ metadata/ไฟล์ — pure function ทดสอบแยกได้ |
 | `storage.py` | interface เก็บไฟล์ (ตอนนี้เป็น local disk) |
+| `preview.py` | สร้างรูปตัวอย่าง (PNG/PDF → PNG) — pure function ทดสอบแยกได้เหมือน `validation.py` (US-11) |
 
 เทสต์อยู่ที่ [`src/tests/test_notes_validation.py`](../../src/tests/test_notes_validation.py),
-[`src/tests/test_notes_api.py`](../../src/tests/test_notes_api.py) และ
-[`src/tests/test_notes_identity.py`](../../src/tests/test_notes_identity.py) (คุยกับ auth-service ตัวจริงผ่าน HTTP)
+[`src/tests/test_notes_api.py`](../../src/tests/test_notes_api.py),
+[`src/tests/test_notes_identity.py`](../../src/tests/test_notes_identity.py) (คุยกับ auth-service ตัวจริงผ่าน HTTP) และ
+[`src/tests/test_notes_preview.py`](../../src/tests/test_notes_preview.py)

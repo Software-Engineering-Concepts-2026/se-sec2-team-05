@@ -90,7 +90,7 @@ Stats Service ที่คืน mock data กับ prototype ฝั่ง fron
 | NA-22 | ชื่อผู้อัปโหลดมาจากบัญชี ไม่ใช่ฟอร์ม (AC 1–3 ของ #31) | ส่ง `uploader_name=คนอื่นที่อยากสวมรอย` | `uploader_name` = `display_name` ของบัญชี ทั้งใน response, `GET /notes/<id>` และ `GET /notes` |
 | NA-23 | เก็บ `uploader_id` แต่ไม่ส่งออก | อ่านคอลัมน์ใน DB ตรง ๆ | `uploader_id` = id ของบัญชี · ไม่มี `uploader_id` ใน response |
 | NA-24 | auth-service ล่ม | identity โยน `IdentityUnavailable` | `503` `{"error": "auth_unavailable"}` · storage ว่าง |
-| NA-25 | endpoint อ่านอย่างเดียวยังเปิด | `GET /notes`, `/notes/<id>`, `/download` โดยไม่ login | `200` ทั้งหมด และไม่มีการเรียก auth-service เพิ่ม |
+| NA-25 | endpoint อ่านอย่างเดียวยังเปิด (รวม `/preview`, US-11) | `GET /notes`, `/notes/<id>`, `/download`, `/preview` โดยไม่ login | `200` ทั้งหมด ยกเว้น `/preview` ที่ไม่ใช่ `401` (ไฟล์ default ของเทสต์เป็น PDF ปลอม จึงได้ `422` แทน) และไม่มีการเรียก auth-service เพิ่ม |
 | NA-26 | login อย่างเดียวแก้/ลบไม่ได้ (ADR-004 ยังใช้) | `PATCH`/`DELETE` ด้วย Bearer token แต่ไม่มี edit token | `403` ทั้งคู่ · ด้วย edit token ลบได้ `204` |
 
 ### 2.5 Notes Service — แก้ไข/ลบโน้ต (`pytest`, US-19 #19 + US-20 #20)
@@ -121,6 +121,7 @@ Stats Service ที่คืน mock data กับ prototype ฝั่ง fron
 | DK-04 | validation ทำงานจริงบน stack ที่รัน | `POST /notes` (มี token) ส่งแค่ `title` | `400` |
 | DK-05 | สมัคร → login → ใช้ token → logout บน Postgres จริง (US-05/US-06) | `curl` ไปที่ `:5002/auth/*` | สมัคร `201` · สมัครซ้ำ `409` · โดเมนอื่น `400` · รหัสผิดกับอีเมลที่ไม่มีได้ body เดียวกัน · `me` ได้ชื่อถูก · logout `204` แล้ว `me` ด้วย token เดิมได้ `401` |
 | DK-06 | อัปโหลดต้อง login และเครดิตมาจากบัญชี (US-31) บน stack จริง | สมัคร + login บัญชี `CI Uploader` แล้ว `POST /notes` สามแบบ (ไม่มี token / token มั่ว / token จริง + `uploader_name=spoofed name`) | สองแบบแรกได้ `401` · แบบที่สามได้ `uploader_name = CI Uploader` · `count = 1` (ครั้งที่ไม่ผ่านไม่ถูกบันทึก) · notes-service คุยกับ auth-service ผ่านเครือข่ายของ compose จริง |
+| DK-07 | preview endpoint ทำงานจริงบน image ที่ build (US-11) — กัน regression ของบั๊ก Dockerfile ที่เคยลืม copy `preview.py` (commit `8f25b9b`) ซึ่ง unit test จับไม่ได้เพราะ import จาก source tree ตรง ๆ | อัปโหลด PNG จริงแล้ว `GET .../preview` โดยไม่ส่ง token, กับอัปโหลดไฟล์ที่ประกาศเป็น `image/png` แต่เนื้อไม่ใช่รูป | ไฟล์จริงได้ `200` + header `Content-Type: image/png` + ไบต์ 8 ตัวแรกตรง PNG signature · ไฟล์ปลอมได้ `422` ไม่ใช่ `500` |
 
 ### 2.7 Auth Service — ตรวจข้อมูลสมัครและ hash รหัสผ่าน (`pytest`, US-05 #5)
 
@@ -237,6 +238,49 @@ Stats Service ที่คืน mock data กับ prototype ฝั่ง fron
 | AE-07 | whitespace ที่ไม่ใช่ช่องว่าง | `a\t@up.ac.th` | `"รูปแบบอีเมลไม่ถูกต้อง"` |
 | AE-08 | ข้อความ error บอกครบทุกโดเมน | `x@gmail.com` กับ (`up.ac.th`, `ict.up.ac.th`) | `"ต้องใช้อีเมลของมหาวิทยาลัย (@up.ac.th, @ict.up.ac.th)"` |
 | AE-09 | มี `@` แต่ไม่มีโดเมน | `a@` | `"รูปแบบอีเมลไม่ถูกต้อง"` — **xfail**: โค้ดตอนนี้คืน error โดเมน เพราะเช็ค local ว่างแต่ไม่เช็ค domain ว่าง ทีมตกลงว่าเป็นบั๊ก ยังไม่ได้แก้ `credentials.py` · ตั้ง `strict=True` ไว้ ถ้าแก้แล้วเทสต์ผ่าน CI จะแดงเตือนให้เอา xfail ออก |
+
+### 2.12 Notes Service — preview (`pytest`, US-11 #11)
+
+ไฟล์ [`test_notes_preview.py`](../../src/tests/test_notes_preview.py) ครอบทั้ง `GET /notes/<id>/preview`
+และ `render_preview()` ที่เป็น pure function แยกออกมา (แนวเดียวกับ `validation.py`) ไม่รู้จัก Flask/DB/storage
+เลย จึงทดสอบตรง ๆ ได้ · ครอบ AC ข้อ 1–2 ของ #11 ฝั่ง backend เท่านั้น ส่วน AC ข้อ 3 (ปิดตัวอย่างแล้วกลับ
+ตำแหน่งเดิมในผลค้นหา) เป็นงาน UI ยังไม่อยู่ในชุดนี้
+
+| # | Test case | Input | ผลที่คาดหวัง |
+| --- | --- | --- | --- |
+| NP-01 | รูป PNG ได้ตัวอย่างที่ย่อขนาดแล้วเป็น PNG | อัปโหลด PNG 1600x1200 | `200`, `image/png`, กว้าง `PREVIEW_MAX_WIDTH` (800) |
+| NP-02 | รูป JPEG ก็ได้กลับมาเป็น PNG เสมอ | อัปโหลด JPEG | `200`, `image/png` |
+| NP-03 | แสดงผลแบบ inline และแคชได้ | `GET .../preview` | ไม่มี `attachment` ใน `Content-Disposition`, `Cache-Control: public, max-age=86400` |
+| NP-04 | render ครั้งแรกแล้วเสิร์ฟจาก cache ครั้งถัดไป | เรียกซ้ำหลังลบไฟล์ต้นฉบับ | ได้ไบต์เดิมทั้งสองครั้ง มีไฟล์ตัวอย่างแค่ไฟล์เดียวใน `previews/` |
+| NP-05 | PDF ได้ตัวอย่างจากหน้าแรกเท่านั้น | PDF 2 หน้าคนละขนาด | ขนาดรูปตรงกับหน้า 1 ที่สเกลแล้ว ไม่ใช่หน้า 2 |
+| NP-06 | ตัวอย่างของ PDF ก็ถูกแคชเหมือนรูป | เรียก `.../preview` ของโน้ต PDF | มีไฟล์ตัวอย่างในโฟลเดอร์ `previews/` |
+| NP-07 | PDF ปลอม (ไม่ใช่ PDF จริง) | เนื้อไฟล์ `%PDF-1.4 fake note` | `422 {"error": "preview_unavailable"}` |
+| NP-08 | โน้ตที่ไม่มีอยู่ | `GET /notes/999/preview` | `404 {"error": "not_found"}` |
+| NP-09 | ไฟล์ต้นฉบับหายจาก storage | ลบไฟล์ทิ้งก่อนขอตัวอย่าง | `404 {"error": "file_not_found"}` |
+| NP-10 | ไฟล์ประกาศเป็นรูปแต่เนื้อไม่ใช่ | อัปโหลด `image/png` ที่เนื้อเป็นข้อความ | `422 {"error": "preview_unavailable"}` (ไม่ใช่ `500`) |
+| NP-11 | render ไม่สำเร็จต้องไม่ทิ้งอะไรไว้ใน storage | เหมือน NP-10 | โฟลเดอร์ `previews/` ว่างหรือไม่มี |
+| NP-12 | ลบโน้ตแล้วลบตัวอย่างตามไปด้วย | สร้างตัวอย่างก่อน แล้ว `DELETE` โน้ต | ทั้งไฟล์ต้นฉบับและไฟล์ใน `previews/` หายหมด |
+| NP-13 | response ของโน้ตมี `preview_url` | `GET /notes/<id>`, `GET /notes` | `preview_url == "/notes/<id>/preview"` ทั้งสอง endpoint |
+| NP-14 | ไม่ขยายรูปที่เล็กกว่าเพดานอยู่แล้ว | รูป 300x200 | ขนาดคงเดิม ไม่ถูกขยาย |
+| NP-15 | JPEG โหมด CMYK ถูกแปลงเป็น PNG ได้ | รูป CMYK | ได้ PNG จริง ไม่ throw |
+| NP-16 | คงความโปร่งใสของ PNG โหมด RGBA | รูป RGBA | ผลลัพธ์ยังเป็นโหมด `RGBA` |
+| NP-17 | ปฏิเสธรูปที่ใหญ่เกิน `MAX_SOURCE_PIXELS` (กัน decompression bomb) | รูปเกิน 50 ล้านพิกเซล | `PreviewUnavailable` |
+| NP-18 | ปฏิเสธไฟล์รูปที่เสีย (truncate) | ตัดไฟล์ PNG ให้ขาด | `PreviewUnavailable` |
+| NP-19 | ปฏิเสธเมื่อ content type ไม่ตรงเนื้อไฟล์จริง | ประกาศ `image/jpeg` แต่เนื้อเป็น PNG | `PreviewUnavailable` |
+| NP-20 | ปฏิเสธ content type ที่ยังไม่รองรับ | `text/plain` | `PreviewUnavailable` |
+| NP-21 | PDF render เฉพาะหน้าแรกเท่านั้น | PDF 2 หน้าคนละขนาด | ขนาดตรงกับหน้า 1 ที่สเกล 2 เท่า |
+| NP-22 | PDF ไม่ถูกขยายเกินความกว้างสูงสุด | หน้ากว้าง 2000pt | กว้างไม่เกิน `PREVIEW_MAX_WIDTH` |
+| NP-23 | ปฏิเสธ PDF ที่ไม่มีหน้าเลย | PDF 0 หน้า | `PreviewUnavailable` |
+| NP-24 | ปฏิเสธหน้าแรกที่ใหญ่ผิดปกติ | หน้าขนาด 100x300000pt | `PreviewUnavailable` |
+| NP-25 | ปฏิเสธ PDF ที่เสีย (truncate) | ตัดไฟล์ PDF ให้ขาด | `PreviewUnavailable` |
+| NP-26 | รูปจากกล้องมือถือหมุนตาม EXIF Orientation ก่อนย่อขนาด | JPEG 1200x800 ที่มี `exif[0x0112] = 6` | ผลลัพธ์เป็นแนวตั้ง 800x1200 ไม่ใช่แนวนอนตะแคง |
+| NP-27 | PDF หน้า A4 ไม่เกินความกว้างสูงสุดแม้ pdfium ปัดพิกเซลขึ้น | หน้า A4 (595x842pt) | กว้างไม่เกิน `PREVIEW_MAX_WIDTH` |
+
+**รันแยกยืนยัน (2026-09-29):** `pytest src/tests/test_notes_preview.py -v` ✅ 27 passed / 0 failed (~2 วิ)
+รันด้วย Python 3.13 เพราะเครื่องที่ใช้เขียนมี Python 3.14 เป็นค่าเริ่มต้น ซึ่ง SQLAlchemy เวอร์ชันที่ pin ไว้ยังใช้กับ
+3.14 ไม่ได้ (`TypeError` ใน `sqlalchemy.util.typing`) — ไม่เกี่ยวกับโค้ดของ #11 · CI ใช้ Python 3.12 ตามที่ตั้งไว้ใน
+`ci.yml` จึงไม่เจอปัญหานี้ · การ render ภาพจริง (PNG/PDF ผ่าน docker compose, PDF ปลอมได้ 422) เคย verify
+ผ่าน container จริงมาแล้วตอนแก้ Dockerfile (commit `8f25b9b`)
 
 ## 3. Test Report
 

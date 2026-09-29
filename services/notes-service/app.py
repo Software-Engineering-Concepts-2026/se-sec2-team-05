@@ -11,12 +11,14 @@ Endpoint:
     PATCH /notes/<id>         แก้ metadata บางส่วน (US-19) ต้องมี X-Note-Token
     DELETE /notes/<id>        ลบโน้ตพร้อมไฟล์ (US-20) ต้องมี X-Note-Token
     GET  /notes/<id>/download ดาวน์โหลดไฟล์จริง
+    GET  /notes/<id>/preview  รูปตัวอย่าง (PNG) ของโน้ต ไม่นับเป็นการดาวน์โหลด (US-11)
 
 การอัปโหลดต้องส่ง `Authorization: Bearer <token>` ที่ได้จาก auth-service ชื่อผู้อัปโหลด
 มาจากบัญชีนั้น ไม่รับจากฟอร์ม (ดู identity.py) — endpoint ที่อ่านอย่างเดียวยังเปิดหมด
 ส่วนการแก้/ลบยังใช้ edit token ต่อโน้ตเหมือนเดิม (ดู ADR-004 และ tokens.py)
 """
 
+import io
 import os
 from datetime import date, datetime, timezone
 
@@ -25,6 +27,7 @@ from sqlalchemy import select, update
 
 from identity import IdentityUnavailable, identity_from_env
 from models import Comment, Note, build_session_factory
+from preview import PreviewUnavailable, render_preview
 from storage import storage_from_env
 from tokens import HEADER_NAME, issue_token, token_matches
 from validation import (
@@ -65,6 +68,14 @@ def validate_comment_content(value):
 # ซึ่งบอกเหตุผลรายฟิลด์ แทนที่จะถูกตัดทิ้งแบบไม่มีรายละเอียดตั้งแต่ชั้น Werkzeug
 REQUEST_OVERHEAD_BYTES = 1024 * 1024
 MAX_REQUEST_BYTES = MAX_FILE_BYTES + REQUEST_OVERHEAD_BYTES
+
+# รูปตัวอย่างของโน้ตไม่เปลี่ยนเลยหลังอัปโหลด (แก้ไฟล์ไม่ได้ ดู IMMUTABLE_FIELDS) จึง cache ได้นาน
+PREVIEW_CACHE_CONTROL = "public, max-age=86400"
+
+
+def preview_key_for(storage_key: str) -> str:
+    return f"previews/{storage_key}.png"
+
 
 # เรียงผลลัพธ์ได้เท่าที่กำหนดไว้เท่านั้น ไม่ให้ client ส่งชื่อคอลัมน์อะไรมาก็ได้
 SORT_COLUMNS = {
@@ -503,6 +514,7 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
 
         file_storage.delete(storage_key)
 
+        file_storage.delete(preview_key_for(storage_key))
         return "", 204
 
     @app.get("/notes/<int:note_id>/download")
@@ -534,6 +546,40 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
                 as_attachment=True,
                 download_name=note.file_name,
             )
+
+    @app.get("/notes/<int:note_id>/preview")
+    def preview_note(note_id):
+        """รูปตัวอย่างของโน้ต — US-11 (#11)
+
+        สร้างครั้งแรกที่มีคนขอแล้วเก็บไว้ใน storage ครั้งต่อไปส่งจากที่เก็บเลย ไม่ต้องอ่านไฟล์เต็ม
+        แยกจาก /download โดยตั้งใจ จึงไม่ไปแตะ download_count
+        """
+        with session_factory() as session:
+            note = session.get(Note, note_id)
+            if note is None:
+                return jsonify(error="not_found"), 404
+            storage_key, content_type = note.storage_key, note.content_type
+
+        preview_key = preview_key_for(storage_key)
+        if not file_storage.exists(preview_key):
+            try:
+                source = file_storage.open(storage_key)
+            except FileNotFoundError:
+                return jsonify(error="file_not_found"), 404
+            with source:
+                try:
+                    data = render_preview(source, content_type)
+                except PreviewUnavailable:
+                    return jsonify(error="preview_unavailable"), 422
+            file_storage.save_bytes(preview_key, data)
+
+        # รูปตัวอย่างเล็ก (ไม่กี่ร้อย KB) อ่านเข้า memory แล้วปิดไฟล์ทันที ไม่ต้องถือ file handle
+        # ค้างไว้ให้ WSGI server มาปิดทีหลังเหมือนการส่งไฟล์เต็มของ /download
+        with file_storage.open(preview_key) as preview_file:
+            data = preview_file.read()
+        response = send_file(io.BytesIO(data), mimetype="image/png")
+        response.headers["Cache-Control"] = PREVIEW_CACHE_CONTROL
+        return response
 
     return app
 
