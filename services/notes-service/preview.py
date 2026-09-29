@@ -12,7 +12,7 @@ import io
 import threading
 
 import pypdfium2
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageOps, UnidentifiedImageError
 
 PREVIEW_MAX_WIDTH = 800
 
@@ -57,10 +57,19 @@ def render_preview(fileobj, content_type: str) -> bytes:
                 raise PreviewUnavailable("รูปใหญ่เกินกว่าจะสร้างตัวอย่างได้")
 
             image.load()
+            # มือถือส่วนใหญ่เก็บภาพเป็นแนวนอนเสมอแล้วใช้ EXIF Orientation บอกทิศตอนแสดง
+            # Image.open() ไม่หมุนให้อัตโนมัติ ต้องหมุนเองก่อนคำนวณขนาดย่อ ไม่งั้น preview
+            # จะได้ภาพนอนตะแคงในขณะที่ /download ของไฟล์จริงเบราว์เซอร์หมุนให้ถูกแล้ว
+            image = ImageOps.exif_transpose(image)
+            width, height = image.size
             if image.mode not in _PNG_SAFE_MODES:
                 image = image.convert("RGB")
             if width > PREVIEW_MAX_WIDTH:
                 new_height = max(1, round(height * PREVIEW_MAX_WIDTH / width))
+                if image.mode == "P":
+                    # resize บนโหมด P (palette) ของ Pillow บังคับใช้ NEAREST เสมอ
+                    # ไม่ว่าจะขอ resample แบบไหน แปลงเป็น RGBA ก่อนจึงจะได้ LANCZOS จริง
+                    image = image.convert("RGBA")
                 image = image.resize((PREVIEW_MAX_WIDTH, new_height), Image.Resampling.LANCZOS)
 
             out = io.BytesIO()
@@ -88,6 +97,13 @@ def _render_pdf_first_page(fileobj) -> bytes:
                 image = page.render(scale=scale).to_pil()
             finally:
                 pdf.close()
+
+        # pdfium ปัดพิกเซลขึ้นได้เล็กน้อยหลังคูณ scale (เช่น A4 595pt -> 801px)
+        # เช็คซ้ำแล้วย่อลงให้ชนเพดานจริง ไม่ให้เกิน PREVIEW_MAX_WIDTH ตามที่ README ระบุ
+        width, height = image.size
+        if width > PREVIEW_MAX_WIDTH:
+            new_height = max(1, round(height * PREVIEW_MAX_WIDTH / width))
+            image = image.resize((PREVIEW_MAX_WIDTH, new_height), Image.Resampling.LANCZOS)
 
         out = io.BytesIO()
         image.save(out, format="PNG")

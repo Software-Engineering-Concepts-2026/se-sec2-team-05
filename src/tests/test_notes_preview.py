@@ -269,6 +269,13 @@ def test_render_pdf_never_exceeds_max_width():
     assert Image.open(io.BytesIO(data)).size == (PREVIEW_MAX_WIDTH, 400)
 
 
+def test_render_pdf_a4_page_never_exceeds_max_width():
+    # A4 (595x842pt): 800/595 คูณ pdfium ปัดขึ้นได้เป็น 801px ถ้าไม่เช็คซ้ำหลัง render
+    data = render_preview(io.BytesIO(make_pdf([(595, 842)])), "application/pdf")
+
+    assert Image.open(io.BytesIO(data)).size[0] <= PREVIEW_MAX_WIDTH
+
+
 def test_render_rejects_pdf_without_pages():
     with pytest.raises(PreviewUnavailable):
         render_preview(io.BytesIO(make_pdf([])), "application/pdf")
@@ -285,3 +292,18 @@ def test_render_rejects_corrupted_pdf():
 
     with pytest.raises(PreviewUnavailable):
         render_preview(io.BytesIO(truncated), "application/pdf")
+
+
+def test_render_applies_exif_orientation_from_phone_photos():
+    # กล้องมือถือเก็บ sensor เป็นแนวนอน (1200x800) แล้วใช้ EXIF Orientation=6 บอกว่า
+    # จริงๆ ภาพเป็นแนวตั้ง ถ้าไม่หมุนตาม EXIF ก่อน จะได้ preview นอนตะแคงผิดกับไฟล์จริง
+    buffer = io.BytesIO()
+    source = Image.new("RGB", (1200, 800), "white")
+    exif = source.getexif()
+    exif[0x0112] = 6
+    source.save(buffer, format="JPEG", exif=exif)
+
+    data = render_preview(io.BytesIO(buffer.getvalue()), "image/jpeg")
+
+    result = Image.open(io.BytesIO(data))
+    assert result.size == (800, 1200)
