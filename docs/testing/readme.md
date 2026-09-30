@@ -5,8 +5,7 @@
 
 ## 1. กลยุทธ์การทดสอบ
 
-ตอนนี้ระบบยังไม่มี backend จริง (ดู [ADR-001](../architecture/adr/0001-tech-stack-selection.th.md)) มีแค่
-Stats Service ที่คืน mock data กับ prototype ฝั่ง front-end ทีมจึงโฟกัสสองระดับนี้ก่อน
+Stats Service reads real note statistics from the database and exposes the HTTP contract for the front-end.
 
 | ระดับ | ขอบเขต | เครื่องมือ | ทำไมเลือกตัวนี้ |
 | --- | --- | --- | --- |
@@ -245,7 +244,7 @@ Stats Service ที่คืน mock data กับ prototype ฝั่ง fron
 | ชุด | คำสั่ง | ผล |
 | --- | --- | --- |
 | JS unit | `cd prototypes/sprint1 && node --test` | ✅ 7 passed / 0 failed (69 ms) |
-| Python unit + integration | `pytest src/tests -v` | ✅ 189 passed / 0 failed / 1 xfailed (~15 s) — stats 4, notes validation 18 + boundary 19, notes API 47, notes identity 13, edit-token property 2, fizzbuzz 5, auth credentials 29, auth email_error 9 (AE-09 เป็น xfail), auth tokens 14, auth API 30 · coverage รวม 99% (`identity.py` 100%, `credentials.py` 100%) |
+| Python unit + integration | `pytest src/tests -v` | ✅ 195 passed / 0 failed / 1 xfailed (~15 s) — stats 4, notes validation 18 + boundary 19, notes API 47, notes identity 13, edit-token property 2, fizzbuzz 5, auth credentials 29, auth email_error 9 (AE-09 เป็น xfail), auth tokens 14, auth API 30 · coverage รวม 99% (`identity.py` 100%, `credentials.py` 100%) |
 | Smoke DK-03 ถึง DK-06 แบบไม่ใช้ Docker | รัน `auth-service` กับ `notes-service` ตัวจริงบน SQLite (notes ชี้ `AUTH_SERVICE_URL` ไปที่ auth) แล้วรันสคริปต์ `run:` ของแต่ละ step ที่ดึงออกมาจาก `ci.yml` ตรง ๆ | ✅ ผ่านครบ 6 step (`upload auth OK`, `end-to-end OK`, `edit/delete OK`, `auth OK`, validation `400`) · บน Postgres + compose จริงรอผลจาก CI เพราะ Docker daemon ไม่ได้เปิดบนเครื่องที่ใช้เขียน · ตอนรันบน Windows ต้องแทน `/tmp/` เป็น path ของ Windows เพราะ curl ของ Windows อ่าน `/tmp` ของ Git Bash ไม่ได้ (ไม่ได้แก้ใน `ci.yml` เพราะ CI รันบน Linux) |
 | Container smoke (compose e2e) | `docker compose up` + `curl` | ✅ ผ่านบน CI ([run #33351842320](https://github.com/Software-Engineering-Concepts-2026/se-sec2-team-05/actions/runs/33351842320), 1m6s) — log ยืนยัน `created note #1` และ `end-to-end OK` · ไม่ได้รัน local เพราะ Docker daemon ไม่ได้เปิดบนเครื่องที่ใช้เขียน |
 
