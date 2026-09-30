@@ -4,6 +4,7 @@ Endpoint:
     GET  /health              health check (รูปแบบเดียวกับ stats-service)
     POST /notes               อัปโหลดไฟล์ + metadata (multipart/form-data) ต้อง login (US-31)
     GET  /notes               ค้นหา/กรองด้วย metadata ที่กรอกไว้ (AC ข้อ 4)
+                              ถ้า login จะมี is_favorited ต่อโน้ต ไม่ login เป็น null (US-15)
     GET  /notes/favorites     รายการโปรดของตัวเอง ต้อง login (US-15)
     GET  /notes/<id>          รายละเอียดโน้ตหนึ่งรายการ
     POST   /notes/<id>/favorite  บันทึกเข้ารายการโปรด ต้อง login (US-15)
@@ -233,9 +234,12 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
         except ValueError:
             return jsonify(error="invalid_filter", field="limit/offset"), 400
 
+        user_id = optional_user_id()
         with session_factory() as session:
             rows = session.scalars(stmt.limit(limit).offset(offset)).all()
-            return jsonify(items=[n.to_dict() for n in rows], count=len(rows))
+            flags = favorite_flags(session, user_id, rows)
+            items = [{**n.to_dict(), "is_favorited": flags.get(n.id)} for n in rows]
+            return jsonify(items=items, count=len(items))
 
     def require_user():
         """ตรวจตัวตนสำหรับ route ของรายการโปรด คืน (user, None) หรือ (None, error response)
@@ -249,6 +253,36 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
         if user is None:
             return None, (jsonify(error="unauthorized"), 401, {"WWW-Authenticate": "Bearer"})
         return user, None
+
+    def optional_user_id():
+        """id ของผู้ใช้ที่ login หรือ None — ใช้กับ route อ่านที่เปิดให้คนไม่ login ด้วย
+
+        token ใช้ไม่ได้หรือ auth-service ล่มก็ได้ None เหมือนกัน การค้นหาต้องไม่พังเพราะ
+        แค่จะใส่สถานะ ★ ไม่ได้ (D2, D3)
+        """
+        authorization = request.headers.get("Authorization")
+        if not authorization:
+            # คนไม่ login ไม่ต้องถาม auth-service เลย (US-31: อ่านอย่างเดียวไม่พึ่ง auth)
+            return None
+        try:
+            user = current_user(authorization)
+        except IdentityUnavailable:
+            return None
+        return user["id"] if user else None
+
+    def favorite_flags(session, user_id, notes):
+        """คืน {note_id: bool} หรือ {} ถ้าไม่ login — query เดียวทั้งหน้า (D5)"""
+        if user_id is None or not notes:
+            return {}
+        favorited = set(
+            session.scalars(
+                select(Favorite.note_id).where(
+                    Favorite.user_id == user_id,
+                    Favorite.note_id.in_([n.id for n in notes]),
+                )
+            )
+        )
+        return {n.id: n.id in favorited for n in notes}
 
     @app.get("/notes/favorites")
     def list_favorites():
@@ -336,7 +370,8 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
             note = session.get(Note, note_id)
             if note is None:
                 return jsonify(error="not_found"), 404
-            return jsonify(note.to_dict())
+            flags = favorite_flags(session, optional_user_id(), [note])
+            return jsonify({**note.to_dict(), "is_favorited": flags.get(note.id)})
 
     @app.patch("/notes/<int:note_id>")
     def update_note(note_id):
