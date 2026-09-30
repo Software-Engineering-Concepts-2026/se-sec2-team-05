@@ -76,6 +76,13 @@ def parse_page(args) -> tuple[int, int]:
     return limit, offset
 
 
+def utc_iso(moment: datetime) -> str:
+    """SQLite เก็บเวลาโดยไม่มี timezone — อ่านกลับมาต้องระบุ UTC ให้ตรงกับตอนเพิ่งสร้าง"""
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return moment.isoformat()
+
+
 def create_app(database_url: str | None = None, storage=None, identity=None) -> Flask:
     app = Flask(__name__)
     # ตัดคำขอที่ใหญ่เกินตั้งแต่ชั้น Werkzeug ไม่ต้องรอให้ validate_file เห็นขนาด
@@ -307,7 +314,7 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
         with session_factory() as session:
             rows = session.execute(stmt).all()
             items = [
-                {**note.to_dict(), "is_favorited": True, "favorited_at": favorited_at.isoformat()}
+                {**note.to_dict(), "is_favorited": True, "favorited_at": utc_iso(favorited_at)}
                 for note, favorited_at in rows
             ]
             return jsonify(items=items, count=len(items))
@@ -342,7 +349,7 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
                 jsonify(
                     note_id=note_id,
                     is_favorited=True,
-                    favorited_at=favorite.created_at.isoformat(),
+                    favorited_at=utc_iso(favorite.created_at),
                 ),
                 status,
             )
