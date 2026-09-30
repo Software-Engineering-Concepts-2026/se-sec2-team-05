@@ -92,6 +92,16 @@ Stats Service ที่คืน mock data กับ prototype ฝั่ง fron
 | NA-24 | auth-service ล่ม | identity โยน `IdentityUnavailable` | `503` `{"error": "auth_unavailable"}` · storage ว่าง |
 | NA-25 | endpoint อ่านอย่างเดียวยังเปิด (รวม `/preview`, US-11) | `GET /notes`, `/notes/<id>`, `/download`, `/preview` โดยไม่ login | `200` ทั้งหมด ยกเว้น `/preview` ที่ไม่ใช่ `401` (ไฟล์ default ของเทสต์เป็น PDF ปลอม จึงได้ `422` แทน) และไม่มีการเรียก auth-service เพิ่ม |
 | NA-26 | login อย่างเดียวแก้/ลบไม่ได้ (ADR-004 ยังใช้) | `PATCH`/`DELETE` ด้วย Bearer token แต่ไม่มี edit token | `403` ทั้งคู่ · ด้วย edit token ลบได้ `204` |
+| NA-27 | กรองตามหัวข้อเลกเชอร์แบบ partial ไม่สนตัวพิมพ์ (US-26) | `?topic=search tree` | เจอเฉพาะโน้ตที่ `topic` มีคำนั้นเป็นส่วนหนึ่ง |
+| NA-28 | `topic` กรองแยกจาก `q` | `?topic=Tree` โดยชื่อวิชามีคำว่า Tree แต่ `topic` ไม่มี | `count = 0` |
+| NA-29 | `topic` escape wildcard ของ SQL | `?topic=50%` โดยมีโน้ต `topic` เป็น `50%` และ `Recursion` | เจอเฉพาะโน้ตที่ `topic` เป็น `50%` จริง ไม่ใช่ทุกโน้ต |
+| NA-30 | โน้ตที่ไม่มี `topic` ไม่ขึ้นเมื่อกรองด้วย `topic` | อัปโหลดไม่ระบุ `topic` แล้ว `?topic=anything` | `count = 0` |
+| NA-31 | `topic` ที่ไม่ตรงกับใครเลยต้องได้ผลว่างไม่ใช่ error | โน้ตมี `topic="Recursion"` แล้ว `?topic=Quantum Computing` | `200` + `count = 0` |
+| NA-32 | ช่วงวันที่กลับด้านต้องได้ 400 | `?date_from=2026-08-31&date_to=2026-08-01` | `400 {"error": "invalid_filter", "field": "date_to"}` |
+| NA-33 | ช่วงวันที่นับวันขอบด้วย (inclusive) | โน้ตตรงวันขอบทั้งสองฝั่งพอดี + ก่อน/หลังช่วง 1 วัน | ได้เฉพาะ 2 ตัวที่ตรงวันขอบ |
+| NA-34 | กรองวันเดียว และส่งมาฝั่งเดียว | `date_from == date_to` และส่งแค่ `date_from` | กรองถูกทั้งสองแบบ |
+| NA-35 | โน้ตที่ไม่มี `class_date` ไม่ขึ้นเมื่อกรองด้วยวันที่ | อัปโหลดไม่ระบุ `class_date` แล้วกรองด้วยช่วงกว้าง | `count = 0` |
+| NA-36 | ใช้ `topic` + `date_from`/`date_to` + `faculty` + `file_type` พร้อมกัน (US-10 + US-26) | โน้ตที่ตรงทุกเงื่อนไข ปนกับโน้ตที่ไม่ตรงทีละเงื่อนไข | ได้เฉพาะโน้ตที่ตรงทุกเงื่อนไข |
 
 ### 2.5 Notes Service — แก้ไข/ลบโน้ต (`pytest`, US-19 #19 + US-20 #20)
 
