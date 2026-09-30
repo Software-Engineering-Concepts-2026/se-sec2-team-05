@@ -10,7 +10,17 @@ storage) — เก็บแค่ `storage_key` ที่ชี้ไปยั�
 
 from datetime import date as date_type, datetime, timezone
 
-from sqlalchemy import Date, DateTime, Integer, String, Text, create_engine, Index
+from sqlalchemy import (
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    create_engine,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
 
@@ -83,6 +93,25 @@ class Note(Base):
             "download_url": f"/notes/{self.id}/download",
             "preview_url": f"/notes/{self.id}/preview",
         }
+
+
+class Favorite(Base):
+    """รายการโปรดของสมาชิก — US-15 (#15)
+
+    user_id ไม่ทำเป็น foreign key เพราะตาราง users เป็นของ auth-service (ADR-005)
+    เหตุผลเดียวกับ Note.uploader_id ส่วน note_id เป็น FK แต่ SQLite ไม่บังคับ cascade
+    จึงไม่พึ่งมัน — ตอนอ่านรายการ JOIN กับ notes เพื่อตัดโน้ตที่ถูกลบ (US-20) ออกเอง
+    """
+
+    __tablename__ = "favorites"
+    __table_args__ = (UniqueConstraint("user_id", "note_id", name="uq_favorites_user_note"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    note_id: Mapped[int] = mapped_column(Integer, ForeignKey("notes.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
 
 
 # index สำหรับเงื่อนไขกรองที่ใช้บ่อยตาม #10, #26
