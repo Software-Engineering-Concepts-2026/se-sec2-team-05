@@ -1,21 +1,13 @@
-import os
-import sys
-import tempfile
 from datetime import date
 
 import pytest
 
-# Issue #14 - ใช้ temporary storage สำหรับ test เพื่อไม่พึ่ง /data/notes
-os.environ["NOTES_STORAGE_DIR"] = tempfile.mkdtemp()
+from models import Comment, Note, build_session_factory
+from tokens import issue_token
 
-# Issue #14 - ให้ test import modules จาก notes-service ได้โดยตรง
-sys.path.insert(0, os.path.dirname(__file__))
-
-from app import create_app
-from models import Note, build_session_factory
 
 @pytest.fixture()
-def test_context(tmp_path):
+def test_context(tmp_path, notes_create_app):
     database_url = f"sqlite:///{tmp_path / 'test.db'}"
 
     users = {
@@ -32,7 +24,7 @@ def test_context(tmp_path):
     def fake_identity(authorization):
         return users.get(authorization)
 
-    app = create_app(
+    app = notes_create_app(
         database_url=database_url,
         identity=fake_identity,
     )
@@ -115,7 +107,10 @@ def test_create_comment_with_empty_content_returns_400(test_context, client):
     assert response.status_code == 400
 
 
-def test_create_comment_over_1000_characters_returns_400(test_context, client):
+def test_create_comment_over_1000_characters_returns_400(
+    test_context,
+    client,
+):
     _, session_factory = test_context
     note_id = create_test_note(session_factory)
 
@@ -208,3 +203,39 @@ def test_user_cannot_delete_someone_elses_comment(test_context, client):
     )
 
     assert response.status_code == 403
+
+
+def test_deleting_note_also_deletes_comments(test_context, client):
+    _, session_factory = test_context
+    note_id = create_test_note(session_factory)
+
+    created = client.post(
+        f"/notes/{note_id}/comments",
+        headers={"Authorization": "Bearer valid-user-1"},
+        json={"content": "Comment to be deleted with the note"},
+    )
+    assert created.status_code == 201
+
+    comment_id = created.get_json()["id"]
+
+    with session_factory() as session:
+        comment = session.get(Comment, comment_id)
+        assert comment is not None
+
+    edit_token, edit_token_hash = issue_token()
+
+    with session_factory() as session:
+        note = session.get(Note, note_id)
+        note.edit_token_hash = edit_token_hash
+        session.commit()
+
+    response = client.delete(
+        f"/notes/{note_id}",
+        headers={"X-Note-Token": edit_token},
+    )
+
+    assert response.status_code == 204
+
+    with session_factory() as session:
+        comment = session.get(Comment, comment_id)
+        assert comment is None

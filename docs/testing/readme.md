@@ -92,6 +92,15 @@ Stats Service ที่คืน mock data กับ prototype ฝั่ง fron
 | NA-24 | auth-service ล่ม | identity โยน `IdentityUnavailable` | `503` `{"error": "auth_unavailable"}` · storage ว่าง |
 | NA-25 | endpoint อ่านอย่างเดียวยังเปิด (รวม `/preview`, US-11) | `GET /notes`, `/notes/<id>`, `/download`, `/preview` โดยไม่ login | `200` ทั้งหมด ยกเว้น `/preview` ที่ไม่ใช่ `401` (ไฟล์ default ของเทสต์เป็น PDF ปลอม จึงได้ `422` แทน) และไม่มีการเรียก auth-service เพิ่ม |
 | NA-26 | login อย่างเดียวแก้/ลบไม่ได้ (ADR-004 ยังใช้) | `PATCH`/`DELETE` ด้วย Bearer token แต่ไม่มี edit token | `403` ทั้งคู่ · ด้วย edit token ลบได้ `204` |
+| NA-27 | แสดงความคิดเห็นโดยไม่ login | `POST /notes/<id>/comments` ไม่มี Authorization | `401` |
+| NA-28 | token ไม่ถูกต้อง | `POST /notes/<id>/comments` + invalid Bearer token | `401` |
+| NA-29 | comment ว่าง | `POST /notes/<id>/comments` + `{"content": "   "}` | `400` |
+| NA-30 | comment ยาวเกิน 1000 ตัวอักษร | `POST /notes/<id>/comments` + content 1001 chars | `400` |
+| NA-31 | แสดงความคิดเห็นใน note ที่ไม่มีอยู่ | `POST /notes/999/comments` | `404` |
+| NA-32 | แสดง comments เรียงจากใหม่ไปเก่า | `GET /notes/<id>/comments` | `200` + comments เรียง `created_at` ล่าสุดก่อน |
+| NA-33 | ลบ comment ของตัวเอง | `DELETE /notes/<id>/comments/<comment_id>` | `204` |
+| NA-34 | ลบ comment ของคนอื่น | `DELETE /notes/<id>/comments/<comment_id>` ด้วย user คนอื่น | `403` |
+| NA-35 | ลบ note แล้ว comments ถูกลบด้วย | สร้าง comment → `DELETE /notes/<id>` → ตรวจ DB | comment ไม่เหลือใน DB |
 
 ### 2.5 Notes Service — แก้ไข/ลบโน้ต (`pytest`, US-19 #19 + US-20 #20)
 

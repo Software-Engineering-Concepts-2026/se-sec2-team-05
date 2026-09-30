@@ -23,7 +23,7 @@ import os
 from datetime import date, datetime, timezone
 
 from flask import Flask, jsonify, request, send_file
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 
 from identity import IdentityUnavailable, identity_from_env
 from models import Comment, Note, build_session_factory
@@ -509,6 +509,10 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
 
             storage_key = note.storage_key
 
+            # Issue #14 - ลบ comments ของโน้ตพร้อมกับโน้ต
+            session.execute(
+                delete(Comment).where(Comment.note_id == note_id)
+            )
             session.delete(note)
             session.commit()
 

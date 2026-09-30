@@ -39,6 +39,9 @@ NOTES_STORAGE_DIR=./data python services/notes-service/app.py
 | `POST` | `/notes` | อัปโหลดไฟล์ + metadata (`multipart/form-data`) → `201` พร้อม object ของโน้ต — **ต้อง login** (US-31) |
 | `GET` | `/notes` | ค้นหา/กรอง → `{ items: [...], count: n }` |
 | `GET` | `/notes/<id>` | รายละเอียดโน้ตหนึ่งรายการ |
+| `POST` | `/notes/<id>/comments` | แสดงความคิดเห็นใต้โน้ต — ต้อง login และส่ง JSON `{"content": "..."}` → `201` (Issue #14) |
+| `GET` | `/notes/<id>/comments` | แสดงความคิดเห็นของโน้ต เรียงจากใหม่ไปเก่า (Issue #14) |
+| `DELETE` | `/notes/<id>/comments/<comment_id>` | ลบความคิดเห็นของตัวเอง — ต้อง login → `204` (Issue #14) |
 | `PATCH` | `/notes/<id>` | แก้ metadata บางส่วน — ต้องมี `X-Note-Token` (US-19) |
 | `DELETE` | `/notes/<id>` | ลบโน้ตพร้อมไฟล์ — ต้องมี `X-Note-Token` (US-20) → `204` |
 | `GET` | `/notes/<id>/download` | ดาวน์โหลดไฟล์จริง (ตั้งชื่อไฟล์ตามที่ผู้ใช้อัปโหลดมา) และนับยอดดาวน์โหลด (US-12) |
@@ -166,6 +169,52 @@ curl -X DELETE localhost:5001/notes/1 -H "X-Note-Token: $TOKEN"
 แก้ได้เฉพาะ metadata — ตัวไฟล์แก้ไม่ได้ ต้องอัปโหลดใหม่ · ส่ง `uploader_name`, `uploader_id`,
 `created_at` หรือฟิลด์ของไฟล์มาใน `PATCH` จะถูกเมิน ไม่ถือเป็น error ·
 ฟิลด์ไม่บังคับ (`topic`, `class_date`, `description`) ล้างค่าได้ด้วยการส่งค่าว่าง
+
+### `POST /notes/<id>/comments` — แสดงความคิดเห็นใต้โน้ต (Issue #14)
+
+ต้อง login ก่อน โดยส่ง header `Authorization: Bearer <access_token>` ที่ได้จาก auth-service
+notes-service ส่ง token ต่อไปตรวจที่ `GET /auth/me` ตาม ADR-005 โดยไม่ได้ถือ JWT secret เอง
+
+Request body เป็น JSON:
+
+```json
+{
+  "content": "ขอบคุณสำหรับสรุปครับ ตรงส่วนนี้มีตัวอย่างเพิ่มเติมไหมครับ?"
+}
+```
+
+ข้อความจะถูก `strip` ช่องว่างหัวและท้ายก่อนบันทึก และต้องมีความยาว 1–1000 ตัวอักษร
+
+| กรณี | Response |
+| --- | --- |
+| สร้างความคิดเห็นสำเร็จ | `201` + object ของ comment |
+| ไม่มี token หรือ token ไม่ถูกต้อง | `401` `{"error": "unauthorized"}` |
+| เรียก auth-service ไม่ถึง | `503` `{"error": "identity_unavailable"}` |
+| body ไม่ใช่ JSON object | `400` `{"error": "invalid_json"}` |
+| `content` ว่างหรือยาวเกิน 1000 ตัวอักษร | `400` `{"error": "invalid_comment"}` |
+| ไม่มีโน้ตนั้น | `404` `{"error": "not_found"}` |
+
+### `GET /notes/<id>/comments` — ดูความคิดเห็น (Issue #14)
+
+แสดงความคิดเห็นทั้งหมดของโน้ต โดยเรียงจากเวลาล่าสุดไปเก่าสุด
+
+| กรณี | Response |
+| --- | --- |
+| สำเร็จ | `200` `{ "comments": [...] }` |
+| ไม่มีโน้ตนั้น | `404` `{"error": "not_found"}` |
+
+### `DELETE /notes/<id>/comments/<comment_id>` — ลบความคิดเห็นของตัวเอง (Issue #14)
+
+ต้อง login และสามารถลบได้เฉพาะความคิดเห็นที่เป็นของบัญชีที่ login อยู่เท่านั้น
+
+| กรณี | Response |
+| --- | --- |
+| ลบสำเร็จ | `204` ไม่มี body |
+| ไม่มี token หรือ token ไม่ถูกต้อง | `401` `{"error": "unauthorized"}` |
+| ไม่พบความคิดเห็นหรือความคิดเห็นไม่ได้อยู่ใต้โน้ตนี้ | `404` `{"error": "not_found"}` |
+| ความคิดเห็นเป็นของผู้ใช้อื่น | `403` `{"error": "forbidden"}` |
+
+ความคิดเห็นถูกเก็บในฐานข้อมูลและผูกกับ `note_id` โดยตรง เมื่อลบโน้ต ระบบจะลบความคิดเห็นของโน้ตนั้นก่อนลบ record ของโน้ต เพื่อไม่ให้มีความคิดเห็นตกค้างในฐานข้อมูล
 
 
 ## ตัวอย่างการเรียกใช้
