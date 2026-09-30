@@ -53,6 +53,7 @@ class Note(Base):
     edit_token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
 
     # --- US-12: นับจำนวนดาวน์โหลด (ใช้เป็นสถิติให้เจ้าของโน้ตดูใน #16) ---
+    view_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     download_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     created_at: Mapped[datetime] = mapped_column(
@@ -77,6 +78,7 @@ class Note(Base):
             "content_type": self.content_type,
             "size_bytes": self.size_bytes,
             "uploader_name": self.uploader_name,
+            "view_count": self.view_count,
             "download_count": self.download_count,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,

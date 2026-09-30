@@ -54,8 +54,16 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql+psycopg://noteshare:noteshare_dev@db:5432/noteshare
+      AUTH_SERVICE_URL: http://auth-service:5002
     ports:
       - "5000:5000"
+    depends_on:
+      db:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
 
 volumes:
   db-data:

@@ -1,18 +1,88 @@
 """Unit tests สำหรับ Stats Service (ผู้เขียน: อติชาติ)
 
-ครอบคลุม contract ของ endpoint ที่ประกาศไว้ใน docs/architecture/c4-container.md
-คือ /health และ /stats — ยังไม่แตะฐานข้อมูลเพราะ service ยังใช้ mock data อยู่
+ครอบคลุม health, aggregate stats และการอ่านสถิติของโน้ตจาก Notes Service DB
 """
 
 from datetime import datetime
+import os
 
 import pytest
+
+from models import Note, build_session_factory
 
 
 @pytest.fixture
 def client(stats_client):
     # ตัว app ถูกโหลดใน conftest.py เพราะทุก service มี app.py ชื่อซ้ำกัน
     return stats_client
+
+
+@pytest.fixture
+def stats_db(client, monkeypatch):
+    session_factory = build_session_factory(os.environ["DATABASE_URL"])
+
+    def authenticate(authorization):
+        if authorization == "Bearer owner-101":
+            return {"id": 101, "display_name": "Owner 101"}
+
+        if authorization == "Bearer owner-102":
+            return {"id": 102, "display_name": "Owner 102"}
+
+        return None
+
+    route_globals = client.application.view_functions["get_note_stats"].__globals__
+    monkeypatch.setitem(route_globals, "identity", authenticate)
+
+    with session_factory() as session:
+        session.query(Note).delete()
+        session.commit()
+
+        note = Note(
+            id=9001,
+            title="Stats Test Note",
+            subject_name="Stats Test Subject",
+            subject_code="STATS101",
+            faculty="ICT",
+            year_level=1,
+            lesson="Stats test lesson",
+            file_name="stats-test.txt",
+            content_type="text/plain",
+            size_bytes=18,
+            storage_key="stats-test-note.txt",
+            uploader_id=101,
+            uploader_name="Owner 101",
+            edit_token_hash="test-token-hash",
+            view_count=7,
+            download_count=3,
+        )
+
+        other_note = Note(
+            id=9002,
+            title="Other Owner Note",
+            subject_name="Other Test Subject",
+            subject_code="STATS102",
+            faculty="ICT",
+            year_level=2,
+            lesson="Other test lesson",
+            file_name="other-test.txt",
+            content_type="text/plain",
+            size_bytes=13,
+            storage_key="other-test-note.txt",
+            uploader_id=102,
+            uploader_name="Owner 102",
+            edit_token_hash="test-token-hash-2",
+            view_count=4,
+            download_count=2,
+        )
+
+        session.add_all([note, other_note])
+        session.commit()
+
+    yield session_factory
+
+    with session_factory() as session:
+        session.query(Note).delete()
+        session.commit()
 
 
 def test_health_returns_ok(client):
@@ -45,3 +115,46 @@ def test_stats_returns_expected_shape(client):
 
 def test_unknown_route_returns_404(client):
     assert client.get("/does-not-exist").status_code == 404
+
+
+def test_counter_write_endpoints_are_not_exposed(client):
+    assert client.post("/notes/1/view").status_code == 404
+    assert client.post("/notes/1/download").status_code == 404
+
+
+def test_note_stats_requires_login(client, stats_db):
+    response = client.get("/notes/9001/stats")
+
+    assert response.status_code == 401
+
+
+def test_note_stats_rejects_non_owner(client, stats_db):
+    response = client.get(
+        "/notes/9001/stats",
+        headers={"Authorization": "Bearer owner-102"},
+    )
+
+    assert response.status_code == 403
+
+
+def test_note_stats_returns_404_for_missing_note(client, stats_db):
+    response = client.get(
+        "/notes/9999/stats",
+        headers={"Authorization": "Bearer owner-101"},
+    )
+
+    assert response.status_code == 404
+
+
+def test_note_stats_returns_separate_view_and_download_counts(client, stats_db):
+    response = client.get(
+        "/notes/9001/stats",
+        headers={"Authorization": "Bearer owner-101"},
+    )
+
+    assert response.status_code == 200
+    assert response.get_json() == {
+        "note_id": 9001,
+        "views": 7,
+        "downloads": 3,
+    }

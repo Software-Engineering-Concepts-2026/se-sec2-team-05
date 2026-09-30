@@ -206,6 +206,15 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
             note = session.get(Note, note_id)
             if note is None:
                 return jsonify(error="not_found"), 404
+
+            session.execute(
+                update(Note)
+                .where(Note.id == note_id)
+                .values(view_count=Note.view_count + 1)
+            )
+            session.commit()
+            session.refresh(note)
+
             return jsonify(note.to_dict())
 
     @app.patch("/notes/<int:note_id>")

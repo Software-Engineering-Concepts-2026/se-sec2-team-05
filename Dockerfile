@@ -8,7 +8,7 @@ FROM python:3.12-slim
 WORKDIR /app
 RUN useradd --create-home --shell /usr/sbin/nologin appuser
 COPY --from=deps --chown=appuser:appuser /root/.local /home/appuser/.local
-COPY --chown=appuser:appuser services/stats-service/app.py .
+COPY --chown=appuser:appuser services/stats-service/*.py .
 ENV PATH=/home/appuser/.local/bin:$PATH
 EXPOSE 5000
 USER appuser
