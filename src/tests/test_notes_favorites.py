@@ -250,6 +250,18 @@ def test_deleted_note_disappears_from_the_list(client):
     assert favorite_ids(client) == [kept]
 
 
+def test_deleting_a_note_favorited_by_several_users_removes_every_favorite_row(client):
+    created = upload(client).get_json()
+    favorite(client, created["id"], ALICE)
+    favorite(client, created["id"], BOB)
+
+    response = client.delete(f"/notes/{created['id']}", headers={"X-Note-Token": created["edit_token"]})
+
+    assert response.status_code == 204
+    assert favorite_ids(client, ALICE) == []
+    assert favorite_ids(client, BOB) == []
+
+
 def test_list_supports_limit_and_offset(client):
     ids = [new_note(client) for _ in range(3)]
     for note_id in ids:

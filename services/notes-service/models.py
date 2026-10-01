@@ -20,6 +20,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     create_engine,
+    event,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
@@ -99,8 +100,9 @@ class Favorite(Base):
     """รายการโปรดของสมาชิก — US-15 (#15)
 
     user_id ไม่ทำเป็น foreign key เพราะตาราง users เป็นของ auth-service (ADR-005)
-    เหตุผลเดียวกับ Note.uploader_id ส่วน note_id เป็น FK แต่ SQLite ไม่บังคับ cascade
-    จึงไม่พึ่งมัน — ตอนอ่านรายการ JOIN กับ notes เพื่อตัดโน้ตที่ถูกลบ (US-20) ออกเอง
+    เหตุผลเดียวกับ Note.uploader_id ส่วน note_id เป็น FK ที่ Postgres บังคับจริง และไม่มี
+    ON DELETE CASCADE — delete_note (US-20) จึงลบแถว favorites ของโน้ตนั้นก่อนลบตัวโน้ตเอง
+    ส่วน SQLite เปิด PRAGMA foreign_keys ใน build_session_factory ให้ตรงกับ Postgres
     """
 
     __tablename__ = "favorites"
@@ -127,6 +129,12 @@ def build_session_factory(database_url: str):
     และยังไม่มีข้อมูลจริงที่ต้องรักษา ถ้า schema เริ่มนิ่งค่อยเพิ่มทีหลัง
     """
     engine = create_engine(database_url, future=True)
+    if engine.dialect.name == "sqlite":
+        # SQLite ไม่บังคับ foreign key ถ้าไม่เปิดเอง — เปิดให้ตรงกับ Postgres ใน compose
+        @event.listens_for(engine, "connect")
+        def _enable_foreign_keys(dbapi_connection, _record):
+            dbapi_connection.execute("PRAGMA foreign_keys=ON")
+
     Base.metadata.create_all(engine)
     return sessionmaker(bind=engine, expire_on_commit=False)
 

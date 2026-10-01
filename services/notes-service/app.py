@@ -302,7 +302,7 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
         except ValueError:
             return jsonify(error="invalid_filter", field="limit/offset"), 400
 
-        # JOIN กับ notes: โน้ตที่เจ้าของลบไปแล้วจะไม่โผล่ (แถว favorites อาจยังค้างอยู่)
+        # JOIN กับ notes เป็นแนวป้องกันอีกชั้น — delete_note ลบแถว favorites ของโน้ตนั้นทิ้งแล้ว
         stmt = (
             select(Note, Favorite.created_at)
             .join(Favorite, Favorite.note_id == Note.id)
@@ -422,6 +422,8 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
                 return jsonify(error="forbidden"), 403
 
             storage_key = note.storage_key
+            # ลบ favorites ของโน้ตนี้ก่อน (transaction เดียวกัน) ไม่งั้น Postgres ชน FK → 500
+            session.execute(delete(Favorite).where(Favorite.note_id == note_id))
             session.delete(note)
             session.commit()
 
