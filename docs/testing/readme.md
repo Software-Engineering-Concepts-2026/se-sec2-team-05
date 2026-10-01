@@ -102,6 +102,22 @@ Stats Service ที่คืน mock data กับ prototype ฝั่ง fron
 | NA-34 | กรองวันเดียว และส่งมาฝั่งเดียว | `date_from == date_to` และส่งแค่ `date_from` | กรองถูกทั้งสองแบบ |
 | NA-35 | โน้ตที่ไม่มี `class_date` ไม่ขึ้นเมื่อกรองด้วยวันที่ | อัปโหลดไม่ระบุ `class_date` แล้วกรองด้วยช่วงกว้าง | `count = 0` |
 | NA-36 | ใช้ `topic` + `date_from`/`date_to` + `faculty` + `file_type` พร้อมกัน (US-10 + US-26) | โน้ตที่ตรงทุกเงื่อนไข ปนกับโน้ตที่ไม่ตรงทีละเงื่อนไข | ได้เฉพาะโน้ตที่ตรงทุกเงื่อนไข |
+| NA-37 | บันทึกเข้ารายการโปรดครั้งแรก (US-15) | `POST /notes/<id>/favorite` | `201` + `note_id`, `is_favorited = true`, `favorited_at` |
+| NA-38 | กดบันทึกซ้ำ idempotent | `POST /notes/<id>/favorite` สองครั้ง | ครั้งที่สอง `200` · `favorited_at` เท่าเดิม · ในรายการมีโน้ตนี้แค่ 1 รายการ |
+| NA-39 | บันทึก/เอาออกต้อง login | ไม่มี header หรือ token ที่ไม่รู้จัก · auth-service ล่ม | `401` `unauthorized` · `503` `auth_unavailable` |
+| NA-40 | โน้ตที่ไม่มีอยู่ | `POST`/`DELETE /notes/999/favorite` | `404` `not_found` ทั้งคู่ |
+| NA-41 | บันทึกโน้ตที่ตัวเองอัปโหลดได้ | Alice อัปโหลดแล้ว `POST .../favorite` ด้วย token ของ Alice | `201` |
+| NA-42 | เอาออกจากรายการโปรด idempotent | `DELETE .../favorite` โน้ตที่อยู่ในรายการ และโน้ตที่ไม่เคยบันทึก | `204` ทั้งคู่ · โน้ตแรกหายจากรายการ |
+| NA-43 | เอาออกได้เฉพาะรายการของตัวเอง | Alice กับ Bob บันทึกโน้ตเดียวกัน แล้ว Bob เอาออก | รายการของ Alice ยังมีโน้ตนั้น |
+| NA-44 | `GET /notes/favorites` เห็นเฉพาะของตัวเอง เรียงล่าสุดก่อน | Alice บันทึก 3 โน้ต · Bob บันทึกอีกโน้ตหนึ่ง | Alice ได้ 3 โน้ตเรียงที่เพิ่งบันทึกก่อน · Bob เห็นเฉพาะของ Bob · แต่ละ item มี `is_favorited = true` และ `favorited_at` |
+| NA-45 | ยังไม่มีรายการโปรด / ต้อง login | Alice ที่ยังไม่บันทึกอะไร · ไม่ login · auth-service ล่ม | `200 {"items": [], "count": 0}` · `401` · `503` |
+| NA-46 | โน้ตที่เจ้าของลบแล้ว (US-20) ไม่แสดงในรายการโปรด | บันทึก 2 โน้ต แล้วลบโน้ตหนึ่งด้วย edit token | ในรายการเหลือแค่โน้ตที่ยังอยู่ |
+| NA-47 | รายการโปรดแบ่งหน้าและ clamp เหมือน `GET /notes` | `?limit=2`, `?limit=2&offset=2`, `?limit=-5&offset=-3`, `?limit=abc` | แบ่งหน้าถูก · ค่าติดลบถูก clamp · `limit=abc` ได้ `400` |
+| NA-48 | `/notes/favorites` ไม่ถูกตีความเป็น `/notes/<id>` · `GET /notes` ไม่ถูกกรองด้วยรายการโปรด | ไม่ login เรียก `/notes/favorites` · บันทึก 1 จาก 2 โน้ตแล้วค้นหา | `401` (ไม่ใช่ `404`) · ค้นหาได้ทั้ง 2 โน้ต |
+| NA-49 | `is_favorited` บน `GET /notes` และ `GET /notes/<id>` แยกตามผู้ใช้ | Alice บันทึกโน้ตหนึ่ง แล้วอ่านด้วย token ของ Alice และ Bob | Alice: `true` / `false` ถูกโน้ต · Bob: `false` ทั้งหมด · สลับเป็น `false` หลังเอาออก |
+| NA-50 | ไม่ login หรือ token ใช้ไม่ได้ ได้ `is_favorited = null` | `GET /notes`, `GET /notes/<id>` โดยไม่มี header และด้วย token ที่ไม่รู้จัก | `200` และ `is_favorited = null` |
+| NA-51 | auth-service ล่มระหว่างค้นหา ค้นหายังใช้ได้ | identity โยน `IdentityUnavailable` แล้ว `GET /notes`, `GET /notes/<id>` ด้วย token ที่ถูก | `200` และ `is_favorited = null` (ไม่ใช่ `503`) |
+| NA-52 | ดึงสถานะของทั้งหน้าใน query เดียว (D5) | บันทึก 5 โน้ต แล้วนับ SQL ตอน `GET /notes` | มี query ที่อ่านตาราง `favorites` เพียง 1 ครั้ง |
 
 ### 2.5 Notes Service — แก้ไข/ลบโน้ต (`pytest`, US-19 #19 + US-20 #20)
 
