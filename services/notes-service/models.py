@@ -10,7 +10,18 @@ storage) — เก็บแค่ `storage_key` ที่ชี้ไปยั�
 
 from datetime import date as date_type, datetime, timezone
 
-from sqlalchemy import Date, DateTime, Integer, String, Text, create_engine, Index
+from sqlalchemy import (
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    create_engine,
+    event,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
 
@@ -140,6 +151,26 @@ class Comment(Base):
         }
 
 
+class Favorite(Base):
+    """รายการโปรดของสมาชิก — US-15 (#15)
+
+    user_id ไม่ทำเป็น foreign key เพราะตาราง users เป็นของ auth-service (ADR-005)
+    เหตุผลเดียวกับ Note.uploader_id ส่วน note_id เป็น FK ที่ Postgres บังคับจริง และไม่มี
+    ON DELETE CASCADE — delete_note (US-20) จึงลบแถว favorites ของโน้ตนั้นก่อนลบตัวโน้ตเอง
+    ส่วน SQLite เปิด PRAGMA foreign_keys ใน build_session_factory ให้ตรงกับ Postgres
+    """
+
+    __tablename__ = "favorites"
+    __table_args__ = (UniqueConstraint("user_id", "note_id", name="uq_favorites_user_note"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    note_id: Mapped[int] = mapped_column(Integer, ForeignKey("notes.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+
+
 # index สำหรับเงื่อนไขกรองที่ใช้บ่อยตาม #10, #26
 Index("ix_notes_subject_code", Note.subject_code)
 Index("ix_notes_faculty_year", Note.faculty, Note.year_level)
@@ -153,5 +184,11 @@ def build_session_factory(database_url: str):
     และยังไม่มีข้อมูลจริงที่ต้องรักษา ถ้า schema เริ่มนิ่งค่อยเพิ่มทีหลัง
     """
     engine = create_engine(database_url, future=True)
+    if engine.dialect.name == "sqlite":
+        # SQLite ไม่บังคับ foreign key ถ้าไม่เปิดเอง — เปิดให้ตรงกับ Postgres ใน compose
+        @event.listens_for(engine, "connect")
+        def _enable_foreign_keys(dbapi_connection, _record):
+            dbapi_connection.execute("PRAGMA foreign_keys=ON")
+
     Base.metadata.create_all(engine)
     return sessionmaker(bind=engine, expire_on_commit=False)

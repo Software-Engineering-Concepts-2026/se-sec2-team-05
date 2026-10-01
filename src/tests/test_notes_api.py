@@ -201,6 +201,129 @@ def test_filter_by_class_date_range(client):
     assert [n["subject_code"] for n in hits["items"]] == ["CS201"]
 
 
+def test_filter_by_reversed_date_range_returns_400(client):
+    response = client.get("/notes?date_from=2026-08-31&date_to=2026-08-01")
+
+    assert response.status_code == 400
+    assert response.get_json() == {"error": "invalid_filter", "field": "date_to"}
+
+
+def test_filter_by_class_date_range_includes_boundary_dates(client):
+    upload(client, class_date="2026-08-10", subject_code="CS210")  # ตรง date_from พอดี
+    upload(client, class_date="2026-08-31", subject_code="CS211")  # ตรง date_to พอดี
+    upload(client, class_date="2026-08-09", subject_code="CS212")  # ก่อนช่วง 1 วัน
+    upload(client, class_date="2026-09-01", subject_code="CS213")  # หลังช่วง 1 วัน
+
+    hits = client.get("/notes?date_from=2026-08-10&date_to=2026-08-31").get_json()
+
+    assert {n["subject_code"] for n in hits["items"]} == {"CS210", "CS211"}
+
+
+def test_filter_by_single_class_date(client):
+    upload(client, class_date="2026-08-10", subject_code="CS220")
+    upload(client, class_date="2026-08-11", subject_code="CS221")
+
+    hits = client.get("/notes?date_from=2026-08-10&date_to=2026-08-10").get_json()
+
+    assert [n["subject_code"] for n in hits["items"]] == ["CS220"]
+
+
+def test_filter_by_date_from_only(client):
+    upload(client, class_date="2026-08-01", subject_code="CS230")
+    upload(client, class_date="2026-08-20", subject_code="CS231")
+
+    hits = client.get("/notes?date_from=2026-08-10").get_json()
+
+    assert [n["subject_code"] for n in hits["items"]] == ["CS231"]
+
+
+def test_filter_by_class_date_excludes_notes_without_class_date(client):
+    upload(client, subject_code="CS240")  # ไม่ส่ง class_date — ไม่บังคับกรอก
+
+    hits = client.get("/notes?date_from=2026-01-01&date_to=2026-12-31").get_json()
+
+    assert hits["count"] == 0
+
+
+def test_filter_combines_topic_date_faculty_and_file_type(client):
+    # ตรงทุกเงื่อนไข (US-10 + US-26 พร้อมกัน)
+    upload(
+        client,
+        subject_code="CS250",
+        faculty="ICT",
+        topic="Binary Search Tree",
+        class_date="2026-08-15",
+        file=(io.BytesIO(b"%PDF-1.4"), "note.pdf", "application/pdf"),
+    )
+    upload(  # topic ไม่ตรง
+        client,
+        subject_code="CS251",
+        faculty="ICT",
+        topic="Hash Table",
+        class_date="2026-08-15",
+        file=(io.BytesIO(b"%PDF-1.4"), "note.pdf", "application/pdf"),
+    )
+    upload(  # faculty ไม่ตรง
+        client,
+        subject_code="CS252",
+        faculty="Business",
+        topic="Binary Search Tree",
+        class_date="2026-08-15",
+        file=(io.BytesIO(b"%PDF-1.4"), "note.pdf", "application/pdf"),
+    )
+
+    hits = client.get(
+        "/notes?topic=tree&faculty=ICT&file_type=pdf"
+        "&date_from=2026-08-01&date_to=2026-08-31"
+    ).get_json()
+
+    assert [n["subject_code"] for n in hits["items"]] == ["CS250"]
+
+
+def test_filter_by_topic_is_partial_and_case_insensitive(client):
+    upload(client, topic="Binary Search Tree", subject_code="CS201")
+    upload(client, topic="Hash Table", subject_code="CS202")
+
+    hits = client.get("/notes?topic=search tree").get_json()
+
+    assert [n["subject_code"] for n in hits["items"]] == ["CS201"]
+
+
+def test_filter_by_topic_does_not_match_unrelated_note_title(client):
+    # topic ต้องกรองแยกจาก q — ชื่อวิชามีคำว่า Tree แต่ topic ไม่มี ไม่ควรติด
+    upload(client, title="Tree ทั้งเทอม", topic="Recursion", subject_code="CS203")
+
+    hits = client.get("/notes?topic=Tree").get_json()
+
+    assert hits["count"] == 0
+
+
+def test_filter_by_topic_escapes_sql_wildcards(client):
+    upload(client, topic="50%", subject_code="CS204")
+    upload(client, topic="Recursion", subject_code="CS205")
+
+    hits = client.get("/notes?topic=50%").get_json()
+
+    assert [n["subject_code"] for n in hits["items"]] == ["CS204"]
+
+
+def test_filter_by_topic_excludes_notes_without_topic(client):
+    upload(client, subject_code="CS206")  # ไม่ส่ง topic มา — ไม่บังคับกรอก
+
+    hits = client.get("/notes?topic=anything").get_json()
+
+    assert hits["count"] == 0
+
+
+def test_filter_by_topic_with_no_match_returns_empty_not_error(client):
+    upload(client, topic="Recursion")
+
+    response = client.get("/notes?topic=Quantum Computing")
+
+    assert response.status_code == 200
+    assert response.get_json()["count"] == 0
+
+
 def test_invalid_filter_value_returns_400_not_500(client):
     assert client.get("/notes?year_level=สอง").status_code == 400
     assert client.get("/notes?date_from=20-08-2026").status_code == 400

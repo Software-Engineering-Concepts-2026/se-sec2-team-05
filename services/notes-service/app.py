@@ -4,11 +4,15 @@ Endpoint:
     GET  /health              health check (รูปแบบเดียวกับ stats-service)
     POST /notes               อัปโหลดไฟล์ + metadata (multipart/form-data) ต้อง login (US-31)
     GET  /notes               ค้นหา/กรองด้วย metadata ที่กรอกไว้ (AC ข้อ 4)
+                              ถ้า login จะมี is_favorited ต่อโน้ต ไม่ login เป็น null (US-15)
+    GET  /notes/favorites     รายการโปรดของตัวเอง ต้อง login (US-15)
     GET  /notes/<id>          รายละเอียดโน้ตหนึ่งรายการ
     POST /notes/<id>/comments แสดงความคิดเห็นใต้โน้ต (Issue #14)
     GET  /notes/<id>/comments  รายการความคิดเห็น (Issue #14)
     DELETE /notes/<id>/comments/<comment_id> ลบความคิดเห็นของตัวเอง (Issue #14)
-    PATCH /notes/<id>         แก้ metadata บางส่วน (US-19) ต้องมี X-Note-Token
+    POST   /notes/<id>/favorite  บันทึกเข้ารายการโปรด ต้อง login (US-15)
+    DELETE /notes/<id>/favorite  เอาออกจากรายการโปรด ต้อง login (US-15)
+    PATCH  /notes/<id>        แก้ metadata บางส่วน (US-19) ต้องมี X-Note-Token
     DELETE /notes/<id>        ลบโน้ตพร้อมไฟล์ (US-20) ต้องมี X-Note-Token
     GET  /notes/<id>/download ดาวน์โหลดไฟล์จริง
     GET  /notes/<id>/preview  รูปตัวอย่าง (PNG) ของโน้ต ไม่นับเป็นการดาวน์โหลด (US-11)
@@ -24,9 +28,10 @@ from datetime import date, datetime, timezone
 
 from flask import Flask, jsonify, request, send_file
 from sqlalchemy import delete, select, update
+from sqlalchemy.exc import IntegrityError
 
 from identity import IdentityUnavailable, identity_from_env
-from models import Comment, Note, build_session_factory
+from models import Comment, Favorite, Note, build_session_factory
 from preview import PreviewUnavailable, render_preview
 from storage import storage_from_env
 from tokens import HEADER_NAME, issue_token, token_matches
@@ -92,6 +97,20 @@ EXT_TO_CONTENT_TYPE = {
     ext.lstrip("."): content_type
     for content_type, ext in ALLOWED_CONTENT_TYPES.items()
 }
+
+
+def parse_page(args) -> tuple[int, int]:
+    """อ่าน limit/offset แบบเดียวกับ GET /notes — raise ValueError ถ้าไม่ใช่ตัวเลข"""
+    limit = max(1, min(int(args.get("limit", DEFAULT_PAGE_SIZE)), MAX_PAGE_SIZE))
+    offset = max(0, int(args.get("offset", 0)))
+    return limit, offset
+
+
+def utc_iso(moment: datetime) -> str:
+    """SQLite เก็บเวลาโดยไม่มี timezone — อ่านกลับมาต้องระบุ UTC ให้ตรงกับตอนเพิ่งสร้าง"""
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return moment.isoformat()
 
 
 def create_app(database_url: str | None = None, storage=None, identity=None) -> Flask:
@@ -218,6 +237,13 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
             if value:
                 stmt = stmt.where(column == value)
 
+        # US-26: กรองตามหัวข้อเลกเชอร์แบบ partial match — ต่างจาก `q` ตรงที่ค้นเฉพาะ
+        # Note.topic ไม่ปนกับชื่อวิชา/รหัส/บทเรียน · escape %,_ กัน wildcard หลุดจากค่าผู้ใช้
+        topic = (args.get("topic") or "").strip()
+        if topic:
+            escaped = topic.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            stmt = stmt.where(Note.topic.ilike(f"%{escaped}%", escape="\\"))
+
         if args.get("year_level"):
             try:
                 stmt = stmt.where(
@@ -253,20 +279,27 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
                 Note.content_type.in_(content_types)
             )
 
-        for field, condition in (
-            ("date_from", lambda d: Note.class_date >= d),
-            ("date_to", lambda d: Note.class_date <= d),
-        ):
+        parsed_dates = {}
+        for field in ("date_from", "date_to"):
             if args.get(field):
                 try:
-                    stmt = stmt.where(
-                        condition(date.fromisoformat(args[field]))
-                    )
+                    parsed_dates[field] = date.fromisoformat(args[field])
                 except ValueError:
                     return jsonify(
                         error="invalid_filter",
                         field=field,
                     ), 400
+
+        # ช่วงกลับด้าน (date_from มาหลัง date_to) เดิมได้ผลว่างเงียบๆ — ผู้ใช้กรอกผิดควรรู้ว่าผิด
+        # ไม่ใช่เข้าใจว่าไม่มีโน้ตในช่วงนั้น
+        if "date_from" in parsed_dates and "date_to" in parsed_dates:
+            if parsed_dates["date_from"] > parsed_dates["date_to"]:
+                return jsonify(error="invalid_filter", field="date_to"), 400
+
+        if "date_from" in parsed_dates:
+            stmt = stmt.where(Note.class_date >= parsed_dates["date_from"])
+        if "date_to" in parsed_dates:
+            stmt = stmt.where(Note.class_date <= parsed_dates["date_to"])
 
         sort = args.get("sort", "new")
 
@@ -281,34 +314,142 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
         try:
             # clamp ทั้งขอบบนและขอบล่าง — ค่าติดลบผ่าน int() ได้ แต่ LIMIT -1 มีความหมาย
             # ต่างกันระหว่าง SQLite (ไม่จำกัด) กับ Postgres (error) จึงกันไว้ที่ชั้นนี้
-            limit = max(
-                1,
-                min(
-                    int(args.get("limit", DEFAULT_PAGE_SIZE)),
-                    MAX_PAGE_SIZE,
-                ),
-            )
-
-            offset = max(
-                0,
-                int(args.get("offset", 0)),
-            )
-
+            limit, offset = parse_page(args)
         except ValueError:
             return jsonify(
                 error="invalid_filter",
                 field="limit/offset",
             ), 400
 
+        user_id = optional_user_id()
         with session_factory() as session:
-            rows = session.scalars(
-                stmt.limit(limit).offset(offset)
-            ).all()
+            rows = session.scalars(stmt.limit(limit).offset(offset)).all()
+            flags = favorite_flags(session, user_id, rows)
+            items = [{**n.to_dict(), "is_favorited": flags.get(n.id)} for n in rows]
+            return jsonify(items=items, count=len(items))
 
-            return jsonify(
-                items=[n.to_dict() for n in rows],
-                count=len(rows),
+    def require_user():
+        """ตรวจตัวตนสำหรับ route ของรายการโปรด คืน (user, None) หรือ (None, error response)
+
+        แยกจาก create_note ตั้งใจ — ไม่ refactor โค้ดของ US-31 ในงานนี้
+        """
+        try:
+            user = current_user(request.headers.get("Authorization"))
+        except IdentityUnavailable:
+            return None, (jsonify(error="auth_unavailable"), 503)
+        if user is None:
+            return None, (jsonify(error="unauthorized"), 401, {"WWW-Authenticate": "Bearer"})
+        return user, None
+
+    def optional_user_id():
+        """id ของผู้ใช้ที่ login หรือ None — ใช้กับ route อ่านที่เปิดให้คนไม่ login ด้วย
+
+        token ใช้ไม่ได้หรือ auth-service ล่มก็ได้ None เหมือนกัน การค้นหาต้องไม่พังเพราะ
+        แค่จะใส่สถานะ ★ ไม่ได้ (D2, D3)
+        """
+        authorization = request.headers.get("Authorization")
+        if not authorization:
+            # คนไม่ login ไม่ต้องถาม auth-service เลย (US-31: อ่านอย่างเดียวไม่พึ่ง auth)
+            return None
+        try:
+            user = current_user(authorization)
+        except IdentityUnavailable:
+            return None
+        return user["id"] if user else None
+
+    def favorite_flags(session, user_id, notes):
+        """คืน {note_id: bool} หรือ {} ถ้าไม่ login — query เดียวทั้งหน้า (D5)"""
+        if user_id is None or not notes:
+            return {}
+        favorited = set(
+            session.scalars(
+                select(Favorite.note_id).where(
+                    Favorite.user_id == user_id,
+                    Favorite.note_id.in_([n.id for n in notes]),
+                )
             )
+        )
+        return {n.id: n.id in favorited for n in notes}
+
+    @app.get("/notes/favorites")
+    def list_favorites():
+        """รายการโปรดของตัวเอง เรียงที่เพิ่งบันทึกก่อน — US-15 (#15)"""
+        user, failure = require_user()
+        if failure:
+            return failure
+        try:
+            limit, offset = parse_page(request.args)
+        except ValueError:
+            return jsonify(error="invalid_filter", field="limit/offset"), 400
+
+        # JOIN กับ notes เป็นแนวป้องกันอีกชั้น — delete_note ลบแถว favorites ของโน้ตนั้นทิ้งแล้ว
+        stmt = (
+            select(Note, Favorite.created_at)
+            .join(Favorite, Favorite.note_id == Note.id)
+            .where(Favorite.user_id == user["id"])
+            .order_by(Favorite.created_at.desc(), Favorite.id.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        with session_factory() as session:
+            rows = session.execute(stmt).all()
+            items = [
+                {**note.to_dict(), "is_favorited": True, "favorited_at": utc_iso(favorited_at)}
+                for note, favorited_at in rows
+            ]
+            return jsonify(items=items, count=len(items))
+
+    @app.post("/notes/<int:note_id>/favorite")
+    def add_favorite(note_id):
+        user, failure = require_user()
+        if failure:
+            return failure
+        with session_factory() as session:
+            if session.get(Note, note_id) is None:
+                return jsonify(error="not_found"), 404
+
+            def find_existing():
+                return session.scalars(
+                    select(Favorite).where(
+                        Favorite.user_id == user["id"], Favorite.note_id == note_id
+                    )
+                ).first()
+
+            favorite, status = find_existing(), 200
+            if favorite is None:
+                favorite, status = Favorite(user_id=user["id"], note_id=note_id), 201
+                session.add(favorite)
+                try:
+                    session.commit()
+                except IntegrityError:
+                    # กดซ้อนสองครั้งพร้อมกัน — อีก request บันทึกไปก่อน ถือว่า idempotent
+                    session.rollback()
+                    favorite, status = find_existing(), 200
+            return (
+                jsonify(
+                    note_id=note_id,
+                    is_favorited=True,
+                    favorited_at=utc_iso(favorite.created_at),
+                ),
+                status,
+            )
+
+    @app.delete("/notes/<int:note_id>/favorite")
+    def remove_favorite(note_id):
+        user, failure = require_user()
+        if failure:
+            return failure
+        with session_factory() as session:
+            if session.get(Note, note_id) is None:
+                return jsonify(error="not_found"), 404
+            # user_id มาจาก token เท่านั้น จึงลบได้แค่รายการของตัวเอง
+            session.execute(
+                delete(Favorite).where(
+                    Favorite.user_id == user["id"], Favorite.note_id == note_id
+                )
+            )
+            session.commit()
+        return "", 204
 
     @app.get("/notes/<int:note_id>")
     def get_note(note_id):
@@ -317,8 +458,8 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
 
             if note is None:
                 return jsonify(error="not_found"), 404
-
-            return jsonify(note.to_dict())
+            flags = favorite_flags(session, optional_user_id(), [note])
+            return jsonify({**note.to_dict(), "is_favorited": flags.get(note.id)})
 
     # ============================================================
     # Issue #14 - Comment on a Note
@@ -508,11 +649,10 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
                 return jsonify(error="forbidden"), 403
 
             storage_key = note.storage_key
-
-            # Issue #14 - ลบ comments ของโน้ตพร้อมกับโน้ต
-            session.execute(
-                delete(Comment).where(Comment.note_id == note_id)
-            )
+            # ลบ comments (Issue #14) และ favorites (US-15) ของโน้ตนี้ก่อน (transaction เดียวกัน)
+            # favorites มี FK ไป notes ถ้าไม่ลบก่อน Postgres ชน FK → 500
+            session.execute(delete(Comment).where(Comment.note_id == note_id))
+            session.execute(delete(Favorite).where(Favorite.note_id == note_id))
             session.delete(note)
             session.commit()
 
