@@ -1,6 +1,8 @@
 # สภาพแวดล้อม dev ของ NoteShare — ยกทุก service ขึ้นพร้อมกันด้วย `docker compose up`
 # ตอนนี้มี 3 service ตาม C4 Container diagram: Notes Service (US-08), User & Auth Service
 # (US-05/US-06) และ Stats Service — ยังไม่มี API Gateway (ดู ADR-003, ADR-005)
+# ด้านหน้ามี `web` (nginx) เสิร์ฟหน้าเว็บและส่งต่อ /notes, /auth จาก origin เดียว แต่ยังไม่ตรวจ JWT
+# จึงยังไม่ใช่ API Gateway เต็มตัว (ดู ADR-006)
 services:
   db:
     image: postgres:16-alpine
@@ -56,6 +58,18 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5000:5000"
+
+  # หน้าเว็บ + gateway (ADR-006): เปิด http://localhost:8080 แล้ว browser จะเรียก /notes และ /auth
+  # ผ่าน origin เดียวกันนี้ · port 5001/5002 ของ service ยังเปิดไว้ให้ curl และ smoke test เดิมใช้ต่อ
+  web:
+    build: ./web
+    ports:
+      - "8080:8080"
+    depends_on:
+      notes-service:
+        condition: service_started
+      auth-service:
+        condition: service_started
 
 volumes:
   db-data:
