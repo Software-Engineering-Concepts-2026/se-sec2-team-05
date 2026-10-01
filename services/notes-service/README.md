@@ -189,7 +189,7 @@ Request body เป็น JSON:
 | --- | --- |
 | สร้างความคิดเห็นสำเร็จ | `201` + object ของ comment |
 | ไม่มี token หรือ token ไม่ถูกต้อง | `401` `{"error": "unauthorized"}` |
-| เรียก auth-service ไม่ถึง | `503` `{"error": "identity_unavailable"}` |
+| เรียก auth-service ไม่ถึง | `503` `{"error": "auth_unavailable"}` |
 | body ไม่ใช่ JSON object | `400` `{"error": "invalid_json"}` |
 | `content` ว่างหรือยาวเกิน 1000 ตัวอักษร | `400` `{"error": "invalid_comment"}` |
 | ไม่มีโน้ตนั้น | `404` `{"error": "not_found"}` |
