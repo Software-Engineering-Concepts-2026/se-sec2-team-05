@@ -47,6 +47,10 @@ jobs:
         working-directory: prototypes/sprint1
         run: node --test
 
+      - name: Run web search-utils tests
+        working-directory: web
+        run: node --test
+
   python-tests:
     name: Unit tests (Stats Service)
     runs-on: ubuntu-latest
@@ -83,7 +87,7 @@ jobs:
       # gunicorn/postgres ใช้เวลา boot ไม่กี่วินาที — retry แทนการ sleep ตายตัว
       - name: Wait for services to become healthy
         run: |
-          for url in http://localhost:5000/health http://localhost:5001/health http://localhost:5002/health; do
+          for url in http://localhost:5000/health http://localhost:5001/health http://localhost:5002/health http://localhost:8080/; do
             ok=false
             for i in $(seq 1 20); do
               if curl -fsS "$url" > /dev/null; then ok=true; break; fi
@@ -243,6 +247,41 @@ jobs:
           status=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:5001$fake_preview_url")
           test "$status" = "422"
           echo "preview OK"
+
+      # ADR-006: หน้าเว็บกับ API ต้องมาจาก origin เดียวกันผ่าน gateway (port 8080) — เช็คทั้งไฟล์ static,
+      # การส่งต่อ query string, header Authorization และ multipart upload ที่ต้องผ่าน nginx ไปถึง service
+      - name: Web gateway serves the page and proxies the APIs (ADR-006)
+        run: |
+          set -euo pipefail
+          gw=http://localhost:8080
+          # เก็บลงไฟล์ก่อน grep — ถ้า pipe ตรง ๆ grep -q ปิด pipe เร็ว curl โดน SIGPIPE แล้ว pipefail ทำให้ step ล้มแบบสุ่ม
+          curl -fsS "$gw/" -o /tmp/index.html
+          grep -q 'id="searchForm"' /tmp/index.html
+          curl -fsS -o /dev/null "$gw/search-utils.js"
+          curl -fsS -o /dev/null "$gw/app.js"
+          # ไฟล์เทสต์กับ config ต้องไม่ถูกเสิร์ฟออกไป
+          test "$(curl -s -o /dev/null -w '%{http_code}' "$gw/search-utils.test.js")" = "404"
+
+          # query string ต้องไปถึง notes-service ครบ (โน้ต CS201 สร้างไว้ใน step end-to-end ด้านบน)
+          test "$(curl -fsS "$gw/notes?subject_code=CS201&year_level=2" | jq '.count')" -eq 1
+          test "$(curl -s -o /dev/null -w '%{http_code}' "$gw/notes?year_level=abc")" = "400"
+
+          # header Authorization ต้องผ่าน gateway ไปถึง auth-service
+          test "$(curl -s -o /dev/null -w '%{http_code}' "$gw/auth/me")" = "401"
+          test "$(curl -fsS "$gw/auth/me" -H "Authorization: Bearer $UPLOAD_TOKEN" | jq -r '.display_name')" = "CI Uploader"
+
+          # upload แบบ multipart ผ่าน gateway แล้วเปิด preview ผ่าน gateway เหมือนที่หน้าเว็บทำ
+          echo 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=' \
+            | base64 -d > /tmp/gateway.png
+          created=$(curl -fsS -X POST "$gw/notes" -H "Authorization: Bearer $UPLOAD_TOKEN" \
+            -F 'title=CI gateway note' -F 'subject_name=Web' -F 'subject_code=CS601' -F 'faculty=ICT' \
+            -F 'year_level=4' -F 'lesson=Proxy' -F 'file=@/tmp/gateway.png;type=image/png')
+          test "$(echo "$created" | jq -r '.uploader_name')" = "CI Uploader"
+          preview_url=$(echo "$created" | jq -r '.preview_url')
+          status=$(curl -s -D /tmp/gateway-headers.txt -o /dev/null -w '%{http_code}' "$gw$preview_url")
+          test "$status" = "200"
+          grep -qi '^content-type: image/png' /tmp/gateway-headers.txt
+          echo "gateway OK"
 
       - name: Dump logs on failure
         if: failure()
