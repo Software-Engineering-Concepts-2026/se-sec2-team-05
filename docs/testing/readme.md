@@ -148,6 +148,7 @@ Stats Service ที่คืน mock data กับ prototype ฝั่ง fron
 | DK-05 | สมัคร → login → ใช้ token → logout บน Postgres จริง (US-05/US-06) | `curl` ไปที่ `:5002/auth/*` | สมัคร `201` · สมัครซ้ำ `409` · โดเมนอื่น `400` · รหัสผิดกับอีเมลที่ไม่มีได้ body เดียวกัน · `me` ได้ชื่อถูก · logout `204` แล้ว `me` ด้วย token เดิมได้ `401` |
 | DK-06 | อัปโหลดต้อง login และเครดิตมาจากบัญชี (US-31) บน stack จริง | สมัคร + login บัญชี `CI Uploader` แล้ว `POST /notes` สามแบบ (ไม่มี token / token มั่ว / token จริง + `uploader_name=spoofed name`) | สองแบบแรกได้ `401` · แบบที่สามได้ `uploader_name = CI Uploader` · `count = 1` (ครั้งที่ไม่ผ่านไม่ถูกบันทึก) · notes-service คุยกับ auth-service ผ่านเครือข่ายของ compose จริง |
 | DK-07 | preview endpoint ทำงานจริงบน image ที่ build (US-11) — กัน regression ของบั๊ก Dockerfile ที่เคยลืม copy `preview.py` (commit `8f25b9b`) ซึ่ง unit test จับไม่ได้เพราะ import จาก source tree ตรง ๆ | อัปโหลด PNG จริงแล้ว `GET .../preview` โดยไม่ส่ง token, กับอัปโหลดไฟล์ที่ประกาศเป็น `image/png` แต่เนื้อไม่ใช่รูป | ไฟล์จริงได้ `200` + header `Content-Type: image/png` + ไบต์ 8 ตัวแรกตรง PNG signature · ไฟล์ปลอมได้ `422` ไม่ใช่ `500` |
+| DK-08 | web gateway เสิร์ฟหน้าเว็บและส่งต่อ API จาก origin เดียว (ADR-006, US-11/US-31) | `curl :8080/`, `/search-utils.js`, `/app.js`, `/search-utils.test.js` · `GET :8080/notes?subject_code=CS201&year_level=2` และ `?year_level=abc` · `GET :8080/auth/me` แบบไม่มี token และมี token · อัปโหลด PNG ผ่าน `:8080/notes` แล้วเปิด `preview_url` ผ่าน `:8080` | หน้าแรกมี `id="searchForm"` · ไฟล์ JS ได้ `200` · ไฟล์เทสต์ได้ `404` (ไม่ถูก copy เข้า image) · query string ไปถึง service ครบ (`count = 1`, ค่าผิดได้ `400`) · `me` ไม่มี token `401` มี token ได้ `CI Uploader` (header `Authorization` ผ่าน nginx) · upload ได้ `uploader_name = CI Uploader` และ preview ได้ `200` + `image/png` |
 
 ### 2.7 Auth Service — ตรวจข้อมูลสมัครและ hash รหัสผ่าน (`pytest`, US-05 #5)
 
@@ -308,6 +309,35 @@ Stats Service ที่คืน mock data กับ prototype ฝั่ง fron
 `ci.yml` จึงไม่เจอปัญหานี้ · การ render ภาพจริง (PNG/PDF ผ่าน docker compose, PDF ปลอมได้ 422) เคย verify
 ผ่าน container จริงมาแล้วตอนแก้ Dockerfile (commit `8f25b9b`)
 
+### 2.13 Web app — `search-utils.js` (`node --test`, US-11 #11 + US-31 #31)
+
+pure function ของหน้าค้นหาใน [`web/`](../../web/) แยกออกจากส่วนที่แตะ DOM (`app.js`) ไว้ให้เทสต์ได้โดยไม่ต้องมี browser
+
+| # | Test case | Input | ผลที่คาดหวัง |
+| --- | --- | --- | --- |
+| WEB-01 | `buildQuery` ไม่ใส่ช่องว่างและ sort ค่าเริ่มต้น | ตัวกรองว่างทั้งหมด, `q = '  '` | ได้ `''` |
+| WEB-02 | `buildQuery` trim ข้อความและส่งตัวกรองของ API ครบ | `q=' CS201 '`, `faculty`, `year_level`, `topic`, `date_from`, `date_to`, `sort=title` | query string ตรงตามลำดับ ไม่มีช่องว่างหัวท้าย |
+| WEB-03 | `buildQuery` ส่ง `file_type` ซ้ำตามจำนวนที่เลือก และตัดค่าที่ API ไม่รู้จัก | `['pdf', 'jpeg', 'png']` | `file_type=pdf&file_type=png` (ไม่ส่ง `jpeg` ที่ API ตอบ `400`) |
+| WEB-04 | `buildQuery` ใส่ paging เฉพาะเมื่อขอ | `{limit: 20, offset: 0}`, `{limit: 20, offset: 40}` | `limit=20` (ไม่มี `offset=0`), `limit=20&offset=40` |
+| WEB-05 | `parseQuery` อ่านกลับได้ค่าเดิม (URL ↔ ฟอร์ม) | ผลของ `buildQuery` | ได้ตัวกรองชุดเดิมทุกช่อง |
+| WEB-06 | `parseQuery` กลับไปค่าเริ่มต้นเมื่อเจอ sort/ประเภทไฟล์ที่ไม่รู้จัก | `?sort=rating&file_type=docx&file_type=pdf&file_type=pdf` | `sort = new`, `file_type = ['pdf']` (ตัดซ้ำด้วย) |
+| WEB-07 | `escapeHtml` กัน markup และรับ null | `<img src=x onerror="a()">`, `null` | escape ครบ, ได้ `''` |
+| WEB-08 | `formatSize` เลือกหน่วยที่อ่านง่าย | 512, 2048, 3 MB | `512 B`, `2.0 KB`, `3.0 MB` |
+| WEB-09 | `fileTypeLabel` บอกชื่อประเภทไฟล์ที่รับ | `application/pdf`, `image/jpeg`, `text/plain` | `PDF`, `JPG`, `ไฟล์` |
+| WEB-10 | การ์ดโน้ตแสดงชื่อผู้อัปโหลดเสมอ (US-31 AC3) | โน้ตที่มี `uploader_name = Somchai` | มี `อัปโหลดโดย <strong>Somchai</strong>` และปุ่ม `data-preview-id` |
+| WEB-11 | การ์ดโน้ต escape ค่าที่ผู้ใช้คนอื่นพิมพ์มา | `title = <script>…`, `uploader_name = "><img src=x>` | ไม่มีแท็ก `<script>`/`<img` หลุดออกมา |
+| WEB-12 | การ์ดโน้ตข้ามช่องที่ไม่มีค่า | `topic = null`, `class_date = null` | ไม่มีคำว่า `null` และไม่มีบรรทัดวันที่เรียน |
+| WEB-13 | `errorMessage` บอกชื่อช่องที่ผิดเมื่อ `invalid_filter` | `400 {error: invalid_filter, field: date_to}` | ข้อความมี "วันที่สิ้นสุด" |
+| WEB-14 | `errorMessage` ครอบ preview, โน้ตหาย และเน็ตหลุด | `422 preview_unavailable`, `404 not_found`, status `0`, `502` ไม่มี body | ข้อความเฉพาะของแต่ละกรณี · `502` บอกเลข HTTP |
+| WEB-15 | `hasMore` เป็นจริงเฉพาะหน้าที่เต็ม | 20, 19, 0 | `true`, `false`, `false` (API ไม่มียอดรวม) |
+
+**ตรวจบน browser จริง (2026-10-01, ด้วยมือ ยังไม่ใช่ E2E อัตโนมัติ):** Docker ไม่ได้เปิดบนเครื่องที่ใช้เขียน จึงรัน
+`auth-service` กับ `notes-service` ตัวจริงบน SQLite และใช้สคริปต์ Python ที่ทำตัวแทน `web/nginx.conf` (path เดียวกัน)
+แล้วเปิดใน Chrome ผล: ค้นหา/กรอง/เรียงได้ผลจาก API จริง · โหลดเพิ่มจาก 20 → 25 แล้วปุ่มหาย · เปิด preview จากการ์ดที่ 22
+แล้วปิดด้วย Esc, คลิกฉากหลัง และปุ่ม ✕ ตำแหน่ง scroll เท่าเดิม (2397 px) การ์ดยังอยู่ 25 ใบ focus กลับไปที่ปุ่มเดิม (US-11 AC3)
+· PNG ปลอมแสดงข้อความ preview ไม่ได้แทนรูปแตก · ช่วงวันที่กลับด้านแสดง error ชื่อช่อง · back คืนค่าฟอร์มเดิม · ชื่อโน้ตที่มี
+`<script>` แสดงเป็นข้อความ · ค้นด้วยคำภาษาไทยได้ · console ไม่มี error · ตัว nginx จริงยืนยันผ่าน DK-08 บน CI
+
 ## 3. Test Report
 
 **รันล่าสุด:** 2026-09-27 (เครื่อง local, Windows 11, branch `feature/safety-net`)
@@ -318,6 +348,7 @@ Stats Service ที่คืน mock data กับ prototype ฝั่ง fron
 | Python unit + integration | `pytest src/tests -v` | ✅ 189 passed / 0 failed / 1 xfailed (~15 s) — stats 4, notes validation 18 + boundary 19, notes API 47, notes identity 13, edit-token property 2, fizzbuzz 5, auth credentials 29, auth email_error 9 (AE-09 เป็น xfail), auth tokens 14, auth API 30 · coverage รวม 99% (`identity.py` 100%, `credentials.py` 100%) |
 | Smoke DK-03 ถึง DK-06 แบบไม่ใช้ Docker | รัน `auth-service` กับ `notes-service` ตัวจริงบน SQLite (notes ชี้ `AUTH_SERVICE_URL` ไปที่ auth) แล้วรันสคริปต์ `run:` ของแต่ละ step ที่ดึงออกมาจาก `ci.yml` ตรง ๆ | ✅ ผ่านครบ 6 step (`upload auth OK`, `end-to-end OK`, `edit/delete OK`, `auth OK`, validation `400`) · บน Postgres + compose จริงรอผลจาก CI เพราะ Docker daemon ไม่ได้เปิดบนเครื่องที่ใช้เขียน · ตอนรันบน Windows ต้องแทน `/tmp/` เป็น path ของ Windows เพราะ curl ของ Windows อ่าน `/tmp` ของ Git Bash ไม่ได้ (ไม่ได้แก้ใน `ci.yml` เพราะ CI รันบน Linux) |
 | Container smoke (compose e2e) | `docker compose up` + `curl` | ✅ ผ่านบน CI ([run #33351842320](https://github.com/Software-Engineering-Concepts-2026/se-sec2-team-05/actions/runs/33351842320), 1m6s) — log ยืนยัน `created note #1` และ `end-to-end OK` · ไม่ได้รัน local เพราะ Docker daemon ไม่ได้เปิดบนเครื่องที่ใช้เขียน |
+| JS unit (web) | `cd web && node --test` | ✅ 15 passed / 0 failed (2026-10-01, branch `feature/web-search-preview`) |
 
 **ผลรันบน CI (PR #56):** ทั้ง 3 job ผ่านหมด — `js-tests` 13s, `python-tests` 13s, `docker-build` 1m6s
 
@@ -349,4 +380,4 @@ python-tests ─┘
 - [x] เขียนเทสต์ของ `POST /notes` ที่ commit ไม่ผ่าน แล้วต้องไม่ทิ้งไฟล์กำพร้าไว้ใน storage — NA-12
 - [ ] เทสต์ที่รันกับ PostgreSQL จริง — ตอนนี้เทสต์ Python ใช้ SQLite ส่วน compose ใช้ Postgres จึงมีช่องว่างเรื่องความต่างของ dialect (`ilike`, การเทียบวันที่) ที่จับได้แค่ตอน smoke test
 - [ ] เพิ่ม branch protection ให้ `main` ต้องผ่าน CI ก่อน merge (ตั้งใน GitHub Settings ไม่ใช่ในโค้ด)
-- [ ] E2E test — รอ backend จริง
+- [ ] E2E test อัตโนมัติผ่าน browser — มีหน้าเว็บจริงแล้ว (`web/`) แต่ยังตรวจด้วยมือ (ดูท้าย 2.13) ยังไม่มีเครื่องมืออย่าง Playwright ใน CI
