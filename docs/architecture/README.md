@@ -59,8 +59,9 @@ Per-layer rationale and the alternatives we weighed are in [tech_stack.md](./tec
 - [ADR-003 — Narrow the First Running Slice to One Service and Local File Storage](./adr/0003-tracer-bullet-scope.md)
 - [ADR-004 — Per-Note Edit Tokens as a Temporary Stand-In for Ownership Checks](./adr/0004-per-note-edit-token.md)
 - [ADR-005 — User & Auth Service with JWT Access Tokens Backed by Server-Side Sessions](./adr/0005-auth-jwt-with-server-side-sessions.md)
+- [ADR-006 — Serve the Web App and Proxy the APIs Through One nginx Gateway](./adr/0006-nginx-web-gateway.md)
 
-> ⚠️ The C4 Container diagram above describes the **target** architecture. What `docker compose up` actually starts today is narrower — `notes-service`, `auth-service` and `stats-service`, with no gateway. `notes-service` calls `auth-service` (`GET /auth/me`) only to authenticate uploads; reads stay open and edits/deletes still use ADR-004's edit tokens. See ADR-003, ADR-004 and ADR-005.
+> ⚠️ The C4 Container diagram above describes the **target** architecture. What `docker compose up` actually starts today is narrower — `notes-service`, `auth-service` and `stats-service`, plus a `web` nginx container on port 8080 that serves the search page and proxies `/notes` and `/auth` (ADR-006). That container does not check tokens, so it is not yet the API Gateway in the diagram. `notes-service` calls `auth-service` (`GET /auth/me`) only to authenticate uploads; reads stay open and edits/deletes still use ADR-004's edit tokens. See ADR-003, ADR-004, ADR-005 and ADR-006.
 
 ## Editing the diagrams
 
