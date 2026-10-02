@@ -852,6 +852,8 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
             # favorites มี FK ไป notes ถ้าไม่ลบก่อน Postgres ชน FK → 500
             session.execute(delete(Comment).where(Comment.note_id == note_id))
             session.execute(delete(Favorite).where(Favorite.note_id == note_id))
+            # thanks (US-28) มี FK ไป notes เหมือน favorites
+            session.execute(delete(Thank).where(Thank.note_id == note_id))
             session.delete(note)
             session.commit()
 
