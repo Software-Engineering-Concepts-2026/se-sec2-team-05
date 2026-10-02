@@ -92,15 +92,41 @@ Stats Service ที่คืน mock data กับ prototype ฝั่ง fron
 | NA-24 | auth-service ล่ม | identity โยน `IdentityUnavailable` | `503` `{"error": "auth_unavailable"}` · storage ว่าง |
 | NA-25 | endpoint อ่านอย่างเดียวยังเปิด (รวม `/preview`, US-11) | `GET /notes`, `/notes/<id>`, `/download`, `/preview` โดยไม่ login | `200` ทั้งหมด ยกเว้น `/preview` ที่ไม่ใช่ `401` (ไฟล์ default ของเทสต์เป็น PDF ปลอม จึงได้ `422` แทน) และไม่มีการเรียก auth-service เพิ่ม |
 | NA-26 | login อย่างเดียวแก้/ลบไม่ได้ (ADR-004 ยังใช้) | `PATCH`/`DELETE` ด้วย Bearer token แต่ไม่มี edit token | `403` ทั้งคู่ · ด้วย edit token ลบได้ `204` |
-| NA-27 | แสดงความคิดเห็นโดยไม่ login | `POST /notes/<id>/comments` ไม่มี Authorization | `401` |
-| NA-28 | token ไม่ถูกต้อง | `POST /notes/<id>/comments` + invalid Bearer token | `401` |
-| NA-29 | comment ว่าง | `POST /notes/<id>/comments` + `{"content": "   "}` | `400` |
-| NA-30 | comment ยาวเกิน 1000 ตัวอักษร | `POST /notes/<id>/comments` + content 1001 chars | `400` |
-| NA-31 | แสดงความคิดเห็นใน note ที่ไม่มีอยู่ | `POST /notes/999/comments` | `404` |
-| NA-32 | แสดง comments เรียงจากใหม่ไปเก่า | `GET /notes/<id>/comments` | `200` + comments เรียง `created_at` ล่าสุดก่อน |
-| NA-33 | ลบ comment ของตัวเอง | `DELETE /notes/<id>/comments/<comment_id>` | `204` |
-| NA-34 | ลบ comment ของคนอื่น | `DELETE /notes/<id>/comments/<comment_id>` ด้วย user คนอื่น | `403` |
-| NA-35 | ลบ note แล้ว comments ถูกลบด้วย | สร้าง comment → `DELETE /notes/<id>` → ตรวจ DB | comment ไม่เหลือใน DB |
+| NA-27 | กรองตามหัวข้อเลกเชอร์แบบ partial ไม่สนตัวพิมพ์ (US-26) | `?topic=search tree` | เจอเฉพาะโน้ตที่ `topic` มีคำนั้นเป็นส่วนหนึ่ง |
+| NA-28 | `topic` กรองแยกจาก `q` | `?topic=Tree` โดยชื่อวิชามีคำว่า Tree แต่ `topic` ไม่มี | `count = 0` |
+| NA-29 | `topic` escape wildcard ของ SQL | `?topic=50%` โดยมีโน้ต `topic` เป็น `50%` และ `Recursion` | เจอเฉพาะโน้ตที่ `topic` เป็น `50%` จริง ไม่ใช่ทุกโน้ต |
+| NA-30 | โน้ตที่ไม่มี `topic` ไม่ขึ้นเมื่อกรองด้วย `topic` | อัปโหลดไม่ระบุ `topic` แล้ว `?topic=anything` | `count = 0` |
+| NA-31 | `topic` ที่ไม่ตรงกับใครเลยต้องได้ผลว่างไม่ใช่ error | โน้ตมี `topic="Recursion"` แล้ว `?topic=Quantum Computing` | `200` + `count = 0` |
+| NA-32 | ช่วงวันที่กลับด้านต้องได้ 400 | `?date_from=2026-08-31&date_to=2026-08-01` | `400 {"error": "invalid_filter", "field": "date_to"}` |
+| NA-33 | ช่วงวันที่นับวันขอบด้วย (inclusive) | โน้ตตรงวันขอบทั้งสองฝั่งพอดี + ก่อน/หลังช่วง 1 วัน | ได้เฉพาะ 2 ตัวที่ตรงวันขอบ |
+| NA-34 | กรองวันเดียว และส่งมาฝั่งเดียว | `date_from == date_to` และส่งแค่ `date_from` | กรองถูกทั้งสองแบบ |
+| NA-35 | โน้ตที่ไม่มี `class_date` ไม่ขึ้นเมื่อกรองด้วยวันที่ | อัปโหลดไม่ระบุ `class_date` แล้วกรองด้วยช่วงกว้าง | `count = 0` |
+| NA-36 | ใช้ `topic` + `date_from`/`date_to` + `faculty` + `file_type` พร้อมกัน (US-10 + US-26) | โน้ตที่ตรงทุกเงื่อนไข ปนกับโน้ตที่ไม่ตรงทีละเงื่อนไข | ได้เฉพาะโน้ตที่ตรงทุกเงื่อนไข |
+| NA-37 | บันทึกเข้ารายการโปรดครั้งแรก (US-15) | `POST /notes/<id>/favorite` | `201` + `note_id`, `is_favorited = true`, `favorited_at` |
+| NA-38 | กดบันทึกซ้ำ idempotent | `POST /notes/<id>/favorite` สองครั้ง | ครั้งที่สอง `200` · `favorited_at` เท่าเดิม · ในรายการมีโน้ตนี้แค่ 1 รายการ |
+| NA-39 | บันทึก/เอาออกต้อง login | ไม่มี header หรือ token ที่ไม่รู้จัก · auth-service ล่ม | `401` `unauthorized` · `503` `auth_unavailable` |
+| NA-40 | โน้ตที่ไม่มีอยู่ | `POST`/`DELETE /notes/999/favorite` | `404` `not_found` ทั้งคู่ |
+| NA-41 | บันทึกโน้ตที่ตัวเองอัปโหลดได้ | Alice อัปโหลดแล้ว `POST .../favorite` ด้วย token ของ Alice | `201` |
+| NA-42 | เอาออกจากรายการโปรด idempotent | `DELETE .../favorite` โน้ตที่อยู่ในรายการ และโน้ตที่ไม่เคยบันทึก | `204` ทั้งคู่ · โน้ตแรกหายจากรายการ |
+| NA-43 | เอาออกได้เฉพาะรายการของตัวเอง | Alice กับ Bob บันทึกโน้ตเดียวกัน แล้ว Bob เอาออก | รายการของ Alice ยังมีโน้ตนั้น |
+| NA-44 | `GET /notes/favorites` เห็นเฉพาะของตัวเอง เรียงล่าสุดก่อน | Alice บันทึก 3 โน้ต · Bob บันทึกอีกโน้ตหนึ่ง | Alice ได้ 3 โน้ตเรียงที่เพิ่งบันทึกก่อน · Bob เห็นเฉพาะของ Bob · แต่ละ item มี `is_favorited = true` และ `favorited_at` |
+| NA-45 | ยังไม่มีรายการโปรด / ต้อง login | Alice ที่ยังไม่บันทึกอะไร · ไม่ login · auth-service ล่ม | `200 {"items": [], "count": 0}` · `401` · `503` |
+| NA-46 | โน้ตที่เจ้าของลบแล้ว (US-20) ไม่แสดงในรายการโปรด | บันทึก 2 โน้ต แล้วลบโน้ตหนึ่งด้วย edit token | ในรายการเหลือแค่โน้ตที่ยังอยู่ |
+| NA-47 | รายการโปรดแบ่งหน้าและ clamp เหมือน `GET /notes` | `?limit=2`, `?limit=2&offset=2`, `?limit=-5&offset=-3`, `?limit=abc` | แบ่งหน้าถูก · ค่าติดลบถูก clamp · `limit=abc` ได้ `400` |
+| NA-48 | `/notes/favorites` ไม่ถูกตีความเป็น `/notes/<id>` · `GET /notes` ไม่ถูกกรองด้วยรายการโปรด | ไม่ login เรียก `/notes/favorites` · บันทึก 1 จาก 2 โน้ตแล้วค้นหา | `401` (ไม่ใช่ `404`) · ค้นหาได้ทั้ง 2 โน้ต |
+| NA-49 | `is_favorited` บน `GET /notes` และ `GET /notes/<id>` แยกตามผู้ใช้ | Alice บันทึกโน้ตหนึ่ง แล้วอ่านด้วย token ของ Alice และ Bob | Alice: `true` / `false` ถูกโน้ต · Bob: `false` ทั้งหมด · สลับเป็น `false` หลังเอาออก |
+| NA-50 | ไม่ login หรือ token ใช้ไม่ได้ ได้ `is_favorited = null` | `GET /notes`, `GET /notes/<id>` โดยไม่มี header และด้วย token ที่ไม่รู้จัก | `200` และ `is_favorited = null` |
+| NA-51 | auth-service ล่มระหว่างค้นหา ค้นหายังใช้ได้ | identity โยน `IdentityUnavailable` แล้ว `GET /notes`, `GET /notes/<id>` ด้วย token ที่ถูก | `200` และ `is_favorited = null` (ไม่ใช่ `503`) |
+| NA-52 | ดึงสถานะของทั้งหน้าใน query เดียว (D5) | บันทึก 5 โน้ต แล้วนับ SQL ตอน `GET /notes` | มี query ที่อ่านตาราง `favorites` เพียง 1 ครั้ง |
+| NA-53 | แสดงความคิดเห็นโดยไม่ login | `POST /notes/<id>/comments` ไม่มี Authorization | `401` |
+| NA-54 | token ไม่ถูกต้อง | `POST /notes/<id>/comments` + invalid Bearer token | `401` |
+| NA-55 | comment ว่าง | `POST /notes/<id>/comments` + `{"content": "   "}` | `400` |
+| NA-56 | comment ยาวเกิน 1000 ตัวอักษร | `POST /notes/<id>/comments` + content 1001 chars | `400` |
+| NA-57 | แสดงความคิดเห็นใน note ที่ไม่มีอยู่ | `POST /notes/999/comments` | `404` |
+| NA-58 | แสดง comments เรียงจากใหม่ไปเก่า | `GET /notes/<id>/comments` | `200` + comments เรียง `created_at` ล่าสุดก่อน |
+| NA-59 | ลบ comment ของตัวเอง | `DELETE /notes/<id>/comments/<comment_id>` | `204` |
+| NA-60 | ลบ comment ของคนอื่น | `DELETE /notes/<id>/comments/<comment_id>` ด้วย user คนอื่น | `403` |
+| NA-61 | ลบ note แล้ว comments ถูกลบด้วย | สร้าง comment → `DELETE /notes/<id>` → ตรวจ DB | comment ไม่เหลือใน DB |
 
 ### 2.5 Notes Service — แก้ไข/ลบโน้ต (`pytest`, US-19 #19 + US-20 #20)
 

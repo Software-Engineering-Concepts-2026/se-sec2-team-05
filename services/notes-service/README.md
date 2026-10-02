@@ -22,14 +22,15 @@ pip install -r services/notes-service/requirements.txt
 NOTES_STORAGE_DIR=./data python services/notes-service/app.py
 ```
 
-การอัปโหลดต้องมี auth-service รันอยู่ด้วย (ดู [README ของ auth-service](../auth-service/README.md))
-ถ้าเรียกไม่ถึง `POST /notes` จะตอบ `503` ส่วน endpoint อื่นใช้ได้ตามปกติ
+การอัปโหลดและรายการโปรดต้องมี auth-service รันอยู่ด้วย (ดู [README ของ auth-service](../auth-service/README.md))
+ถ้าเรียกไม่ถึง `POST /notes` และ endpoint ของรายการโปรดจะตอบ `503` ส่วน endpoint อ่านอย่างเดียวใช้ได้ตามปกติ
+(`is_favorited` จะเป็น `null` ระหว่างนั้น)
 
 | Environment variable | ค่า default | ใช้ทำอะไร |
 | --- | --- | --- |
 | `DATABASE_URL` | `sqlite:///notes.db` | SQLAlchemy URL — compose ตั้งเป็น `postgresql+psycopg://...` |
 | `NOTES_STORAGE_DIR` | `/data/notes` | โฟลเดอร์เก็บไฟล์โน้ต (mount เป็น volume ใน compose) |
-| `AUTH_SERVICE_URL` | `http://localhost:5002` | ที่อยู่ของ auth-service ใช้ตรวจ token ตอนอัปโหลด — compose ตั้งเป็น `http://auth-service:5002` |
+| `AUTH_SERVICE_URL` | `http://localhost:5002` | ที่อยู่ของ auth-service ใช้ตรวจ token ตอนอัปโหลดและใช้รายการโปรด — compose ตั้งเป็น `http://auth-service:5002` |
 
 ## API
 
@@ -38,10 +39,13 @@ NOTES_STORAGE_DIR=./data python services/notes-service/app.py
 | `GET` | `/health` | health check |
 | `POST` | `/notes` | อัปโหลดไฟล์ + metadata (`multipart/form-data`) → `201` พร้อม object ของโน้ต — **ต้อง login** (US-31) |
 | `GET` | `/notes` | ค้นหา/กรอง → `{ items: [...], count: n }` |
+| `GET` | `/notes/favorites` | รายการโปรดของตัวเอง เรียงที่เพิ่งบันทึกก่อน — **ต้อง login** (US-15) |
 | `GET` | `/notes/<id>` | รายละเอียดโน้ตหนึ่งรายการ |
 | `POST` | `/notes/<id>/comments` | แสดงความคิดเห็นใต้โน้ต — ต้อง login และส่ง JSON `{"content": "..."}` → `201` (Issue #14) |
 | `GET` | `/notes/<id>/comments` | แสดงความคิดเห็นของโน้ต เรียงจากใหม่ไปเก่า (Issue #14) |
 | `DELETE` | `/notes/<id>/comments/<comment_id>` | ลบความคิดเห็นของตัวเอง — ต้อง login → `204` (Issue #14) |
+| `POST` | `/notes/<id>/favorite` | บันทึกเข้ารายการโปรด → `201` (ครั้งแรก) / `200` (มีอยู่แล้ว) — **ต้อง login** (US-15) |
+| `DELETE` | `/notes/<id>/favorite` | เอาออกจากรายการโปรด → `204` — **ต้อง login** (US-15) |
 | `PATCH` | `/notes/<id>` | แก้ metadata บางส่วน — ต้องมี `X-Note-Token` (US-19) |
 | `DELETE` | `/notes/<id>` | ลบโน้ตพร้อมไฟล์ — ต้องมี `X-Note-Token` (US-20) → `204` |
 | `GET` | `/notes/<id>/download` | ดาวน์โหลดไฟล์จริง (ตั้งชื่อไฟล์ตามที่ผู้ใช้อัปโหลดมา) และนับยอดดาวน์โหลด (US-12) |
@@ -82,17 +86,73 @@ request ที่ใหญ่เกิน 21 MB (ไฟล์ 20 MB + ที่�
 ### `GET /notes` — query parameters
 
 `q` (ค้นในชื่อ/วิชา/รหัส/บทเรียน/หัวข้อ), `faculty`, `subject_code`, `year_level`,
-`file_type` (`pdf` | `png` | `jpg`), `date_from`, `date_to`,
+`file_type` (`pdf` | `png` | `jpg`), `topic`, `date_from`, `date_to`,
 `sort` (`new` | `old` | `class_date` | `title`), `limit` (สูงสุด 100), `offset`
 
 `file_type` ส่งซ้ำได้หลายค่าเพื่อกรองแบบ OR เช่น `?file_type=pdf&file_type=png` (US-10)
 ค่าที่รับมาจาก client เป็นนามสกุลสั้น แล้วแปลงเป็น content type ผ่าน allowlist ของ `validation.py`
 ถ้ามีค่าใดไม่อยู่ใน allowlist จะปฏิเสธทั้งชุดด้วย `400` ไม่ใช่กรองเฉพาะค่าที่ถูก
 
+`topic` กรองเฉพาะคอลัมน์ `topic` แบบ partial match ไม่สนตัวพิมพ์เล็ก/ใหญ่ (US-26) — ต่างจาก `q`
+ที่ค้นหลายคอลัมน์พร้อมกันรวมถึง `topic` ด้วย ใช้ `topic` เมื่อต้องการกรองเฉพาะหัวข้อเลกเชอร์เท่านั้น
+โน้ตที่ไม่ได้ระบุ `topic` ตอนอัปโหลด (ฟิลด์นี้ไม่บังคับ) จะไม่ถูกนับเมื่อใช้ตัวกรองนี้
+
+`date_from`/`date_to` เป็นช่วงแบบ inclusive ทั้งสองขอบ เทียบกับ `class_date` เท่านั้น (ไม่มีระดับเวลา)
+ส่งมาฝั่งเดียวก็ได้ (เท่ากับไม่จำกัดฝั่งนั้น) ส่งค่าเดียวกันทั้งคู่เพื่อกรองวันเดียว ถ้า `date_from` มาหลัง
+`date_to` จะได้ `400 {"error": "invalid_filter", "field": "date_to"}` โน้ตที่ไม่ได้ระบุ `class_date`
+จะไม่ถูกนับเมื่อใช้ตัวกรองนี้เช่นกัน (หาเจอได้ด้วย `q` หรือตัวกรองอื่นตามปกติ)
+
+ทุกตัวกรองต่อกันด้วย AND ใช้พร้อมกันได้ทั้งหมด (US-10 + US-26)
+
 `limit` ถูก clamp ไว้ที่ 1–100 และ `offset` ต่ำสุด 0 ค่าติดลบจึงไม่หลุดไปถึง SQL
 
 ค่าที่ผิดรูปจะได้ `400` (`{"error": "invalid_filter", "field": ...}`) ไม่ใช่ `500`
 และ `sort` รับได้เฉพาะค่าใน allowlist เท่านั้น ไม่ได้เอาค่าจาก client ไปต่อเป็น SQL
+
+### รายการโปรด (US-15)
+
+สมาชิกที่ login แล้วบันทึกโน้ตไว้อ่านทีหลังได้ ทุก endpoint ต้องส่ง `Authorization: Bearer <access_token>`
+เหมือน `POST /notes` และ**เจ้าของรายการมาจาก token เสมอ** ไม่รับ user id จาก URL หรือ body จึงแตะรายการของคนอื่นไม่ได้
+
+| Method | Path | ผลลัพธ์ |
+| --- | --- | --- |
+| `POST` | `/notes/<id>/favorite` | ครั้งแรก `201`, กดซ้ำ `200` (ไม่เกิดแถวซ้ำ) · body `{"note_id", "is_favorited": true, "favorited_at"}` |
+| `DELETE` | `/notes/<id>/favorite` | `204` ทั้งกรณีเอาออกสำเร็จและกรณีโน้ตไม่ได้อยู่ในรายการอยู่แล้ว |
+| `GET` | `/notes/favorites` | `200 {"items": [...], "count": n}` — ว่างได้ `{"items": [], "count": 0}` |
+
+| กรณี | Response |
+| --- | --- |
+| ไม่มี token, token ผิด/หมดอายุ หรือ logout ไปแล้ว | `401` `{"error": "unauthorized"}` |
+| เรียก auth-service ไม่ถึง | `503` `{"error": "auth_unavailable"}` |
+| `POST`/`DELETE` กับโน้ตที่ไม่มีอยู่ | `404` `{"error": "not_found"}` |
+
+- **บันทึกโน้ตของตัวเองได้** ไม่มีข้อจำกัดว่าต้องเป็นโน้ตของคนอื่น
+- **`GET /notes/favorites`** แสดงเฉพาะของตัวเอง เรียง `favorited_at` ล่าสุดก่อน ทุก item เป็น object ของโน้ตเดิม
+  บวก `is_favorited: true` และ `favorited_at` · รับ `limit`/`offset` กติกา clamp เดียวกับ `GET /notes`
+  (`limit` 1–100, `offset` ต่ำสุด 0, ค่าที่ไม่ใช่ตัวเลขได้ `400`)
+- **แยกจากผลค้นหา** — `GET /notes` ไม่ถูกกรองด้วยรายการโปรด ยังคืนโน้ตทั้งหมดตามตัวกรองเหมือนเดิม
+- **โน้ตที่เจ้าของลบแล้ว (US-20)** ไม่แสดงในรายการ — ตอนอ่าน JOIN กับ `notes` ไม่ได้ไปแก้ `DELETE /notes/<id>`
+  เพราะ SQLite ไม่บังคับ cascade ถ้าไม่เปิดเอง แถวใน `favorites` ที่ค้างอยู่จึงไม่มีผลต่อสิ่งที่ผู้ใช้เห็น
+- **`is_favorited` ในโน้ตแต่ละรายการ** (`GET /notes`, `GET /notes/<id>`):
+
+  | ผู้เรียก | ค่า |
+  | --- | --- |
+  | login แล้ว | `true` / `false` ตามรายการโปรดของตัวเอง |
+  | ไม่ login หรือ token ใช้ไม่ได้ | `null` (UI ควรชวน login แทนการแสดงปุ่ม ★) |
+  | auth-service ล่ม | `null` — การค้นหายังใช้ได้ (`200`) ไม่กลายเป็น `503` |
+
+  ดึงสถานะของทั้งหน้าด้วย query เดียว (`note_id IN (...)`) ไม่ query ทีละโน้ต · ถ้าไม่มี header `Authorization`
+  เลยจะไม่เรียก auth-service เลย endpoint อ่านอย่างเดียวจึงยังไม่พึ่ง auth-service เหมือนเดิม
+- ตาราง `favorites` เป็นตารางใหม่ (`user_id`, `note_id`, `created_at`, unique `(user_id, note_id)`) สร้างให้อัตโนมัติ
+  ไม่ต้อง `docker compose down -v` · `user_id` ไม่ใช่ foreign key เพราะตาราง users เป็นของ auth-service (ADR-005)
+  เหตุผลเดียวกับ `uploader_id`
+- ยังไม่มีจำนวนคนที่บันทึกต่อโน้ต (`favorite_count`) — ตัดออกจากขอบเขตของ US-15
+
+```bash
+curl -X POST   http://localhost:5001/notes/1/favorite -H "Authorization: Bearer $TOKEN"   # 201 ครั้งแรก, 200 ถ้าซ้ำ
+curl           http://localhost:5001/notes/favorites -H "Authorization: Bearer $TOKEN"
+curl -X DELETE http://localhost:5001/notes/1/favorite -H "Authorization: Bearer $TOKEN"   # 204
+```
 
 ### `GET /notes/<id>/download` — ดาวน์โหลดและนับยอด (US-12)
 
@@ -239,7 +299,7 @@ curl -O -J http://localhost:5001/notes/1/download
 | --- | --- |
 | `app.py` | route ทั้งหมด + app factory (`create_app`) |
 | `identity.py` | ตรวจ Bearer token ผ่าน `GET /auth/me` ของ auth-service — `create_app(identity=...)` ส่งตัวปลอมเข้ามาแทนในเทสต์ได้ |
-| `models.py` | ตาราง `notes` และ session factory |
+| `models.py` | ตาราง `notes`, `favorites` (US-15) และ session factory |
 | `validation.py` | ตรวจ metadata/ไฟล์ — pure function ทดสอบแยกได้ |
 | `storage.py` | interface เก็บไฟล์ (ตอนนี้เป็น local disk) |
 | `preview.py` | สร้างรูปตัวอย่าง (PNG/PDF → PNG) — pure function ทดสอบแยกได้เหมือน `validation.py` (US-11) |
@@ -247,4 +307,5 @@ curl -O -J http://localhost:5001/notes/1/download
 เทสต์อยู่ที่ [`src/tests/test_notes_validation.py`](../../src/tests/test_notes_validation.py),
 [`src/tests/test_notes_api.py`](../../src/tests/test_notes_api.py),
 [`src/tests/test_notes_identity.py`](../../src/tests/test_notes_identity.py) (คุยกับ auth-service ตัวจริงผ่าน HTTP) และ
-[`src/tests/test_notes_preview.py`](../../src/tests/test_notes_preview.py)
+[`src/tests/test_notes_preview.py`](../../src/tests/test_notes_preview.py) และ
+[`src/tests/test_notes_favorites.py`](../../src/tests/test_notes_favorites.py)
