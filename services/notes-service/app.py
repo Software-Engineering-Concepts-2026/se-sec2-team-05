@@ -503,6 +503,15 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
 
             if note is None:
                 return jsonify(error="not_found"), 404
+
+            session.execute(
+                update(Note)
+                .where(Note.id == note_id)
+                .values(view_count=Note.view_count + 1)
+            )
+            session.commit()
+            session.refresh(note)
+
             flags = favorite_flags(session, optional_user_id(), [note])
             return jsonify({**note.to_dict(), "is_favorited": flags.get(note.id)})
 

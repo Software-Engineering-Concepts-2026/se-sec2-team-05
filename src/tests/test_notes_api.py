@@ -129,6 +129,18 @@ def test_new_note_starts_with_zero_downloads(client):
     assert body["download_count"] == 0
 
 
+def test_view_increments_count_without_changing_download_count(client):
+    note_id = upload(client).get_json()["id"]
+
+    body = client.get(f"/notes/{note_id}").get_json()
+    assert body["view_count"] == 1
+    assert body["download_count"] == 0
+
+    body = client.get(f"/notes/{note_id}").get_json()
+    assert body["view_count"] == 2
+    assert body["download_count"] == 0
+
+
 def test_download_increments_count(client):
     note_id = upload(client).get_json()["id"]
 
