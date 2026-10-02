@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NoteShare - เข้าสู่ระบบ</title>
+<link rel="stylesheet" href="style.css">
+<script src="session-utils.js" defer></script>
+<script src="site.js" defer></script>
+<script src="login.js" defer></script>
+</head>
+<body>
+
+<nav id="siteNav" class="site-nav" aria-label="เมนูหลัก"></nav>
+
+<main class="page-card form-card">
+  <div class="tab-list" role="tablist" aria-label="เข้าสู่ระบบหรือสมัครสมาชิก">
+    <button type="button" role="tab" id="loginTab" class="tab" aria-controls="loginForm" aria-selected="true">เข้าสู่ระบบ</button>
+    <button type="button" role="tab" id="registerTab" class="tab" aria-controls="registerForm" aria-selected="false" tabindex="-1">สมัครสมาชิก</button>
+  </div>
+
+  <p id="authNotice" class="notice-box" role="status" hidden></p>
+
+  <!-- US-06 (#6) -->
+  <form id="loginForm" class="stack-form" role="tabpanel" aria-labelledby="loginTab" novalidate>
+    <p id="loginError" class="error-box" role="alert" hidden></p>
+
+    <label class="form-field">
+      <span>อีเมลมหาวิทยาลัย</span>
+      <input type="email" name="email" class="text-input" autocomplete="username" required
+             aria-describedby="loginEmailError">
+      <span id="loginEmailError" class="field-error" data-error-for="email" hidden></span>
+    </label>
+
+    <label class="form-field">
+      <span>รหัสผ่าน</span>
+      <input type="password" name="password" class="text-input" autocomplete="current-password" required
+             aria-describedby="loginPasswordError">
+      <span id="loginPasswordError" class="field-error" data-error-for="password" hidden></span>
+    </label>
+
+    <button type="submit" class="primary-btn">เข้าสู่ระบบ</button>
+  </form>
+
+  <!-- US-05 (#5) -->
+  <form id="registerForm" class="stack-form" role="tabpanel" aria-labelledby="registerTab" novalidate hidden>
+    <p id="registerError" class="error-box" role="alert" hidden></p>
+
+    <label class="form-field">
+      <span>ชื่อที่แสดงบนโน้ต</span>
+      <input type="text" name="display_name" class="text-input" autocomplete="name" maxlength="120" required
+             aria-describedby="registerNameHint registerNameError">
+      <small id="registerNameHint" class="field-hint">ชื่อนี้จะแนบไปกับโน้ตทุกอันที่คุณอัปโหลด</small>
+      <span id="registerNameError" class="field-error" data-error-for="display_name" hidden></span>
+    </label>
+
+    <label class="form-field">
+      <span>อีเมลมหาวิทยาลัย</span>
+      <input type="email" name="email" class="text-input" autocomplete="username" required
+             placeholder="เช่น 67000000@up.ac.th" aria-describedby="registerEmailError">
+      <span id="registerEmailError" class="field-error" data-error-for="email" hidden></span>
+    </label>
+
+    <label class="form-field">
+      <span>รหัสผ่าน</span>
+      <input type="password" name="password" class="text-input" autocomplete="new-password" minlength="8"
+             maxlength="128" required aria-describedby="registerPasswordHint registerPasswordError">
+      <small id="registerPasswordHint" class="field-hint">อย่างน้อย 8 ตัวอักษร</small>
+      <span id="registerPasswordError" class="field-error" data-error-for="password" hidden></span>
+    </label>
+
+    <button type="submit" class="primary-btn">สมัครสมาชิก</button>
+  </form>
+</main>
+
+</body>
+</html>

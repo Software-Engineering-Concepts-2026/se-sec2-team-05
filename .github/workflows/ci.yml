@@ -47,7 +47,7 @@ jobs:
         working-directory: prototypes/sprint1
         run: node --test
 
-      - name: Run web search-utils tests
+      - name: Run web unit tests
         working-directory: web
         run: node --test
 
@@ -257,10 +257,17 @@ jobs:
           # เก็บลงไฟล์ก่อน grep — ถ้า pipe ตรง ๆ grep -q ปิด pipe เร็ว curl โดน SIGPIPE แล้ว pipefail ทำให้ step ล้มแบบสุ่ม
           curl -fsS "$gw/" -o /tmp/index.html
           grep -q 'id="searchForm"' /tmp/index.html
-          curl -fsS -o /dev/null "$gw/search-utils.js"
-          curl -fsS -o /dev/null "$gw/app.js"
+          curl -fsS "$gw/login.html" -o /tmp/login.html
+          grep -q 'id="loginForm"' /tmp/login.html
+          curl -fsS "$gw/upload.html" -o /tmp/upload.html
+          grep -q 'id="uploadForm"' /tmp/upload.html
+          for js in app.js site.js login.js upload.js search-utils.js session-utils.js upload-utils.js; do
+            curl -fsS -o /dev/null "$gw/$js"
+          done
           # ไฟล์เทสต์กับ config ต้องไม่ถูกเสิร์ฟออกไป
-          test "$(curl -s -o /dev/null -w '%{http_code}' "$gw/search-utils.test.js")" = "404"
+          for js in search-utils.test.js session-utils.test.js upload-utils.test.js; do
+            test "$(curl -s -o /dev/null -w '%{http_code}' "$gw/$js")" = "404"
+          done
 
           # query string ต้องไปถึง notes-service ครบ (โน้ต CS201 สร้างไว้ใน step end-to-end ด้านบน)
           test "$(curl -fsS "$gw/notes?subject_code=CS201&year_level=2" | jq '.count')" -eq 1
@@ -281,6 +288,14 @@ jobs:
           status=$(curl -s -D /tmp/gateway-headers.txt -o /dev/null -w '%{http_code}' "$gw$preview_url")
           test "$status" = "200"
           grep -qi '^content-type: image/png' /tmp/gateway-headers.txt
+
+          # login ผ่าน gateway แบบที่ login.html ทำ (JSON) แล้ว logout ต้องทำให้ token นั้นใช้ไม่ได้ทันที
+          web_token=$(curl -fsS -X POST "$gw/auth/login" -H 'Content-Type: application/json' \
+            -d '{"email":"ci.uploader@up.ac.th","password":"ci uploader password"}' | jq -r '.access_token')
+          test "$web_token" != "null"
+          echo "::add-mask::$web_token"
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$gw/auth/logout" -H "Authorization: Bearer $web_token")" = "204"
+          test "$(curl -s -o /dev/null -w '%{http_code}' "$gw/auth/me" -H "Authorization: Bearer $web_token")" = "401"
           echo "gateway OK"
 
       - name: Dump logs on failure

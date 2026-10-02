@@ -1,5 +1,5 @@
 /* Look carried over from prototypes/sprint1/wachirawit_search_note_prototype.css,
-   widened for the extra filters and the preview dialog */
+   widened for the extra filters and the preview dialog, and reused by the login and upload pages */
 * { box-sizing: border-box; }
 
 body {
@@ -19,7 +19,7 @@ body {
   white-space: nowrap;
 }
 
-.search-card {
+.page-card {
   max-width: 760px;
   margin: 0 auto;
   background: #fff;
@@ -199,6 +199,96 @@ body {
 .preview-frame img[hidden] { display: none; }
 .preview-status { color: #666; font-size: 13px; padding: 40px 16px; margin: auto; text-align: center; }
 .preview-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+
+/* ---- Top nav bar (site.js) ---- */
+.site-nav {
+  max-width: 760px;
+  margin: 0 auto 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  font-size: 14px;
+}
+.nav-links,
+.nav-user { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 16px; }
+.nav-links a { color: #333; text-decoration: none; }
+.nav-links a:hover { text-decoration: underline; }
+.nav-links a[aria-current="page"] { color: #4a90e2; font-weight: 600; }
+.nav-links .nav-brand { font-weight: 700; font-size: 16px; color: #222; }
+.nav-name { font-weight: 600; overflow-wrap: anywhere; }
+
+/* ---- Login and upload forms ---- */
+.form-card { max-width: 440px; }
+.page-lead { margin: -8px 0 16px; }
+.form-card-wide { max-width: 640px; }
+
+.tab-list { display: flex; border-bottom: 1px solid #e0e0e0; margin-bottom: 18px; }
+.tab {
+  flex: 1;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 10px 0;
+  font-size: 15px;
+  font-family: inherit;
+  color: #666;
+  cursor: pointer;
+}
+.tab[aria-selected="true"] { color: #222; font-weight: 600; border-bottom-color: #4a90e2; }
+
+.stack-form { display: flex; flex-direction: column; gap: 14px; }
+.stack-form[hidden] { display: none; }
+.field-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+.form-field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #444; }
+.text-input {
+  background: #f6f7fb;
+  border: 1px solid #d9dde5;
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 14px;
+  color: #222;
+  font-family: inherit;
+}
+.text-input:focus { border-color: #4a90e2; box-shadow: 0 0 0 2px rgba(74, 144, 226, .15); outline: none; }
+.text-input[aria-invalid="true"],
+.file-input[aria-invalid="true"] { border-color: #d93025; }
+.file-input { font-size: 13px; font-family: inherit; }
+.field-hint { font-size: 12px; color: #888; margin: 0; }
+.field-error { display: block; font-size: 12px; color: #b3261e; }
+.field-error[hidden] { display: none; }
+.required { color: #b3261e; font-style: normal; }
+.stack-form .primary-btn { align-self: flex-start; padding: 10px 22px; font-size: 14px; }
+.primary-btn:disabled { opacity: .6; cursor: progress; }
+
+.notice-box {
+  background: #e8f5e9;
+  border: 1px solid #b7dfba;
+  color: #1e5b24;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+.error-box a { color: inherit; font-weight: 600; }
+
+.done-box { display: flex; flex-direction: column; gap: 14px; }
+.done-box[hidden] { display: none; }
+.done-title { margin: 0; font-size: 18px; color: #1e5b24; }
+.done-title:focus { outline: none; }
+.token-box {
+  background: #fff8e1;
+  border: 1px solid #f3d27a;
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+}
+.token-warning { margin: 0; color: #6b4e00; }
+.token-row { display: flex; gap: 8px; }
+.token-input { flex: 1; min-width: 0; font-family: Consolas, "Courier New", monospace; background: #fff; }
 
 @media (max-width: 560px) {
   .note-card { flex-wrap: wrap; }

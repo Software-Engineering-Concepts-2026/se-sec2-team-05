@@ -157,7 +157,7 @@ Stats Service ที่คืน mock data กับ prototype ฝั่ง fron
 | DK-05 | สมัคร → login → ใช้ token → logout บน Postgres จริง (US-05/US-06) | `curl` ไปที่ `:5002/auth/*` | สมัคร `201` · สมัครซ้ำ `409` · โดเมนอื่น `400` · รหัสผิดกับอีเมลที่ไม่มีได้ body เดียวกัน · `me` ได้ชื่อถูก · logout `204` แล้ว `me` ด้วย token เดิมได้ `401` |
 | DK-06 | อัปโหลดต้อง login และเครดิตมาจากบัญชี (US-31) บน stack จริง | สมัคร + login บัญชี `CI Uploader` แล้ว `POST /notes` สามแบบ (ไม่มี token / token มั่ว / token จริง + `uploader_name=spoofed name`) | สองแบบแรกได้ `401` · แบบที่สามได้ `uploader_name = CI Uploader` · `count = 1` (ครั้งที่ไม่ผ่านไม่ถูกบันทึก) · notes-service คุยกับ auth-service ผ่านเครือข่ายของ compose จริง |
 | DK-07 | preview endpoint ทำงานจริงบน image ที่ build (US-11) — กัน regression ของบั๊ก Dockerfile ที่เคยลืม copy `preview.py` (commit `8f25b9b`) ซึ่ง unit test จับไม่ได้เพราะ import จาก source tree ตรง ๆ | อัปโหลด PNG จริงแล้ว `GET .../preview` โดยไม่ส่ง token, กับอัปโหลดไฟล์ที่ประกาศเป็น `image/png` แต่เนื้อไม่ใช่รูป | ไฟล์จริงได้ `200` + header `Content-Type: image/png` + ไบต์ 8 ตัวแรกตรง PNG signature · ไฟล์ปลอมได้ `422` ไม่ใช่ `500` |
-| DK-08 | web gateway เสิร์ฟหน้าเว็บและส่งต่อ API จาก origin เดียว (ADR-006, US-11/US-31) | `curl :8080/`, `/search-utils.js`, `/app.js`, `/search-utils.test.js` · `GET :8080/notes?subject_code=CS201&year_level=2` และ `?year_level=abc` · `GET :8080/auth/me` แบบไม่มี token และมี token · อัปโหลด PNG ผ่าน `:8080/notes` แล้วเปิด `preview_url` ผ่าน `:8080` | หน้าแรกมี `id="searchForm"` · ไฟล์ JS ได้ `200` · ไฟล์เทสต์ได้ `404` (ไม่ถูก copy เข้า image) · query string ไปถึง service ครบ (`count = 1`, ค่าผิดได้ `400`) · `me` ไม่มี token `401` มี token ได้ `CI Uploader` (header `Authorization` ผ่าน nginx) · upload ได้ `uploader_name = CI Uploader` และ preview ได้ `200` + `image/png` |
+| DK-08 | web gateway เสิร์ฟหน้าเว็บและส่งต่อ API จาก origin เดียว (ADR-006, US-11/US-31) | `curl :8080/`, `/login.html`, `/upload.html`, ไฟล์ JS ทั้ง 7 ไฟล์และไฟล์เทสต์ทั้ง 3 ไฟล์ · `GET :8080/notes?subject_code=CS201&year_level=2` และ `?year_level=abc` · `GET :8080/auth/me` แบบไม่มี token และมี token · อัปโหลด PNG ผ่าน `:8080/notes` แล้วเปิด `preview_url` ผ่าน `:8080` · `POST :8080/auth/login` (JSON) → `POST :8080/auth/logout` → `GET :8080/auth/me` ด้วย token เดิม | หน้าแรกมี `id="searchForm"`, หน้า login มี `id="loginForm"`, หน้าอัปโหลดมี `id="uploadForm"` · ไฟล์ JS ได้ `200` · ไฟล์เทสต์ได้ `404` (ไม่ถูก copy เข้า image) · query string ไปถึง service ครบ (`count = 1`, ค่าผิดได้ `400`) · `me` ไม่มี token `401` มี token ได้ `CI Uploader` (header `Authorization` ผ่าน nginx) · upload ได้ `uploader_name = CI Uploader` และ preview ได้ `200` + `image/png` · login ได้ token, logout ได้ `204` แล้ว token เดิมได้ `401` (US-05/US-06 ผ่าน gateway แบบที่หน้าเว็บเรียก) |
 
 ### 2.7 Auth Service — ตรวจข้อมูลสมัครและ hash รหัสผ่าน (`pytest`, US-05 #5)
 
@@ -347,6 +347,49 @@ pure function ของหน้าค้นหาใน [`web/`](../../web/) �
 · PNG ปลอมแสดงข้อความ preview ไม่ได้แทนรูปแตก · ช่วงวันที่กลับด้านแสดง error ชื่อช่อง · back คืนค่าฟอร์มเดิม · ชื่อโน้ตที่มี
 `<script>` แสดงเป็นข้อความ · ค้นด้วยคำภาษาไทยได้ · console ไม่มี error · ตัว nginx จริงยืนยันผ่าน DK-08 บน CI
 
+### 2.14 Web app — `session-utils.js` + `upload-utils.js` (`node --test`, US-05 #5 + US-06 #6 + US-08 #8 + US-31 #31)
+
+pure function ของหน้าเข้าสู่ระบบและหน้าอัปโหลดใน [`web/`](../../web/) แยกจากส่วนที่แตะ DOM (`site.js`, `login.js`, `upload.js`)
+· storage ถูกส่งเข้าฟังก์ชัน จึงใช้ object ธรรมดาแทน `sessionStorage` ในเทสต์ได้
+
+| # | Test case | Input | ผลที่คาดหวัง |
+| --- | --- | --- | --- |
+| WEB-16 | `sessionFromLogin` เก็บ token วันหมดอายุ และชื่อผู้ใช้จาก `POST /auth/login` | body จริงของ login | ได้ `{token, expiresAt, user: {id, email, display_name}}` ไม่เก็บ `created_at` |
+| WEB-17 | `sessionFromLogin` ไม่รับ body ที่ไม่ครบ | `null`, token ว่าง, `expires_at = 'soon'`, `user = null` | ได้ `null` ทุกกรณี |
+| WEB-18 | `saveSession` แล้ว `loadSession` ได้ session เดิมก่อนหมดอายุ | session ที่หมดอายุ 18:00, เวลาตอนนี้ 10:00 | ได้ค่าเดิม |
+| WEB-19 | `loadSession` ลบ session ที่หมดอายุแล้ว | เวลาตอนนี้ = `expires_at` พอดี | ได้ `null` และ key `noteshare.session` ถูกลบ |
+| WEB-20 | `loadSession` ลบ session ที่อ่านไม่ออก | `'not json'`, `'{}'`, `expiresAt = 'later'` | ได้ `null` และ key ถูกลบทุกกรณี |
+| WEB-21 | storage ใช้ไม่ได้ = ยังไม่ได้เข้าสู่ระบบ | storage ที่ throw ทุก method, `null` | `loadSession` ได้ `null`, `saveSession` ได้ `false`, `clearSession` ไม่ throw |
+| WEB-22 | `clearSession` ทำให้ออกจากระบบ | session ที่บันทึกไว้ | `loadSession` ได้ `null` |
+| WEB-23 | `authHeaders` ส่ง token เป็น Bearer | session, `null` | `{Authorization: 'Bearer …'}`, `{}` |
+| WEB-24 | `safeNextPath` รับเฉพาะหน้าของเว็บนี้และเก็บ query string ไว้ | `/upload.html`, `/?q=CS201&year_level=2`, `/index.html` | ได้ค่าเดิม |
+| WEB-25 | `safeNextPath` กัน open redirect | `null`, `''`, `upload.html`, `https://evil.example/`, `//evil.example/…`, `/\evil.example`, `javascript:…`, `/login.html`, `/notes/1/download` | ได้ `/` ทุกกรณี |
+| WEB-26 | `loginUrl` แนบหน้าที่จะกลับไป | `/upload.html`, `https://evil.example/` | `/login.html?next=%2Fupload.html`, `/login.html?next=%2F` |
+| WEB-27 | `fieldErrors` อ่านเหตุผลรายช่องของ `validation_failed` | `{fields: {email, password}}`, `invalid_credentials`, `null`, `fields` เป็น array | ได้ object ของช่องที่ผิด, `{}` ในกรณีอื่น |
+| WEB-28 | `authErrorMessage` ครอบทุก error ของ auth-service | `invalid_credentials`, `email_taken`, `validation_failed`, `unauthorized`, `auth_unavailable`, status `0`, `502` | login ผิดใช้ `message` ของ service · ข้อความเฉพาะของแต่ละกรณี · `502` บอกเลข HTTP |
+| WEB-29 | `validateUpload` ผ่านเมื่อกรอกครบและแนบ PDF | ฟอร์มครบ + PDF 1 KB | ได้ `{}` |
+| WEB-30 | `validateUpload` รายงานทุกช่องบังคับที่ขาดพร้อมไฟล์ในครั้งเดียว | `title = '   '`, ไม่มีไฟล์ | error ครบ 6 ช่อง + `file = ต้องแนบไฟล์โน้ต` |
+| WEB-31 | `validateUpload` ใช้เพดานความยาวเดียวกับ `validation.py` | title 201, subject_code 31, topic 201 ตัวอักษร · title 200 ตัวอักษร | `ยาวเกิน 200/30/200 ตัวอักษร` · 200 ตัวผ่าน |
+| WEB-32 | `validateUpload` รับชั้นปี 1–8 เท่านั้น | `0`, `9`, `two`, `8` | `ต้องอยู่ระหว่าง 1-8` ×2, `ต้องเป็นตัวเลข`, ผ่าน |
+| WEB-33 | `validateUpload` ตรวจวันที่เรียนเป็นวันจริงแบบ `YYYY-MM-DD` | `2026-08-20`, `20/08/2026`, `2026-02-30`, `2026-13-01` | ผ่าน, ที่เหลือได้ `ต้องเป็นรูปแบบ YYYY-MM-DD` |
+| WEB-34 | `validateUpload` รับ PDF/PNG/JPG เท่านั้น | `image/png`, `image/jpeg` · `application/msword`, `image/gif`, type ว่าง | ผ่าน · `รองรับเฉพาะไฟล์ PDF, PNG และ JPG` |
+| WEB-35 | `validateUpload` ไม่รับไฟล์ว่างและไฟล์เกิน 20 MB | 0 byte, 20 MB + 1 byte, 20 MB พอดี | `ไฟล์ว่าง`, `ไฟล์ใหญ่เกิน 20 MB`, ผ่าน |
+| WEB-36 | `uploadFields` trim ค่าและไม่ส่งช่องไม่บังคับที่ว่าง | `title = '  Calc  '`, `topic` มีค่า, `class_date`/`description` ว่าง, มี `uploader_name` ปนมา | ได้เฉพาะ 6 ช่องบังคับ + `topic` ที่ trim แล้ว ไม่มี `uploader_name` (US-31) |
+| WEB-37 | `uploadErrorMessage` ครอบ error ของ notes-service และเพดานของ gateway | `400 validation_failed`, `401 unauthorized`, `503 auth_unavailable`, `413` ไม่มี body, status `0`, `500` | ข้อความเฉพาะของแต่ละกรณี · `413` = `ไฟล์ใหญ่เกิน 20 MB` |
+| WEB-38 | `searchUrlFor` เปิดหน้าค้นหาที่โน้ตที่เพิ่งอัปโหลด | `title = 'Linked List & Stack'` | `/?q=Linked+List+%26+Stack` |
+
+**ตรวจบน browser จริง (2026-10-02, ด้วยมือ ยังไม่ใช่ E2E อัตโนมัติ):** Docker ไม่ได้เปิด จึงรัน `auth-service` กับ `notes-service`
+ตัวจริงบน SQLite และใช้สคริปต์ Python ที่ทำตัวแทน `web/nginx.conf` (เสิร์ฟเฉพาะไฟล์ที่ `web/Dockerfile` copy) แล้วเปิดใน Chrome ผล:
+เปิด `/upload.html` ตอนยังไม่เข้าสู่ระบบถูกพาไป `/login.html?next=%2Fupload.html` · สมัครแบบไม่กรอกอะไรได้ error ใต้ทั้ง 3 ช่องจาก service
+· อีเมล `@gmail.com` กับรหัสผ่าน 5 ตัวได้เหตุผลตรงช่อง · สมัครสำเร็จแล้วเข้าสู่ระบบต่อเองและกลับไปหน้าอัปโหลด แถบเมนูแสดงชื่อภาษาไทย
+· ส่งฟอร์มอัปโหลดว่างได้ error ครบ 7 ช่องโดยไม่มี request ไป `/notes` · แนบ `.txt` ได้ error ที่ช่องไฟล์ · อัปโหลด PNG สำเร็จ ชื่อโน้ตที่มี
+`<b>` แสดงเป็นข้อความ · ปุ่มคัดลอกรหัสแก้ไขขึ้น "คัดลอกแล้ว" · "ดูในหน้าค้นหา" เจอโน้ตพร้อมชื่อผู้อัปโหลด และ preview แสดงภาพ
+· ออกจากระบบได้ `204` แล้ว token เดิมเรียก `/auth/me` ได้ `401` · login ด้วยรหัสผิดได้ข้อความกลาง ๆ และช่องรหัสผ่านถูกล้าง · login ด้วยอีเมล
+ตัวพิมพ์ใหญ่ปนแล้วกลับหน้าค้นหาพร้อมคำค้นเดิม · เพิกถอน session จากที่อื่นแล้วกดอัปโหลดได้ข้อความพร้อมลิงก์เข้าสู่ระบบ ข้อมูลในฟอร์มยังอยู่
+และไม่มีโน้ตถูกสร้าง · "อัปโหลดอีกไฟล์" ล้างรหัสออกจากหน้าจอและล้างฟอร์ม · เปิด `/login.html?next=https%3A%2F%2Fevil.example%2F`
+ตอนเข้าสู่ระบบอยู่แล้วไปที่ `/` · ออกจากระบบจากหน้าอัปโหลดกลับหน้าค้นหา · console ไม่มี error · DK-08 ตัวใหม่รันผ่านกับตัวแทน nginx
+(`gateway OK`) ตัว nginx จริงยืนยันบน CI · ยังไม่ได้ตรวจบนหน้าจอมือถือ
+
 ## 3. Test Report
 
 **รันล่าสุด:** 2026-09-27 (เครื่อง local, Windows 11, branch `feature/safety-net`)
@@ -357,7 +400,7 @@ pure function ของหน้าค้นหาใน [`web/`](../../web/) �
 | Python unit + integration | `pytest src/tests -v` | ✅ 189 passed / 0 failed / 1 xfailed (~15 s) — stats 4, notes validation 18 + boundary 19, notes API 47, notes identity 13, edit-token property 2, fizzbuzz 5, auth credentials 29, auth email_error 9 (AE-09 เป็น xfail), auth tokens 14, auth API 30 · coverage รวม 99% (`identity.py` 100%, `credentials.py` 100%) |
 | Smoke DK-03 ถึง DK-06 แบบไม่ใช้ Docker | รัน `auth-service` กับ `notes-service` ตัวจริงบน SQLite (notes ชี้ `AUTH_SERVICE_URL` ไปที่ auth) แล้วรันสคริปต์ `run:` ของแต่ละ step ที่ดึงออกมาจาก `ci.yml` ตรง ๆ | ✅ ผ่านครบ 6 step (`upload auth OK`, `end-to-end OK`, `edit/delete OK`, `auth OK`, validation `400`) · บน Postgres + compose จริงรอผลจาก CI เพราะ Docker daemon ไม่ได้เปิดบนเครื่องที่ใช้เขียน · ตอนรันบน Windows ต้องแทน `/tmp/` เป็น path ของ Windows เพราะ curl ของ Windows อ่าน `/tmp` ของ Git Bash ไม่ได้ (ไม่ได้แก้ใน `ci.yml` เพราะ CI รันบน Linux) |
 | Container smoke (compose e2e) | `docker compose up` + `curl` | ✅ ผ่านบน CI ([run #33351842320](https://github.com/Software-Engineering-Concepts-2026/se-sec2-team-05/actions/runs/33351842320), 1m6s) — log ยืนยัน `created note #1` และ `end-to-end OK` · ไม่ได้รัน local เพราะ Docker daemon ไม่ได้เปิดบนเครื่องที่ใช้เขียน |
-| JS unit (web) | `cd web && node --test` | ✅ 15 passed / 0 failed (2026-10-01, branch `feature/web-search-preview`) |
+| JS unit (web) | `cd web && node --test` | ✅ 38 passed / 0 failed (2026-10-02, branch `feature/web-login-upload`) — search-utils 15, session-utils 13, upload-utils 10 |
 
 **ผลรันบน CI (PR #56):** ทั้ง 3 job ผ่านหมด — `js-tests` 13s, `python-tests` 13s, `docker-build` 1m6s
 
