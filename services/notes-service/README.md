@@ -286,10 +286,39 @@ Request body เป็น JSON:
 เหตุผลถูกตัดช่องว่างหัวท้ายและจำกัดไม่เกิน 500 ตัวอักษร ผู้ใช้หนึ่งคนรายงานโน้ตเดิมซ้ำไม่ได้:
 service ตรวจสอบก่อนบันทึก และฐานข้อมูลบังคับ unique `(reporter_id, note_id)` เพื่อกัน request ที่เข้าพร้อมกัน
 
+#### `POST /notes/<id>/reports`
+
+| กรณี | Response |
+| --- | --- |
+| สำเร็จ | `201` + report |
+| ไม่มี `reason` / ว่าง / ชนิดผิด / ยาวเกิน 500 | `400` `{"error": "validation_failed", "fields": {"reason": "required" \| "max_length"}}` |
+| ไม่มี token หรือ token ไม่ถูกต้อง | `401` `{"error": "unauthorized"}` |
+| ไม่มีโน้ตนั้น | `404` `{"error": "not_found"}` |
+| รายงานโน้ตนี้ไปแล้ว | `409` `{"error": "already_reported"}` |
+| auth-service ล่ม | `503` `{"error": "auth_unavailable"}` |
+
 `GET /reports` และ `DELETE /reports/<report_id>` จำกัดเฉพาะ user ID ที่อยู่ใน `ADMIN_USER_IDS`
 (คั่นด้วย comma; ตัวอย่าง `ADMIN_USER_IDS=99,100`) รายการเรียง `created_at` ใหม่ไปเก่า และใช้ `id` เป็นตัวตัดสินเมื่อเวลาเท่ากัน
 การลบรายงานลบเฉพาะ record ของ Report ไม่ได้ลบ Note · หาก Note ถูกลบด้วย edit token เดิม รายงานที่ผูกกับ Note จะถูกลบตาม foreign-key cascade
 
+#### `GET /reports`
+
+| กรณี | Response |
+| --- | --- |
+| สำเร็จ | `200` + `{count, reports}` |
+| ไม่มี token หรือ token ไม่ถูกต้อง | `401` `{"error": "unauthorized"}` |
+| ไม่ใช่ admin | `403` `{"error": "forbidden"}` |
+| auth-service ล่ม | `503` `{"error": "auth_unavailable"}` |
+
+#### `DELETE /reports/<report_id>`
+
+| กรณี | Response |
+| --- | --- |
+| สำเร็จ | `204` |
+| ไม่มี token หรือ token ไม่ถูกต้อง | `401` `{"error": "unauthorized"}` |
+| ไม่ใช่ admin | `403` `{"error": "forbidden"}` |
+| ไม่พบ report | `404` `{"error": "not_found"}` |
+| auth-service ล่ม | `503` `{"error": "auth_unavailable"}` |
 
 ## ตัวอย่างการเรียกใช้
 

@@ -190,7 +190,7 @@ class Report(Base):
     reporter_name: Mapped[str] = mapped_column(String(120), nullable=False)
     reason: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.utcnow, nullable=False
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
     )
 
     def to_dict(self):
