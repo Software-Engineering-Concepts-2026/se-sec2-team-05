@@ -173,6 +173,25 @@ class Favorite(Base):
     )
 
 
+class Thank(Base):
+    """คำขอบคุณเจ้าของโน้ต — US-28 (#28) กดได้ครั้งเดียวต่อโน้ตต่อผู้ใช้ และยกเลิกไม่ได้
+
+    ไม่เก็บข้อความ และ API ไม่เปิดเผยว่าใครกด เจ้าของเห็นแค่จำนวน (ผ่าน stats-service, US-16)
+    เงื่อนไข "หลังดาวน์โหลด" ให้ UI เป็นคนบังคับ ระบบไม่ได้เก็บว่าใครดาวน์โหลดอะไร
+    ตารางนี้ stats-service อ่านจาก DB เดียวกัน จึงห้ามเปลี่ยนชื่อ `thanks` / `note_id` โดยไม่แจ้ง
+    """
+
+    __tablename__ = "thanks"
+    __table_args__ = (UniqueConstraint("user_id", "note_id", name="uq_thanks_user_note"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    note_id: Mapped[int] = mapped_column(Integer, ForeignKey("notes.id"), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+
+
 class Report(Base):
     """รายงานเนื้อหาโน้ต — Issue #17"""
 
