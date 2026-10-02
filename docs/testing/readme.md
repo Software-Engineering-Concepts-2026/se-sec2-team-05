@@ -144,6 +144,20 @@
 | NA-72 | ลบ report ที่ไม่มีอยู่ | admin `DELETE /reports/<id>` ด้วย id ที่ไม่มี | `404 not_found` |
 | NA-73 | admin IDs อ่านจาก env และข้ามค่าที่ไม่ใช่ตัวเลข | `ADMIN_USER_IDS` มี whitespace และค่าที่ไม่ใช่ตัวเลข | แปลงเฉพาะ numeric IDs; ไม่มีค่าแล้วไม่มี admin |
 | NA-74 | ลบ Note ยังคงทำงานเมื่อมี report ผูกอยู่ | ลบ Note ด้วย edit token หลังสร้าง report | Note และ report ที่ผูกผ่าน FK ถูกลบตาม cascade |
+| NA-75 | ขอบคุณเจ้าของโน้ตครั้งแรก (US-28) | Bob `POST /notes/<id>/thanks` โน้ตของ Alice | `201` + `note_id`, `thanked = true`, `thanked_at` |
+| NA-76 | กดขอบคุณซ้ำไม่เพิ่มยอด | `POST .../thanks` สองครั้ง | ครั้งที่สอง `200` · `thanked_at` เท่าเดิม · ตาราง `thanks` มี 1 แถว |
+| NA-77 | ขอบคุณต้อง login | ไม่มี header · token ที่ไม่รู้จัก · auth-service ล่ม | `401` `unauthorized` (ไม่มีแถวใน `thanks`) · `401` · `503` `auth_unavailable` |
+| NA-78 | โน้ตที่ไม่มีอยู่ | `POST /notes/999/thanks` | `404` `not_found` |
+| NA-79 | ขอบคุณโน้ตของตัวเองไม่ได้ | Alice `POST .../thanks` โน้ตที่ตัวเองอัปโหลด | `403` `own_note` · ไม่มีแถวใน `thanks` |
+| NA-80 | หลายคนขอบคุณโน้ตเดียวกันได้คนละครั้ง และนับแยกโน้ต | Bob กับ Carol ขอบคุณ แล้ว Bob กดซ้ำ · ขอบคุณโน้ตหนึ่งจากสองโน้ต | `201` ทั้งคู่ · ยอดของโน้ตนั้น = 2 · อีกโน้ต = 0 |
+| NA-81 | ยกเลิกคำขอบคุณไม่ได้ | `DELETE /notes/<id>/thanks` หลังขอบคุณ | `405` · `thank_status` ยังเป็น `thanked` |
+| NA-82 | API ไม่ตรวจว่าดาวน์โหลดแล้ว ("หลังดาวน์โหลด" เป็นเงื่อนไขฝั่ง UI) | ขอบคุณโน้ตที่ `download_count = 0` | `201` |
+| NA-83 | `thank_status` เปลี่ยนตามการขอบคุณ และแยกตามผู้ใช้ | อ่านโน้ตก่อน/หลัง Bob ขอบคุณ · Carol อ่านโน้ตเดียวกัน | Bob: `can_thank` → `thanked` · Carol: `can_thank` |
+| NA-84 | `thank_status` ของเจ้าของโน้ต | Alice อ่านโน้ตตัวเอง | `own_note` |
+| NA-85 | ไม่ login หรือ token ใช้ไม่ได้ ได้ `thank_status = null` | `GET /notes`, `GET /notes/<id>` ไม่มี header และด้วย token ที่ไม่รู้จัก | `200` และ `thank_status = null` |
+| NA-86 | auth-service ล่มระหว่างค้นหา ค้นหายังใช้ได้ | identity โยน `IdentityUnavailable` แล้ว `GET /notes`, `GET /notes/<id>` ด้วย token ที่ถูก | `200` และ `thank_status = null` (ไม่ใช่ `503`) |
+| NA-87 | `GET /notes` ให้สถานะต่อโน้ตถูกต้องในหน้าเดียวกัน และ query `thanks` ครั้งเดียว | Bob ค้นหาเจอโน้ตที่ยังไม่ขอบคุณ, ขอบคุณแล้ว และโน้ตของตัวเอง · นับ SQL ตอนมี 5 โน้ต | `can_thank` · `thanked` · `own_note` · อ่านตาราง `thanks` 1 ครั้ง |
+| NA-88 | ลบโน้ตลบคำขอบคุณของโน้ตนั้น (US-20) | Bob กับ Carol ขอบคุณ แล้วลบโน้ตด้วย edit token · มีอีกโน้ตที่ Bob ขอบคุณไว้ | `204` ไม่ชน FK · thanks ของโน้ตที่ลบหายหมด · ของอีกโน้ตยังอยู่ |
 
 ### 2.5 Notes Service — แก้ไข/ลบโน้ต (`pytest`, US-19 #19 + US-20 #20)
 
