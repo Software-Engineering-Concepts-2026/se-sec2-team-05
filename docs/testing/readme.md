@@ -118,6 +118,15 @@ Stats Service ที่คืน mock data กับ prototype ฝั่ง fron
 | NA-50 | ไม่ login หรือ token ใช้ไม่ได้ ได้ `is_favorited = null` | `GET /notes`, `GET /notes/<id>` โดยไม่มี header และด้วย token ที่ไม่รู้จัก | `200` และ `is_favorited = null` |
 | NA-51 | auth-service ล่มระหว่างค้นหา ค้นหายังใช้ได้ | identity โยน `IdentityUnavailable` แล้ว `GET /notes`, `GET /notes/<id>` ด้วย token ที่ถูก | `200` และ `is_favorited = null` (ไม่ใช่ `503`) |
 | NA-52 | ดึงสถานะของทั้งหน้าใน query เดียว (D5) | บันทึก 5 โน้ต แล้วนับ SQL ตอน `GET /notes` | มี query ที่อ่านตาราง `favorites` เพียง 1 ครั้ง |
+| NA-53 | แสดงความคิดเห็นโดยไม่ login | `POST /notes/<id>/comments` ไม่มี Authorization | `401` |
+| NA-54 | token ไม่ถูกต้อง | `POST /notes/<id>/comments` + invalid Bearer token | `401` |
+| NA-55 | comment ว่าง | `POST /notes/<id>/comments` + `{"content": "   "}` | `400` |
+| NA-56 | comment ยาวเกิน 1000 ตัวอักษร | `POST /notes/<id>/comments` + content 1001 chars | `400` |
+| NA-57 | แสดงความคิดเห็นใน note ที่ไม่มีอยู่ | `POST /notes/999/comments` | `404` |
+| NA-58 | แสดง comments เรียงจากใหม่ไปเก่า | `GET /notes/<id>/comments` | `200` + comments เรียง `created_at` ล่าสุดก่อน |
+| NA-59 | ลบ comment ของตัวเอง | `DELETE /notes/<id>/comments/<comment_id>` | `204` |
+| NA-60 | ลบ comment ของคนอื่น | `DELETE /notes/<id>/comments/<comment_id>` ด้วย user คนอื่น | `403` |
+| NA-61 | ลบ note แล้ว comments ถูกลบด้วย | สร้าง comment → `DELETE /notes/<id>` → ตรวจ DB | comment ไม่เหลือใน DB |
 
 ### 2.5 Notes Service — แก้ไข/ลบโน้ต (`pytest`, US-19 #19 + US-20 #20)
 
