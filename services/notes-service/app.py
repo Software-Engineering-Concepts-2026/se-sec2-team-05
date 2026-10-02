@@ -15,6 +15,7 @@ Endpoint:
     DELETE /notes/<id>/comments/<comment_id> ลบความคิดเห็นของตัวเอง (Issue #14)
     POST   /notes/<id>/favorite  บันทึกเข้ารายการโปรด ต้อง login (US-15)
     DELETE /notes/<id>/favorite  เอาออกจากรายการโปรด ต้อง login (US-15)
+    POST   /notes/<id>/thanks    ขอบคุณเจ้าของโน้ต ต้อง login กดได้ครั้งเดียวต่อโน้ต (US-28)
     PATCH  /notes/<id>        แก้ metadata บางส่วน (US-19) ต้องมี X-Note-Token
     DELETE /notes/<id>        ลบโน้ตพร้อมไฟล์ (US-20) ต้องมี X-Note-Token
     GET  /notes/<id>/download ดาวน์โหลดไฟล์จริง
@@ -34,7 +35,7 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 
 from identity import IdentityUnavailable, identity_from_env
-from models import Comment, Favorite, Note, Report, build_session_factory
+from models import Comment, Favorite, Note, Report, Thank, build_session_factory
 from preview import PreviewUnavailable, render_preview
 from storage import storage_from_env
 from tokens import HEADER_NAME, issue_token, token_matches
@@ -495,6 +496,43 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
             )
             session.commit()
         return "", 204
+
+    @app.post("/notes/<int:note_id>/thanks")
+    def thank_owner(note_id):
+        """ขอบคุณเจ้าของโน้ต — US-28 (#28)
+
+        ต้อง login · ขอบคุณโน้ตตัวเองไม่ได้ · ครั้งแรก 201 กดซ้ำ 200 (ไม่เพิ่มยอด) ·
+        ไม่มี endpoint ยกเลิก · "หลังดาวน์โหลด" เป็นเงื่อนไขฝั่ง UI ไม่ได้ตรวจที่นี่
+        """
+        user, failure = require_user()
+        if failure:
+            return failure
+        with session_factory() as session:
+            note = session.get(Note, note_id)
+            if note is None:
+                return jsonify(error="not_found"), 404
+            if note.uploader_id == user["id"]:
+                return jsonify(error="own_note"), 403
+
+            def find_existing():
+                return session.scalars(
+                    select(Thank).where(Thank.user_id == user["id"], Thank.note_id == note_id)
+                ).first()
+
+            thank, status = find_existing(), 200
+            if thank is None:
+                thank, status = Thank(user_id=user["id"], note_id=note_id), 201
+                session.add(thank)
+                try:
+                    session.commit()
+                except IntegrityError:
+                    # กดซ้อนสองครั้งพร้อมกัน — อีก request บันทึกไปก่อน ถือว่ากดซ้ำ
+                    session.rollback()
+                    thank, status = find_existing(), 200
+            return (
+                jsonify(note_id=note_id, thanked=True, thanked_at=utc_iso(thank.created_at)),
+                status,
+            )
 
     @app.get("/notes/<int:note_id>")
     def get_note(note_id):
