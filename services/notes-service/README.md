@@ -22,15 +22,15 @@ pip install -r services/notes-service/requirements.txt
 NOTES_STORAGE_DIR=./data python services/notes-service/app.py
 ```
 
-การอัปโหลดและรายการโปรดต้องมี auth-service รันอยู่ด้วย (ดู [README ของ auth-service](../auth-service/README.md))
-ถ้าเรียกไม่ถึง `POST /notes` และ endpoint ของรายการโปรดจะตอบ `503` ส่วน endpoint อ่านอย่างเดียวใช้ได้ตามปกติ
-(`is_favorited` จะเป็น `null` ระหว่างนั้น)
+การอัปโหลด รายการโปรด และการขอบคุณต้องมี auth-service รันอยู่ด้วย (ดู [README ของ auth-service](../auth-service/README.md))
+ถ้าเรียกไม่ถึง `POST /notes`, endpoint ของรายการโปรด และ `POST /notes/<id>/thanks` จะตอบ `503` ส่วน endpoint อ่านอย่างเดียวใช้ได้ตามปกติ
+(`is_favorited` และ `thank_status` จะเป็น `null` ระหว่างนั้น)
 
 | Environment variable | ค่า default | ใช้ทำอะไร |
 | --- | --- | --- |
 | `DATABASE_URL` | `sqlite:///notes.db` | SQLAlchemy URL — compose ตั้งเป็น `postgresql+psycopg://...` |
 | `NOTES_STORAGE_DIR` | `/data/notes` | โฟลเดอร์เก็บไฟล์โน้ต (mount เป็น volume ใน compose) |
-| `AUTH_SERVICE_URL` | `http://localhost:5002` | ที่อยู่ของ auth-service ใช้ตรวจ token ตอนอัปโหลดและใช้รายการโปรด — compose ตั้งเป็น `http://auth-service:5002` |
+| `AUTH_SERVICE_URL` | `http://localhost:5002` | ที่อยู่ของ auth-service ใช้ตรวจ token ตอนอัปโหลด ใช้รายการโปรด และขอบคุณเจ้าของโน้ต — compose ตั้งเป็น `http://auth-service:5002` |
 | `ADMIN_USER_IDS` | ว่าง | comma-separated user IDs ที่จัดการรายงานได้ เช่น `99,100` — ไม่มีค่าแปลว่าไม่มี admin |
 
 ## API
@@ -50,6 +50,7 @@ NOTES_STORAGE_DIR=./data python services/notes-service/app.py
 | `DELETE` | `/notes/<id>/comments/<comment_id>` | ลบความคิดเห็นของตัวเอง — ต้อง login → `204` (Issue #14) |
 | `POST` | `/notes/<id>/favorite` | บันทึกเข้ารายการโปรด → `201` (ครั้งแรก) / `200` (มีอยู่แล้ว) — **ต้อง login** (US-15) |
 | `DELETE` | `/notes/<id>/favorite` | เอาออกจากรายการโปรด → `204` — **ต้อง login** (US-15) |
+| `POST` | `/notes/<id>/thanks` | ขอบคุณเจ้าของโน้ต → `201` (ครั้งแรก) / `200` (กดซ้ำ) — **ต้อง login** กดได้ครั้งเดียวต่อโน้ต (US-28) |
 | `PATCH` | `/notes/<id>` | แก้ metadata บางส่วน — ต้องมี `X-Note-Token` (US-19) |
 | `DELETE` | `/notes/<id>` | ลบโน้ตพร้อมไฟล์ — ต้องมี `X-Note-Token` (US-20) → `204` |
 | `GET` | `/notes/<id>/download` | ดาวน์โหลดไฟล์จริง (ตั้งชื่อไฟล์ตามที่ผู้ใช้อัปโหลดมา) และนับยอดดาวน์โหลด (US-12) |
@@ -156,6 +157,46 @@ request ที่ใหญ่เกิน 21 MB (ไฟล์ 20 MB + ที่�
 curl -X POST   http://localhost:5001/notes/1/favorite -H "Authorization: Bearer $TOKEN"   # 201 ครั้งแรก, 200 ถ้าซ้ำ
 curl           http://localhost:5001/notes/favorites -H "Authorization: Bearer $TOKEN"
 curl -X DELETE http://localhost:5001/notes/1/favorite -H "Authorization: Bearer $TOKEN"   # 204
+```
+
+### ขอบคุณเจ้าของโน้ต (US-28)
+
+สมาชิกที่ login แล้วกดขอบคุณเจ้าของโน้ตได้ เป็นปุ่มกดอย่างเดียว **ไม่มีข้อความ** (อยากเขียนถึงเจ้าของให้ใช้คอมเมนต์ของ Issue #14)
+ต้องส่ง `Authorization: Bearer <access_token>` เหมือน `POST /notes` และผู้ขอบคุณมาจาก token เสมอ ไม่รับ user id จาก body
+
+`POST /notes/<id>/thanks` — ไม่ต้องมี body
+
+| กรณี | Response |
+| --- | --- |
+| ขอบคุณครั้งแรก | `201` `{"note_id", "thanked": true, "thanked_at"}` |
+| กดซ้ำ | `200` body เดิม (`thanked_at` ไม่เปลี่ยน) · ไม่เกิดแถวซ้ำ ยอดไม่เพิ่ม |
+| ไม่มี token, token ผิด/หมดอายุ หรือ logout ไปแล้ว | `401` `{"error": "unauthorized"}` |
+| เรียก auth-service ไม่ถึง | `503` `{"error": "auth_unavailable"}` |
+| ไม่มีโน้ตนั้น | `404` `{"error": "not_found"}` |
+| ขอบคุณโน้ตของตัวเอง | `403` `{"error": "own_note"}` |
+
+- **กดได้ครั้งเดียวต่อโน้ตต่อผู้ใช้ และยกเลิกไม่ได้** — ไม่มี `DELETE` (ได้ `405`) ตาราง `thanks` มี unique `(user_id, note_id)`
+  กันแถวซ้ำแม้กดพร้อมกันสองครั้ง
+- **"หลังดาวน์โหลด" เป็นเงื่อนไขของ UI** — ให้หน้าเว็บแสดงปุ่มหลังดาวน์โหลดสำเร็จ API ไม่ได้ตรวจเพราะระบบไม่ได้เก็บว่าใครดาวน์โหลดอะไร
+  (`download_count` เป็นยอดรวม และการดาวน์โหลดไม่ต้อง login) ตอนนี้หน้าเว็บยังไม่มีปุ่มนี้ ใช้ได้ผ่าน API เท่านั้น
+- **ไม่เปิดเผยตัวผู้ขอบคุณ** — notes-service ไม่มี endpoint ที่คืนรายชื่อหรือยอดขอบคุณ
+- **เจ้าของลบโน้ต (US-20)** — `DELETE /notes/<id>` ลบแถว `thanks` ของโน้ตนั้นใน transaction เดียวกับตัวโน้ต
+- **`thank_status` ในโน้ตแต่ละรายการ** (`GET /notes`, `GET /notes/<id>`):
+
+  | ผู้เรียก | ค่า |
+  | --- | --- |
+  | ไม่ login หรือ token ใช้ไม่ได้ | `null` |
+  | auth-service ล่ม | `null` — การค้นหายังใช้ได้ (`200`) ไม่กลายเป็น `503` |
+  | เป็นเจ้าของโน้ต | `"own_note"` |
+  | ขอบคุณไปแล้ว | `"thanked"` |
+  | login แล้วยังไม่ได้ขอบคุณ | `"can_thank"` |
+
+  ดึงสถานะของทั้งหน้าด้วย query เดียว (`note_id IN (...)`) ไม่ query ทีละโน้ต เหมือน `is_favorited`
+- ตาราง `thanks` เป็นตารางใหม่ (`user_id`, `note_id`, `created_at`, unique `(user_id, note_id)`) สร้างให้อัตโนมัติ
+  ไม่ต้อง `docker compose down -v` · `user_id` ไม่ใช่ foreign key เหตุผลเดียวกับ `favorites`
+
+```bash
+curl -X POST http://localhost:5001/notes/1/thanks -H "Authorization: Bearer $TOKEN"   # 201 ครั้งแรก, 200 ถ้าซ้ำ
 ```
 
 ### `GET /notes/<id>/download` — ดาวน์โหลดและนับยอด (US-12)
@@ -342,7 +383,7 @@ curl -O -J http://localhost:5001/notes/1/download
 | --- | --- |
 | `app.py` | route ทั้งหมด + app factory (`create_app`) |
 | `identity.py` | ตรวจ Bearer token ผ่าน `GET /auth/me` ของ auth-service — `create_app(identity=...)` ส่งตัวปลอมเข้ามาแทนในเทสต์ได้ |
-| `models.py` | ตาราง `notes`, `favorites` (US-15) และ session factory |
+| `models.py` | ตาราง `notes`, `favorites` (US-15), `thanks` (US-28) และ session factory |
 | `validation.py` | ตรวจ metadata/ไฟล์ — pure function ทดสอบแยกได้ |
 | `storage.py` | interface เก็บไฟล์ (ตอนนี้เป็น local disk) |
 | `preview.py` | สร้างรูปตัวอย่าง (PNG/PDF → PNG) — pure function ทดสอบแยกได้เหมือน `validation.py` (US-11) |
@@ -350,5 +391,6 @@ curl -O -J http://localhost:5001/notes/1/download
 เทสต์อยู่ที่ [`src/tests/test_notes_validation.py`](../../src/tests/test_notes_validation.py),
 [`src/tests/test_notes_api.py`](../../src/tests/test_notes_api.py),
 [`src/tests/test_notes_identity.py`](../../src/tests/test_notes_identity.py) (คุยกับ auth-service ตัวจริงผ่าน HTTP) และ
-[`src/tests/test_notes_preview.py`](../../src/tests/test_notes_preview.py) และ
-[`src/tests/test_notes_favorites.py`](../../src/tests/test_notes_favorites.py)
+[`src/tests/test_notes_preview.py`](../../src/tests/test_notes_preview.py),
+[`src/tests/test_notes_favorites.py`](../../src/tests/test_notes_favorites.py) และ
+[`src/tests/test_notes_thanks.py`](../../src/tests/test_notes_thanks.py)
