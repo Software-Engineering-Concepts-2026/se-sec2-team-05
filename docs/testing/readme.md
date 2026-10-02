@@ -5,7 +5,7 @@
 
 ## 1. กลยุทธ์การทดสอบ
 
-Stats Service reads real note statistics from the database and exposes the HTTP contract for the front-end.
+ปัจจุบัน Stats Service อ่านสถิติของโน้ตจริงจาก database และให้บริการ HTTP contract สำหรับ front-end โดยทดสอบทั้ง endpoint ของ Stats Service และการนับ view/download ของ Notes Service
 
 | ระดับ | ขอบเขต | เครื่องมือ | ทำไมเลือกตัวนี้ |
 | --- | --- | --- | --- |
@@ -38,6 +38,11 @@ Stats Service reads real note statistics from the database and exposes the HTTP 
 | PY-02 | timestamp เป็น ISO และมี timezone | `GET /health` | `datetime.fromisoformat()` parse ผ่าน และ `tzinfo` ไม่เป็น `None` |
 | PY-03 | รูปร่าง response ของ stats ตรง contract | `GET /stats` | `200`, มีคีย์ `total_downloads`, `total_notes`, `top_contributors` ครบและชนิดถูก |
 | PY-04 | route ที่ไม่มีอยู่ | `GET /does-not-exist` | `404` |
+| PY-05 | ต้อง login ก่อนดูสถิติของโน้ต | `GET /notes/<id>/stats` ไม่มี Authorization | `401` |
+| PY-06 | ผู้ใช้ที่ไม่ใช่เจ้าของดูสถิติไม่ได้ | `GET /notes/<id>/stats` ด้วยบัญชีอื่น | `403` |
+| PY-07 | โน้ตที่ไม่มีอยู่ | `GET /notes/<id>/stats` ด้วย id ที่ไม่มี | `404` |
+| PY-08 | เจ้าของโน้ตดูสถิติได้ | `GET /notes/<id>/stats` ด้วยบัญชีเจ้าของ | `200` + `note_id`, `views`, `downloads` |
+| PY-09 | view และ download แยกจากกัน | `GET /notes/<id>` แล้วตรวจ counters | `view_count` เพิ่ม โดย `download_count` ไม่เพิ่ม |
 
 ### 2.3 Notes Service — validation ของ metadata (`pytest`, US-08 AC ข้อ 2–3)
 
@@ -111,6 +116,8 @@ Stats Service reads real note statistics from the database and exposes the HTTP 
 | NE-11 | แก้/ลบโน้ตที่ไม่มีอยู่ | `PATCH`/`DELETE /notes/999` | `404` ทั้งคู่ |
 
 ### 2.6 Container smoke test (CI เท่านั้น)
+
+> **หมายเหตุ:** `view_count` เป็นคอลัมน์ใหม่ในตาราง `notes` และโปรเจกต์ยังไม่มี migration สำหรับ schema นี้ หากมี PostgreSQL volume เก่าอยู่ ให้รัน `docker compose down -v` ก่อน `docker compose up` เพื่อสร้าง database schema ใหม่
 
 | # | Test case | ขั้นตอน | ผลที่คาดหวัง |
 | --- | --- | --- | --- |
@@ -244,7 +251,7 @@ Stats Service reads real note statistics from the database and exposes the HTTP 
 | ชุด | คำสั่ง | ผล |
 | --- | --- | --- |
 | JS unit | `cd prototypes/sprint1 && node --test` | ✅ 7 passed / 0 failed (69 ms) |
-| Python unit + integration | `pytest src/tests -v` | ✅ 195 passed / 0 failed / 1 xfailed (~15 s) — stats 4, notes validation 18 + boundary 19, notes API 47, notes identity 13, edit-token property 2, fizzbuzz 5, auth credentials 29, auth email_error 9 (AE-09 เป็น xfail), auth tokens 14, auth API 30 · coverage รวม 99% (`identity.py` 100%, `credentials.py` 100%) |
+| Python unit + integration | `pytest src/tests -v` | ✅ 233 passed / 0 failed / 1 xfailed — stats 9, notes validation 18 + boundary 19, notes API 47, notes identity 13, edit-token property 2, fizzbuzz 5, auth credentials 29, auth email_error 9 (AE-09 เป็น xfail), auth tokens 14, auth API 30 · coverage รวม 99% (`identity.py` 100%, `credentials.py` 100%) |
 | Smoke DK-03 ถึง DK-06 แบบไม่ใช้ Docker | รัน `auth-service` กับ `notes-service` ตัวจริงบน SQLite (notes ชี้ `AUTH_SERVICE_URL` ไปที่ auth) แล้วรันสคริปต์ `run:` ของแต่ละ step ที่ดึงออกมาจาก `ci.yml` ตรง ๆ | ✅ ผ่านครบ 6 step (`upload auth OK`, `end-to-end OK`, `edit/delete OK`, `auth OK`, validation `400`) · บน Postgres + compose จริงรอผลจาก CI เพราะ Docker daemon ไม่ได้เปิดบนเครื่องที่ใช้เขียน · ตอนรันบน Windows ต้องแทน `/tmp/` เป็น path ของ Windows เพราะ curl ของ Windows อ่าน `/tmp` ของ Git Bash ไม่ได้ (ไม่ได้แก้ใน `ci.yml` เพราะ CI รันบน Linux) |
 | Container smoke (compose e2e) | `docker compose up` + `curl` | ✅ ผ่านบน CI ([run #33351842320](https://github.com/Software-Engineering-Concepts-2026/se-sec2-team-05/actions/runs/33351842320), 1m6s) — log ยืนยัน `created note #1` และ `end-to-end OK` · ไม่ได้รัน local เพราะ Docker daemon ไม่ได้เปิดบนเครื่องที่ใช้เขียน |
 

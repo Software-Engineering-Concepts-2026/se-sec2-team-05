@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 
 from flask import Flask, jsonify, request
 
-from identity import IdentityUnavailable, identity_from_env
+from stats_identity import IdentityUnavailable, identity_from_env
 from stats_db import Note, build_session_factory
 
 
@@ -88,7 +88,7 @@ def stats():
 #
 # ดูจำนวน Views และ Downloads ของ Note ที่ตัวเองเป็นเจ้าของ
 #
-# สำหรับตอนนี้ใช้ X-User-ID เป็น Mock Authentication
+# Authenticate through auth-service /auth/me before returning note statistics.
 # ============================================================
 
 @app.get("/notes/<int:note_id>/stats")
