@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NoteShare - อัปโหลดโน้ต</title>
+<link rel="stylesheet" href="style.css">
+<script src="session-utils.js" defer></script>
+<script src="upload-utils.js" defer></script>
+<script src="site.js" defer></script>
+<script src="upload.js" defer></script>
+</head>
+<body>
+
+<nav id="siteNav" class="site-nav" aria-label="เมนูหลัก"></nav>
+
+<!-- US-08 (#8): fields and rules follow POST /notes (services/notes-service/README.md) -->
+<main class="page-card form-card form-card-wide">
+  <h1 class="page-title">แบ่งปันโน้ต</h1>
+  <p id="uploaderLine" class="note-sub page-lead">กำลังตรวจสอบการเข้าสู่ระบบ…</p>
+
+  <p id="uploadError" class="error-box" role="alert" hidden></p>
+
+  <form id="uploadForm" class="stack-form" novalidate hidden>
+    <label class="form-field">
+      <span>ชื่อโน้ต <em class="required">*</em></span>
+      <input type="text" name="title" class="text-input" maxlength="200" required
+             placeholder="เช่น สรุป Calculus บทที่ 3" aria-describedby="titleError">
+      <span id="titleError" class="field-error" data-error-for="title" hidden></span>
+    </label>
+
+    <div class="field-grid">
+      <label class="form-field">
+        <span>รหัสวิชา <em class="required">*</em></span>
+        <input type="text" name="subject_code" class="text-input" maxlength="30" required
+               placeholder="เช่น 01418112" aria-describedby="subjectCodeError">
+        <span id="subjectCodeError" class="field-error" data-error-for="subject_code" hidden></span>
+      </label>
+
+      <label class="form-field">
+        <span>ชื่อวิชา <em class="required">*</em></span>
+        <input type="text" name="subject_name" class="text-input" maxlength="200" required
+               placeholder="เช่น Calculus I" aria-describedby="subjectNameError">
+        <span id="subjectNameError" class="field-error" data-error-for="subject_name" hidden></span>
+      </label>
+
+      <label class="form-field">
+        <span>คณะ <em class="required">*</em></span>
+        <input type="text" name="faculty" class="text-input" maxlength="100" required
+               placeholder="เช่น ICT" aria-describedby="facultyError">
+        <span id="facultyError" class="field-error" data-error-for="faculty" hidden></span>
+      </label>
+
+      <label class="form-field">
+        <span>ชั้นปี <em class="required">*</em></span>
+        <select name="year_level" class="text-input" required aria-describedby="yearLevelError">
+          <option value="">เลือกชั้นปี</option>
+          <option value="1">ปี 1</option>
+          <option value="2">ปี 2</option>
+          <option value="3">ปี 3</option>
+          <option value="4">ปี 4</option>
+          <option value="5">ปี 5</option>
+          <option value="6">ปี 6</option>
+          <option value="7">ปี 7</option>
+          <option value="8">ปี 8</option>
+        </select>
+        <span id="yearLevelError" class="field-error" data-error-for="year_level" hidden></span>
+      </label>
+
+      <label class="form-field">
+        <span>บทเรียน <em class="required">*</em></span>
+        <input type="text" name="lesson" class="text-input" maxlength="200" required
+               placeholder="เช่น บทที่ 3 อนุพันธ์" aria-describedby="lessonError">
+        <span id="lessonError" class="field-error" data-error-for="lesson" hidden></span>
+      </label>
+
+      <label class="form-field">
+        <span>หัวข้อ</span>
+        <input type="text" name="topic" class="text-input" maxlength="200"
+               placeholder="เช่น Chain rule" aria-describedby="topicError">
+        <span id="topicError" class="field-error" data-error-for="topic" hidden></span>
+      </label>
+
+      <label class="form-field">
+        <span>วันที่เรียน</span>
+        <input type="date" name="class_date" class="text-input" aria-describedby="classDateError">
+        <span id="classDateError" class="field-error" data-error-for="class_date" hidden></span>
+      </label>
+    </div>
+
+    <label class="form-field">
+      <span>คำอธิบาย</span>
+      <textarea name="description" class="text-input" rows="3" placeholder="อธิบายเนื้อหาสั้น ๆ"></textarea>
+    </label>
+
+    <label class="form-field">
+      <span>ไฟล์โน้ต <em class="required">*</em></span>
+      <input type="file" name="file" class="file-input" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
+             required aria-describedby="fileHint fileError">
+      <small id="fileHint" class="field-hint">PDF, PNG หรือ JPG ไม่เกิน 20 MB</small>
+      <span id="fileError" class="field-error" data-error-for="file" hidden></span>
+    </label>
+
+    <p class="field-hint"><em class="required">*</em> จำเป็นต้องกรอก</p>
+    <button type="submit" class="primary-btn">อัปโหลด</button>
+  </form>
+
+  <!-- POST /notes returns edit_token only once (US-19/US-20). It is shown here and nowhere else. -->
+  <section id="uploadDone" class="done-box" aria-labelledby="doneTitle" hidden>
+    <h2 id="doneTitle" class="done-title" tabindex="-1">อัปโหลดสำเร็จ</h2>
+    <p class="note-sub">โน้ต <strong id="doneNoteTitle"></strong> แสดงในหน้าค้นหาแล้ว พร้อมชื่อ <strong id="doneUploader"></strong></p>
+
+    <div class="token-box">
+      <label for="editToken"><strong>รหัสแก้ไขโน้ต</strong></label>
+      <p class="token-warning">เก็บรหัสนี้ไว้ จะแสดงแค่ครั้งนี้ครั้งเดียว และต้องใช้ตอนแก้ไขหรือลบโน้ตนี้ ระบบเก็บไว้แค่ค่า hash จึงขอดูใหม่ไม่ได้</p>
+      <div class="token-row">
+        <input type="text" id="editToken" class="text-input token-input" readonly>
+        <button type="button" id="copyToken" class="secondary-btn">คัดลอก</button>
+      </div>
+      <span id="copyStatus" class="field-hint" role="status"></span>
+    </div>
+
+    <div class="form-actions">
+      <a id="doneSearchLink" class="primary-btn" href="/">ดูในหน้าค้นหา</a>
+      <button type="button" id="uploadAnother" class="secondary-btn">อัปโหลดอีกไฟล์</button>
+    </div>
+  </section>
+</main>
+
+</body>
+</html>
