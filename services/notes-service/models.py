@@ -171,6 +171,39 @@ class Favorite(Base):
     )
 
 
+class Report(Base):
+    """รายงานเนื้อหาโน้ต — Issue #17"""
+
+    __tablename__ = "reports"
+    __table_args__ = (
+        UniqueConstraint("reporter_id", "note_id", name="uq_reports_reporter_note"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    note_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("notes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    reporter_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    reporter_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "note_id": self.note_id,
+            "reporter_id": self.reporter_id,
+            "reporter_name": self.reporter_name,
+            "reason": self.reason,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
 # index สำหรับเงื่อนไขกรองที่ใช้บ่อยตาม #10, #26
 Index("ix_notes_subject_code", Note.subject_code)
 Index("ix_notes_faculty_year", Note.faculty, Note.year_level)
