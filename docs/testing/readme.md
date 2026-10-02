@@ -94,8 +94,43 @@
 | NA-22 | ชื่อผู้อัปโหลดมาจากบัญชี ไม่ใช่ฟอร์ม (AC 1–3 ของ #31) | ส่ง `uploader_name=คนอื่นที่อยากสวมรอย` | `uploader_name` = `display_name` ของบัญชี ทั้งใน response, `GET /notes/<id>` และ `GET /notes` |
 | NA-23 | เก็บ `uploader_id` แต่ไม่ส่งออก | อ่านคอลัมน์ใน DB ตรง ๆ | `uploader_id` = id ของบัญชี · ไม่มี `uploader_id` ใน response |
 | NA-24 | auth-service ล่ม | identity โยน `IdentityUnavailable` | `503` `{"error": "auth_unavailable"}` · storage ว่าง |
-| NA-25 | endpoint อ่านอย่างเดียวยังเปิด | `GET /notes`, `/notes/<id>`, `/download` โดยไม่ login | `200` ทั้งหมด และไม่มีการเรียก auth-service เพิ่ม |
+| NA-25 | endpoint อ่านอย่างเดียวยังเปิด (รวม `/preview`, US-11) | `GET /notes`, `/notes/<id>`, `/download`, `/preview` โดยไม่ login | `200` ทั้งหมด ยกเว้น `/preview` ที่ไม่ใช่ `401` (ไฟล์ default ของเทสต์เป็น PDF ปลอม จึงได้ `422` แทน) และไม่มีการเรียก auth-service เพิ่ม |
 | NA-26 | login อย่างเดียวแก้/ลบไม่ได้ (ADR-004 ยังใช้) | `PATCH`/`DELETE` ด้วย Bearer token แต่ไม่มี edit token | `403` ทั้งคู่ · ด้วย edit token ลบได้ `204` |
+| NA-27 | กรองตามหัวข้อเลกเชอร์แบบ partial ไม่สนตัวพิมพ์ (US-26) | `?topic=search tree` | เจอเฉพาะโน้ตที่ `topic` มีคำนั้นเป็นส่วนหนึ่ง |
+| NA-28 | `topic` กรองแยกจาก `q` | `?topic=Tree` โดยชื่อวิชามีคำว่า Tree แต่ `topic` ไม่มี | `count = 0` |
+| NA-29 | `topic` escape wildcard ของ SQL | `?topic=50%` โดยมีโน้ต `topic` เป็น `50%` และ `Recursion` | เจอเฉพาะโน้ตที่ `topic` เป็น `50%` จริง ไม่ใช่ทุกโน้ต |
+| NA-30 | โน้ตที่ไม่มี `topic` ไม่ขึ้นเมื่อกรองด้วย `topic` | อัปโหลดไม่ระบุ `topic` แล้ว `?topic=anything` | `count = 0` |
+| NA-31 | `topic` ที่ไม่ตรงกับใครเลยต้องได้ผลว่างไม่ใช่ error | โน้ตมี `topic="Recursion"` แล้ว `?topic=Quantum Computing` | `200` + `count = 0` |
+| NA-32 | ช่วงวันที่กลับด้านต้องได้ 400 | `?date_from=2026-08-31&date_to=2026-08-01` | `400 {"error": "invalid_filter", "field": "date_to"}` |
+| NA-33 | ช่วงวันที่นับวันขอบด้วย (inclusive) | โน้ตตรงวันขอบทั้งสองฝั่งพอดี + ก่อน/หลังช่วง 1 วัน | ได้เฉพาะ 2 ตัวที่ตรงวันขอบ |
+| NA-34 | กรองวันเดียว และส่งมาฝั่งเดียว | `date_from == date_to` และส่งแค่ `date_from` | กรองถูกทั้งสองแบบ |
+| NA-35 | โน้ตที่ไม่มี `class_date` ไม่ขึ้นเมื่อกรองด้วยวันที่ | อัปโหลดไม่ระบุ `class_date` แล้วกรองด้วยช่วงกว้าง | `count = 0` |
+| NA-36 | ใช้ `topic` + `date_from`/`date_to` + `faculty` + `file_type` พร้อมกัน (US-10 + US-26) | โน้ตที่ตรงทุกเงื่อนไข ปนกับโน้ตที่ไม่ตรงทีละเงื่อนไข | ได้เฉพาะโน้ตที่ตรงทุกเงื่อนไข |
+| NA-37 | บันทึกเข้ารายการโปรดครั้งแรก (US-15) | `POST /notes/<id>/favorite` | `201` + `note_id`, `is_favorited = true`, `favorited_at` |
+| NA-38 | กดบันทึกซ้ำ idempotent | `POST /notes/<id>/favorite` สองครั้ง | ครั้งที่สอง `200` · `favorited_at` เท่าเดิม · ในรายการมีโน้ตนี้แค่ 1 รายการ |
+| NA-39 | บันทึก/เอาออกต้อง login | ไม่มี header หรือ token ที่ไม่รู้จัก · auth-service ล่ม | `401` `unauthorized` · `503` `auth_unavailable` |
+| NA-40 | โน้ตที่ไม่มีอยู่ | `POST`/`DELETE /notes/999/favorite` | `404` `not_found` ทั้งคู่ |
+| NA-41 | บันทึกโน้ตที่ตัวเองอัปโหลดได้ | Alice อัปโหลดแล้ว `POST .../favorite` ด้วย token ของ Alice | `201` |
+| NA-42 | เอาออกจากรายการโปรด idempotent | `DELETE .../favorite` โน้ตที่อยู่ในรายการ และโน้ตที่ไม่เคยบันทึก | `204` ทั้งคู่ · โน้ตแรกหายจากรายการ |
+| NA-43 | เอาออกได้เฉพาะรายการของตัวเอง | Alice กับ Bob บันทึกโน้ตเดียวกัน แล้ว Bob เอาออก | รายการของ Alice ยังมีโน้ตนั้น |
+| NA-44 | `GET /notes/favorites` เห็นเฉพาะของตัวเอง เรียงล่าสุดก่อน | Alice บันทึก 3 โน้ต · Bob บันทึกอีกโน้ตหนึ่ง | Alice ได้ 3 โน้ตเรียงที่เพิ่งบันทึกก่อน · Bob เห็นเฉพาะของ Bob · แต่ละ item มี `is_favorited = true` และ `favorited_at` |
+| NA-45 | ยังไม่มีรายการโปรด / ต้อง login | Alice ที่ยังไม่บันทึกอะไร · ไม่ login · auth-service ล่ม | `200 {"items": [], "count": 0}` · `401` · `503` |
+| NA-46 | โน้ตที่เจ้าของลบแล้ว (US-20) ไม่แสดงในรายการโปรด | บันทึก 2 โน้ต แล้วลบโน้ตหนึ่งด้วย edit token | ในรายการเหลือแค่โน้ตที่ยังอยู่ |
+| NA-47 | รายการโปรดแบ่งหน้าและ clamp เหมือน `GET /notes` | `?limit=2`, `?limit=2&offset=2`, `?limit=-5&offset=-3`, `?limit=abc` | แบ่งหน้าถูก · ค่าติดลบถูก clamp · `limit=abc` ได้ `400` |
+| NA-48 | `/notes/favorites` ไม่ถูกตีความเป็น `/notes/<id>` · `GET /notes` ไม่ถูกกรองด้วยรายการโปรด | ไม่ login เรียก `/notes/favorites` · บันทึก 1 จาก 2 โน้ตแล้วค้นหา | `401` (ไม่ใช่ `404`) · ค้นหาได้ทั้ง 2 โน้ต |
+| NA-49 | `is_favorited` บน `GET /notes` และ `GET /notes/<id>` แยกตามผู้ใช้ | Alice บันทึกโน้ตหนึ่ง แล้วอ่านด้วย token ของ Alice และ Bob | Alice: `true` / `false` ถูกโน้ต · Bob: `false` ทั้งหมด · สลับเป็น `false` หลังเอาออก |
+| NA-50 | ไม่ login หรือ token ใช้ไม่ได้ ได้ `is_favorited = null` | `GET /notes`, `GET /notes/<id>` โดยไม่มี header และด้วย token ที่ไม่รู้จัก | `200` และ `is_favorited = null` |
+| NA-51 | auth-service ล่มระหว่างค้นหา ค้นหายังใช้ได้ | identity โยน `IdentityUnavailable` แล้ว `GET /notes`, `GET /notes/<id>` ด้วย token ที่ถูก | `200` และ `is_favorited = null` (ไม่ใช่ `503`) |
+| NA-52 | ดึงสถานะของทั้งหน้าใน query เดียว (D5) | บันทึก 5 โน้ต แล้วนับ SQL ตอน `GET /notes` | มี query ที่อ่านตาราง `favorites` เพียง 1 ครั้ง |
+| NA-53 | แสดงความคิดเห็นโดยไม่ login | `POST /notes/<id>/comments` ไม่มี Authorization | `401` |
+| NA-54 | token ไม่ถูกต้อง | `POST /notes/<id>/comments` + invalid Bearer token | `401` |
+| NA-55 | comment ว่าง | `POST /notes/<id>/comments` + `{"content": "   "}` | `400` |
+| NA-56 | comment ยาวเกิน 1000 ตัวอักษร | `POST /notes/<id>/comments` + content 1001 chars | `400` |
+| NA-57 | แสดงความคิดเห็นใน note ที่ไม่มีอยู่ | `POST /notes/999/comments` | `404` |
+| NA-58 | แสดง comments เรียงจากใหม่ไปเก่า | `GET /notes/<id>/comments` | `200` + comments เรียง `created_at` ล่าสุดก่อน |
+| NA-59 | ลบ comment ของตัวเอง | `DELETE /notes/<id>/comments/<comment_id>` | `204` |
+| NA-60 | ลบ comment ของคนอื่น | `DELETE /notes/<id>/comments/<comment_id>` ด้วย user คนอื่น | `403` |
+| NA-61 | ลบ note แล้ว comments ถูกลบด้วย | สร้าง comment → `DELETE /notes/<id>` → ตรวจ DB | comment ไม่เหลือใน DB |
 
 ### 2.5 Notes Service — แก้ไข/ลบโน้ต (`pytest`, US-19 #19 + US-20 #20)
 
@@ -127,6 +162,8 @@
 | DK-04 | validation ทำงานจริงบน stack ที่รัน | `POST /notes` (มี token) ส่งแค่ `title` | `400` |
 | DK-05 | สมัคร → login → ใช้ token → logout บน Postgres จริง (US-05/US-06) | `curl` ไปที่ `:5002/auth/*` | สมัคร `201` · สมัครซ้ำ `409` · โดเมนอื่น `400` · รหัสผิดกับอีเมลที่ไม่มีได้ body เดียวกัน · `me` ได้ชื่อถูก · logout `204` แล้ว `me` ด้วย token เดิมได้ `401` |
 | DK-06 | อัปโหลดต้อง login และเครดิตมาจากบัญชี (US-31) บน stack จริง | สมัคร + login บัญชี `CI Uploader` แล้ว `POST /notes` สามแบบ (ไม่มี token / token มั่ว / token จริง + `uploader_name=spoofed name`) | สองแบบแรกได้ `401` · แบบที่สามได้ `uploader_name = CI Uploader` · `count = 1` (ครั้งที่ไม่ผ่านไม่ถูกบันทึก) · notes-service คุยกับ auth-service ผ่านเครือข่ายของ compose จริง |
+| DK-07 | preview endpoint ทำงานจริงบน image ที่ build (US-11) — กัน regression ของบั๊ก Dockerfile ที่เคยลืม copy `preview.py` (commit `8f25b9b`) ซึ่ง unit test จับไม่ได้เพราะ import จาก source tree ตรง ๆ | อัปโหลด PNG จริงแล้ว `GET .../preview` โดยไม่ส่ง token, กับอัปโหลดไฟล์ที่ประกาศเป็น `image/png` แต่เนื้อไม่ใช่รูป | ไฟล์จริงได้ `200` + header `Content-Type: image/png` + ไบต์ 8 ตัวแรกตรง PNG signature · ไฟล์ปลอมได้ `422` ไม่ใช่ `500` |
+| DK-08 | web gateway เสิร์ฟหน้าเว็บและส่งต่อ API จาก origin เดียว (ADR-006, US-11/US-31) | `curl :8080/`, `/search-utils.js`, `/app.js`, `/search-utils.test.js` · `GET :8080/notes?subject_code=CS201&year_level=2` และ `?year_level=abc` · `GET :8080/auth/me` แบบไม่มี token และมี token · อัปโหลด PNG ผ่าน `:8080/notes` แล้วเปิด `preview_url` ผ่าน `:8080` | หน้าแรกมี `id="searchForm"` · ไฟล์ JS ได้ `200` · ไฟล์เทสต์ได้ `404` (ไม่ถูก copy เข้า image) · query string ไปถึง service ครบ (`count = 1`, ค่าผิดได้ `400`) · `me` ไม่มี token `401` มี token ได้ `CI Uploader` (header `Authorization` ผ่าน nginx) · upload ได้ `uploader_name = CI Uploader` และ preview ได้ `200` + `image/png` |
 
 ### 2.7 Auth Service — ตรวจข้อมูลสมัครและ hash รหัสผ่าน (`pytest`, US-05 #5)
 
@@ -244,6 +281,78 @@
 | AE-08 | ข้อความ error บอกครบทุกโดเมน | `x@gmail.com` กับ (`up.ac.th`, `ict.up.ac.th`) | `"ต้องใช้อีเมลของมหาวิทยาลัย (@up.ac.th, @ict.up.ac.th)"` |
 | AE-09 | มี `@` แต่ไม่มีโดเมน | `a@` | `"รูปแบบอีเมลไม่ถูกต้อง"` — **xfail**: โค้ดตอนนี้คืน error โดเมน เพราะเช็ค local ว่างแต่ไม่เช็ค domain ว่าง ทีมตกลงว่าเป็นบั๊ก ยังไม่ได้แก้ `credentials.py` · ตั้ง `strict=True` ไว้ ถ้าแก้แล้วเทสต์ผ่าน CI จะแดงเตือนให้เอา xfail ออก |
 
+### 2.12 Notes Service — preview (`pytest`, US-11 #11)
+
+ไฟล์ [`test_notes_preview.py`](../../src/tests/test_notes_preview.py) ครอบทั้ง `GET /notes/<id>/preview`
+และ `render_preview()` ที่เป็น pure function แยกออกมา (แนวเดียวกับ `validation.py`) ไม่รู้จัก Flask/DB/storage
+เลย จึงทดสอบตรง ๆ ได้ · ครอบ AC ข้อ 1–2 ของ #11 ฝั่ง backend เท่านั้น ส่วน AC ข้อ 3 (ปิดตัวอย่างแล้วกลับ
+ตำแหน่งเดิมในผลค้นหา) เป็นงาน UI ยังไม่อยู่ในชุดนี้
+
+| # | Test case | Input | ผลที่คาดหวัง |
+| --- | --- | --- | --- |
+| NP-01 | รูป PNG ได้ตัวอย่างที่ย่อขนาดแล้วเป็น PNG | อัปโหลด PNG 1600x1200 | `200`, `image/png`, กว้าง `PREVIEW_MAX_WIDTH` (800) |
+| NP-02 | รูป JPEG ก็ได้กลับมาเป็น PNG เสมอ | อัปโหลด JPEG | `200`, `image/png` |
+| NP-03 | แสดงผลแบบ inline และแคชได้ | `GET .../preview` | ไม่มี `attachment` ใน `Content-Disposition`, `Cache-Control: public, max-age=86400` |
+| NP-04 | render ครั้งแรกแล้วเสิร์ฟจาก cache ครั้งถัดไป | เรียกซ้ำหลังลบไฟล์ต้นฉบับ | ได้ไบต์เดิมทั้งสองครั้ง มีไฟล์ตัวอย่างแค่ไฟล์เดียวใน `previews/` |
+| NP-05 | PDF ได้ตัวอย่างจากหน้าแรกเท่านั้น | PDF 2 หน้าคนละขนาด | ขนาดรูปตรงกับหน้า 1 ที่สเกลแล้ว ไม่ใช่หน้า 2 |
+| NP-06 | ตัวอย่างของ PDF ก็ถูกแคชเหมือนรูป | เรียก `.../preview` ของโน้ต PDF | มีไฟล์ตัวอย่างในโฟลเดอร์ `previews/` |
+| NP-07 | PDF ปลอม (ไม่ใช่ PDF จริง) | เนื้อไฟล์ `%PDF-1.4 fake note` | `422 {"error": "preview_unavailable"}` |
+| NP-08 | โน้ตที่ไม่มีอยู่ | `GET /notes/999/preview` | `404 {"error": "not_found"}` |
+| NP-09 | ไฟล์ต้นฉบับหายจาก storage | ลบไฟล์ทิ้งก่อนขอตัวอย่าง | `404 {"error": "file_not_found"}` |
+| NP-10 | ไฟล์ประกาศเป็นรูปแต่เนื้อไม่ใช่ | อัปโหลด `image/png` ที่เนื้อเป็นข้อความ | `422 {"error": "preview_unavailable"}` (ไม่ใช่ `500`) |
+| NP-11 | render ไม่สำเร็จต้องไม่ทิ้งอะไรไว้ใน storage | เหมือน NP-10 | โฟลเดอร์ `previews/` ว่างหรือไม่มี |
+| NP-12 | ลบโน้ตแล้วลบตัวอย่างตามไปด้วย | สร้างตัวอย่างก่อน แล้ว `DELETE` โน้ต | ทั้งไฟล์ต้นฉบับและไฟล์ใน `previews/` หายหมด |
+| NP-13 | response ของโน้ตมี `preview_url` | `GET /notes/<id>`, `GET /notes` | `preview_url == "/notes/<id>/preview"` ทั้งสอง endpoint |
+| NP-14 | ไม่ขยายรูปที่เล็กกว่าเพดานอยู่แล้ว | รูป 300x200 | ขนาดคงเดิม ไม่ถูกขยาย |
+| NP-15 | JPEG โหมด CMYK ถูกแปลงเป็น PNG ได้ | รูป CMYK | ได้ PNG จริง ไม่ throw |
+| NP-16 | คงความโปร่งใสของ PNG โหมด RGBA | รูป RGBA | ผลลัพธ์ยังเป็นโหมด `RGBA` |
+| NP-17 | ปฏิเสธรูปที่ใหญ่เกิน `MAX_SOURCE_PIXELS` (กัน decompression bomb) | รูปเกิน 50 ล้านพิกเซล | `PreviewUnavailable` |
+| NP-18 | ปฏิเสธไฟล์รูปที่เสีย (truncate) | ตัดไฟล์ PNG ให้ขาด | `PreviewUnavailable` |
+| NP-19 | ปฏิเสธเมื่อ content type ไม่ตรงเนื้อไฟล์จริง | ประกาศ `image/jpeg` แต่เนื้อเป็น PNG | `PreviewUnavailable` |
+| NP-20 | ปฏิเสธ content type ที่ยังไม่รองรับ | `text/plain` | `PreviewUnavailable` |
+| NP-21 | PDF render เฉพาะหน้าแรกเท่านั้น | PDF 2 หน้าคนละขนาด | ขนาดตรงกับหน้า 1 ที่สเกล 2 เท่า |
+| NP-22 | PDF ไม่ถูกขยายเกินความกว้างสูงสุด | หน้ากว้าง 2000pt | กว้างไม่เกิน `PREVIEW_MAX_WIDTH` |
+| NP-23 | ปฏิเสธ PDF ที่ไม่มีหน้าเลย | PDF 0 หน้า | `PreviewUnavailable` |
+| NP-24 | ปฏิเสธหน้าแรกที่ใหญ่ผิดปกติ | หน้าขนาด 100x300000pt | `PreviewUnavailable` |
+| NP-25 | ปฏิเสธ PDF ที่เสีย (truncate) | ตัดไฟล์ PDF ให้ขาด | `PreviewUnavailable` |
+| NP-26 | รูปจากกล้องมือถือหมุนตาม EXIF Orientation ก่อนย่อขนาด | JPEG 1200x800 ที่มี `exif[0x0112] = 6` | ผลลัพธ์เป็นแนวตั้ง 800x1200 ไม่ใช่แนวนอนตะแคง |
+| NP-27 | PDF หน้า A4 ไม่เกินความกว้างสูงสุดแม้ pdfium ปัดพิกเซลขึ้น | หน้า A4 (595x842pt) | กว้างไม่เกิน `PREVIEW_MAX_WIDTH` |
+
+**รันแยกยืนยัน (2026-09-29):** `pytest src/tests/test_notes_preview.py -v` ✅ 27 passed / 0 failed (~2 วิ)
+รันด้วย Python 3.13 เพราะเครื่องที่ใช้เขียนมี Python 3.14 เป็นค่าเริ่มต้น ซึ่ง SQLAlchemy เวอร์ชันที่ pin ไว้ยังใช้กับ
+3.14 ไม่ได้ (`TypeError` ใน `sqlalchemy.util.typing`) — ไม่เกี่ยวกับโค้ดของ #11 · CI ใช้ Python 3.12 ตามที่ตั้งไว้ใน
+`ci.yml` จึงไม่เจอปัญหานี้ · การ render ภาพจริง (PNG/PDF ผ่าน docker compose, PDF ปลอมได้ 422) เคย verify
+ผ่าน container จริงมาแล้วตอนแก้ Dockerfile (commit `8f25b9b`)
+
+### 2.13 Web app — `search-utils.js` (`node --test`, US-11 #11 + US-31 #31)
+
+pure function ของหน้าค้นหาใน [`web/`](../../web/) แยกออกจากส่วนที่แตะ DOM (`app.js`) ไว้ให้เทสต์ได้โดยไม่ต้องมี browser
+
+| # | Test case | Input | ผลที่คาดหวัง |
+| --- | --- | --- | --- |
+| WEB-01 | `buildQuery` ไม่ใส่ช่องว่างและ sort ค่าเริ่มต้น | ตัวกรองว่างทั้งหมด, `q = '  '` | ได้ `''` |
+| WEB-02 | `buildQuery` trim ข้อความและส่งตัวกรองของ API ครบ | `q=' CS201 '`, `faculty`, `year_level`, `topic`, `date_from`, `date_to`, `sort=title` | query string ตรงตามลำดับ ไม่มีช่องว่างหัวท้าย |
+| WEB-03 | `buildQuery` ส่ง `file_type` ซ้ำตามจำนวนที่เลือก และตัดค่าที่ API ไม่รู้จัก | `['pdf', 'jpeg', 'png']` | `file_type=pdf&file_type=png` (ไม่ส่ง `jpeg` ที่ API ตอบ `400`) |
+| WEB-04 | `buildQuery` ใส่ paging เฉพาะเมื่อขอ | `{limit: 20, offset: 0}`, `{limit: 20, offset: 40}` | `limit=20` (ไม่มี `offset=0`), `limit=20&offset=40` |
+| WEB-05 | `parseQuery` อ่านกลับได้ค่าเดิม (URL ↔ ฟอร์ม) | ผลของ `buildQuery` | ได้ตัวกรองชุดเดิมทุกช่อง |
+| WEB-06 | `parseQuery` กลับไปค่าเริ่มต้นเมื่อเจอ sort/ประเภทไฟล์ที่ไม่รู้จัก | `?sort=rating&file_type=docx&file_type=pdf&file_type=pdf` | `sort = new`, `file_type = ['pdf']` (ตัดซ้ำด้วย) |
+| WEB-07 | `escapeHtml` กัน markup และรับ null | `<img src=x onerror="a()">`, `null` | escape ครบ, ได้ `''` |
+| WEB-08 | `formatSize` เลือกหน่วยที่อ่านง่าย | 512, 2048, 3 MB | `512 B`, `2.0 KB`, `3.0 MB` |
+| WEB-09 | `fileTypeLabel` บอกชื่อประเภทไฟล์ที่รับ | `application/pdf`, `image/jpeg`, `text/plain` | `PDF`, `JPG`, `ไฟล์` |
+| WEB-10 | การ์ดโน้ตแสดงชื่อผู้อัปโหลดเสมอ (US-31 AC3) | โน้ตที่มี `uploader_name = Somchai` | มี `อัปโหลดโดย <strong>Somchai</strong>` และปุ่ม `data-preview-id` |
+| WEB-11 | การ์ดโน้ต escape ค่าที่ผู้ใช้คนอื่นพิมพ์มา | `title = <script>…`, `uploader_name = "><img src=x>` | ไม่มีแท็ก `<script>`/`<img` หลุดออกมา |
+| WEB-12 | การ์ดโน้ตข้ามช่องที่ไม่มีค่า | `topic = null`, `class_date = null` | ไม่มีคำว่า `null` และไม่มีบรรทัดวันที่เรียน |
+| WEB-13 | `errorMessage` บอกชื่อช่องที่ผิดเมื่อ `invalid_filter` | `400 {error: invalid_filter, field: date_to}` | ข้อความมี "วันที่สิ้นสุด" |
+| WEB-14 | `errorMessage` ครอบ preview, โน้ตหาย และเน็ตหลุด | `422 preview_unavailable`, `404 not_found`, status `0`, `502` ไม่มี body | ข้อความเฉพาะของแต่ละกรณี · `502` บอกเลข HTTP |
+| WEB-15 | `hasMore` เป็นจริงเฉพาะหน้าที่เต็ม | 20, 19, 0 | `true`, `false`, `false` (API ไม่มียอดรวม) |
+
+**ตรวจบน browser จริง (2026-10-01, ด้วยมือ ยังไม่ใช่ E2E อัตโนมัติ):** Docker ไม่ได้เปิดบนเครื่องที่ใช้เขียน จึงรัน
+`auth-service` กับ `notes-service` ตัวจริงบน SQLite และใช้สคริปต์ Python ที่ทำตัวแทน `web/nginx.conf` (path เดียวกัน)
+แล้วเปิดใน Chrome ผล: ค้นหา/กรอง/เรียงได้ผลจาก API จริง · โหลดเพิ่มจาก 20 → 25 แล้วปุ่มหาย · เปิด preview จากการ์ดที่ 22
+แล้วปิดด้วย Esc, คลิกฉากหลัง และปุ่ม ✕ ตำแหน่ง scroll เท่าเดิม (2397 px) การ์ดยังอยู่ 25 ใบ focus กลับไปที่ปุ่มเดิม (US-11 AC3)
+· PNG ปลอมแสดงข้อความ preview ไม่ได้แทนรูปแตก · ช่วงวันที่กลับด้านแสดง error ชื่อช่อง · back คืนค่าฟอร์มเดิม · ชื่อโน้ตที่มี
+`<script>` แสดงเป็นข้อความ · ค้นด้วยคำภาษาไทยได้ · console ไม่มี error · ตัว nginx จริงยืนยันผ่าน DK-08 บน CI
+
 ## 3. Test Report
 
 **รันล่าสุด:** 2026-09-27 (เครื่อง local, Windows 11, branch `feature/safety-net`)
@@ -254,6 +363,7 @@
 | Python unit + integration | `pytest src/tests -v` | ✅ 233 passed / 0 failed / 1 xfailed — stats 9, notes validation 18 + boundary 19, notes API 47, notes identity 13, edit-token property 2, fizzbuzz 5, auth credentials 29, auth email_error 9 (AE-09 เป็น xfail), auth tokens 14, auth API 30 · coverage รวม 99% (`identity.py` 100%, `credentials.py` 100%) |
 | Smoke DK-03 ถึง DK-06 แบบไม่ใช้ Docker | รัน `auth-service` กับ `notes-service` ตัวจริงบน SQLite (notes ชี้ `AUTH_SERVICE_URL` ไปที่ auth) แล้วรันสคริปต์ `run:` ของแต่ละ step ที่ดึงออกมาจาก `ci.yml` ตรง ๆ | ✅ ผ่านครบ 6 step (`upload auth OK`, `end-to-end OK`, `edit/delete OK`, `auth OK`, validation `400`) · บน Postgres + compose จริงรอผลจาก CI เพราะ Docker daemon ไม่ได้เปิดบนเครื่องที่ใช้เขียน · ตอนรันบน Windows ต้องแทน `/tmp/` เป็น path ของ Windows เพราะ curl ของ Windows อ่าน `/tmp` ของ Git Bash ไม่ได้ (ไม่ได้แก้ใน `ci.yml` เพราะ CI รันบน Linux) |
 | Container smoke (compose e2e) | `docker compose up` + `curl` | ✅ ผ่านบน CI ([run #33351842320](https://github.com/Software-Engineering-Concepts-2026/se-sec2-team-05/actions/runs/33351842320), 1m6s) — log ยืนยัน `created note #1` และ `end-to-end OK` · ไม่ได้รัน local เพราะ Docker daemon ไม่ได้เปิดบนเครื่องที่ใช้เขียน |
+| JS unit (web) | `cd web && node --test` | ✅ 15 passed / 0 failed (2026-10-01, branch `feature/web-search-preview`) |
 
 **ผลรันบน CI (PR #56):** ทั้ง 3 job ผ่านหมด — `js-tests` 13s, `python-tests` 13s, `docker-build` 1m6s
 
@@ -285,4 +395,4 @@ python-tests ─┘
 - [x] เขียนเทสต์ของ `POST /notes` ที่ commit ไม่ผ่าน แล้วต้องไม่ทิ้งไฟล์กำพร้าไว้ใน storage — NA-12
 - [ ] เทสต์ที่รันกับ PostgreSQL จริง — ตอนนี้เทสต์ Python ใช้ SQLite ส่วน compose ใช้ Postgres จึงมีช่องว่างเรื่องความต่างของ dialect (`ilike`, การเทียบวันที่) ที่จับได้แค่ตอน smoke test
 - [ ] เพิ่ม branch protection ให้ `main` ต้องผ่าน CI ก่อน merge (ตั้งใน GitHub Settings ไม่ใช่ในโค้ด)
-- [ ] E2E test — รอ backend จริง
+- [ ] E2E test อัตโนมัติผ่าน browser — มีหน้าเว็บจริงแล้ว (`web/`) แต่ยังตรวจด้วยมือ (ดูท้าย 2.13) ยังไม่มีเครื่องมืออย่าง Playwright ใน CI

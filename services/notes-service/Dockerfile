@@ -10,7 +10,7 @@ FROM python:3.12-slim
 WORKDIR /app
 RUN useradd --create-home --shell /usr/sbin/nologin appuser
 COPY --from=deps --chown=appuser:appuser /root/.local /home/appuser/.local
-COPY --chown=appuser:appuser app.py identity.py models.py storage.py tokens.py validation.py ./
+COPY --chown=appuser:appuser app.py identity.py models.py preview.py storage.py tokens.py validation.py ./
 # โฟลเดอร์เก็บไฟล์โน้ต — compose mount volume ทับตรงนี้ให้ข้อมูลอยู่รอด container restart
 RUN mkdir -p /data/notes && chown appuser:appuser /data/notes
 ENV PATH=/home/appuser/.local/bin:$PATH \

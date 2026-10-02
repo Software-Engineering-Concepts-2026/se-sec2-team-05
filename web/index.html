@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NoteShare - ค้นหาโน้ต</title>
+<link rel="stylesheet" href="style.css">
+<script src="search-utils.js" defer></script>
+<script src="app.js" defer></script>
+</head>
+<body>
+
+<main class="search-card">
+  <h1 class="page-title">ค้นหาโน้ต</h1>
+
+  <form id="searchForm" class="search-form" role="search">
+    <label for="q" class="visually-hidden">คำค้นหา</label>
+    <input type="search" id="q" name="q" class="search-input" maxlength="200"
+           placeholder="ชื่อโน้ต วิชา รหัสวิชา บทเรียน หรือหัวข้อ">
+
+    <div class="filter-row">
+      <label class="filter-field">
+        <span>คณะ</span>
+        <input type="text" name="faculty" class="filter-input" placeholder="เช่น ICT">
+      </label>
+
+      <label class="filter-field">
+        <span>ชั้นปี</span>
+        <select name="year_level" class="filter-input">
+          <option value="">ทุกชั้นปี</option>
+          <option value="1">ปี 1</option>
+          <option value="2">ปี 2</option>
+          <option value="3">ปี 3</option>
+          <option value="4">ปี 4</option>
+          <option value="5">ปี 5</option>
+          <option value="6">ปี 6</option>
+          <option value="7">ปี 7</option>
+          <option value="8">ปี 8</option>
+        </select>
+      </label>
+
+      <label class="filter-field">
+        <span>หัวข้อ</span>
+        <input type="text" name="topic" class="filter-input" placeholder="เช่น Merge Sort">
+      </label>
+
+      <label class="filter-field">
+        <span>เรียนตั้งแต่</span>
+        <input type="date" name="date_from" class="filter-input">
+      </label>
+
+      <label class="filter-field">
+        <span>ถึง</span>
+        <input type="date" name="date_to" class="filter-input">
+      </label>
+
+      <label class="filter-field">
+        <span>เรียงตาม</span>
+        <select name="sort" class="filter-input">
+          <option value="new">อัปโหลดล่าสุด</option>
+          <option value="old">อัปโหลดเก่าสุด</option>
+          <option value="class_date">วันที่เรียนล่าสุด</option>
+          <option value="title">ชื่อโน้ต ก-ฮ / A-Z</option>
+        </select>
+      </label>
+    </div>
+
+    <fieldset class="type-row">
+      <legend>ประเภทไฟล์</legend>
+      <label><input type="checkbox" name="file_type" value="pdf"> PDF</label>
+      <label><input type="checkbox" name="file_type" value="png"> PNG</label>
+      <label><input type="checkbox" name="file_type" value="jpg"> JPG</label>
+    </fieldset>
+
+    <div class="form-actions">
+      <button type="submit" class="primary-btn">ค้นหา</button>
+      <button type="button" id="resetBtn" class="secondary-btn">ล้างตัวกรอง</button>
+    </div>
+  </form>
+
+  <div class="results-header">
+    <span id="resultsCount" class="results-count" aria-live="polite"></span>
+  </div>
+
+  <p id="searchError" class="error-box" role="alert" hidden></p>
+  <div id="resultsList" class="results-list"></div>
+  <p id="noResults" class="no-results" hidden>ไม่พบโน้ตที่ตรงกับเงื่อนไข</p>
+  <button type="button" id="loadMoreBtn" class="secondary-btn load-more" hidden>โหลดเพิ่ม</button>
+</main>
+
+<!-- US-11 AC3: the preview opens over the results, so closing it leaves the list and the
+     scroll position exactly as they were -->
+<dialog id="previewDialog" class="preview-dialog" aria-labelledby="previewTitle">
+  <div class="preview-body">
+    <header class="preview-header">
+      <div>
+        <h2 id="previewTitle" class="preview-title"></h2>
+        <p id="previewUploader" class="note-uploader"></p>
+      </div>
+      <button type="button" id="previewClose" class="close-btn" aria-label="ปิดตัวอย่าง">✕</button>
+    </header>
+    <div class="preview-frame">
+      <p id="previewStatus" class="preview-status" role="status"></p>
+      <img id="previewImage" alt="" hidden>
+    </div>
+    <footer class="preview-footer">
+      <span id="previewSize" class="note-sub"></span>
+      <a id="previewDownload" class="primary-btn" href="#">ดาวน์โหลดไฟล์เต็ม</a>
+    </footer>
+  </div>
+</dialog>
+
+</body>
+</html>
