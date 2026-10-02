@@ -31,6 +31,7 @@ NOTES_STORAGE_DIR=./data python services/notes-service/app.py
 | `DATABASE_URL` | `sqlite:///notes.db` | SQLAlchemy URL — compose ตั้งเป็น `postgresql+psycopg://...` |
 | `NOTES_STORAGE_DIR` | `/data/notes` | โฟลเดอร์เก็บไฟล์โน้ต (mount เป็น volume ใน compose) |
 | `AUTH_SERVICE_URL` | `http://localhost:5002` | ที่อยู่ของ auth-service ใช้ตรวจ token ตอนอัปโหลดและใช้รายการโปรด — compose ตั้งเป็น `http://auth-service:5002` |
+| `ADMIN_USER_IDS` | ว่าง | comma-separated user IDs ที่จัดการรายงานได้ เช่น `99,100` — ไม่มีค่าแปลว่าไม่มี admin |
 
 ## API
 
@@ -41,6 +42,9 @@ NOTES_STORAGE_DIR=./data python services/notes-service/app.py
 | `GET` | `/notes` | ค้นหา/กรอง → `{ items: [...], count: n }` |
 | `GET` | `/notes/favorites` | รายการโปรดของตัวเอง เรียงที่เพิ่งบันทึกก่อน — **ต้อง login** (US-15) |
 | `GET` | `/notes/<id>` | รายละเอียดโน้ตหนึ่งรายการ |
+| `POST` | `/notes/<id>/reports` | รายงานโน้ตด้วย JSON `{"reason": "..."}` → `201` — ต้อง login และรายงานซ้ำต่อโน้ตได้ครั้งเดียว (Issue #17) |
+| `GET` | `/reports` | ดูรายงานทั้งหมด เรียงใหม่ไปเก่า — ต้องเป็น admin (Issue #17) |
+| `DELETE` | `/reports/<report_id>` | ลบรายการรายงาน → `204` — ต้องเป็น admin (Issue #17) |
 | `POST` | `/notes/<id>/comments` | แสดงความคิดเห็นใต้โน้ต — ต้อง login และส่ง JSON `{"content": "..."}` → `201` (Issue #14) |
 | `GET` | `/notes/<id>/comments` | แสดงความคิดเห็นของโน้ต เรียงจากใหม่ไปเก่า (Issue #14) |
 | `DELETE` | `/notes/<id>/comments/<comment_id>` | ลบความคิดเห็นของตัวเอง — ต้อง login → `204` (Issue #14) |
@@ -275,6 +279,16 @@ Request body เป็น JSON:
 | ความคิดเห็นเป็นของผู้ใช้อื่น | `403` `{"error": "forbidden"}` |
 
 ความคิดเห็นถูกเก็บในฐานข้อมูลและผูกกับ `note_id` โดยตรง เมื่อลบโน้ต ระบบจะลบความคิดเห็นของโน้ตนั้นก่อนลบ record ของโน้ต เพื่อไม่ให้มีความคิดเห็นตกค้างในฐานข้อมูล
+
+### รายงานเนื้อหา (Issue #17)
+
+สมาชิกที่ login แล้วรายงานโน้ตได้ด้วย `POST /notes/<id>/reports` โดยส่ง JSON `{"reason": "..."}`
+เหตุผลถูกตัดช่องว่างหัวท้ายและจำกัดไม่เกิน 500 ตัวอักษร ผู้ใช้หนึ่งคนรายงานโน้ตเดิมซ้ำไม่ได้:
+service ตรวจสอบก่อนบันทึก และฐานข้อมูลบังคับ unique `(reporter_id, note_id)` เพื่อกัน request ที่เข้าพร้อมกัน
+
+`GET /reports` และ `DELETE /reports/<report_id>` จำกัดเฉพาะ user ID ที่อยู่ใน `ADMIN_USER_IDS`
+(คั่นด้วย comma; ตัวอย่าง `ADMIN_USER_IDS=99,100`) รายการเรียง `created_at` ใหม่ไปเก่า และใช้ `id` เป็นตัวตัดสินเมื่อเวลาเท่ากัน
+การลบรายงานลบเฉพาะ record ของ Report ไม่ได้ลบ Note · หาก Note ถูกลบด้วย edit token เดิม รายงานที่ผูกกับ Note จะถูกลบตาม foreign-key cascade
 
 
 ## ตัวอย่างการเรียกใช้

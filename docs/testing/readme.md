@@ -127,6 +127,19 @@ Stats Service ที่คืน mock data กับ prototype ฝั่ง fron
 | NA-59 | ลบ comment ของตัวเอง | `DELETE /notes/<id>/comments/<comment_id>` | `204` |
 | NA-60 | ลบ comment ของคนอื่น | `DELETE /notes/<id>/comments/<comment_id>` ด้วย user คนอื่น | `403` |
 | NA-61 | ลบ note แล้ว comments ถูกลบด้วย | สร้าง comment → `DELETE /notes/<id>` → ตรวจ DB | comment ไม่เหลือใน DB |
+| NA-62 | รายงานโน้ตสำเร็จ | `POST /notes/<id>/reports` ด้วยเหตุผลที่ถูกต้อง | `201` + report fields และชื่อ/ID จากบัญชี |
+| NA-63 | เหตุผลรายงานต้องเป็นข้อความไม่ว่าง ไม่เกิน 500 ตัวอักษร | ไม่มี `reason`, JSON ไม่ใช่ object, whitespace, ชนิดผิด หรือยาวเกิน | `400 validation_failed` พร้อม `fields.reason` |
+| NA-64 | รายงานต้อง login และ auth-service พร้อมใช้งาน | ไม่มี Bearer token หรือ identity โยน `IdentityUnavailable` | `401 unauthorized` + `WWW-Authenticate` หรือ `503 auth_unavailable` |
+| NA-65 | รายงานโน้ตที่ไม่มีอยู่ | `POST /notes/<id>/reports` ด้วย id ที่ไม่มี | `404 not_found` |
+| NA-66 | รายงานซ้ำถูกป้องกันทั้งใน service และฐานข้อมูล | ผู้ใช้เดิมรายงานโน้ตเดิมซ้ำ และ insert ซ้ำตรงผ่าน SQLAlchemy | API `409 already_reported` · unique constraint `uq_reports_reporter_note` ปฏิเสธ insert |
+| NA-67 | ผู้ใช้ต่างคนรายงานโน้ตเดียวกันได้ | สมาชิกสองคน `POST /notes/<id>/reports` | ทั้งคู่ `201` และ admin เห็นสองรายการ |
+| NA-68 | admin ดูรายงานทั้งหมดได้ตามลำดับล่าสุด | `GET /reports` ด้วย admin | `200` + `count`, `reports` พร้อมข้อมูลผู้รายงาน/เหตุผล เรียง `created_at`, `id` DESC; กรณีว่างได้ list ว่าง |
+| NA-69 | จำกัดการดูรายงานให้ admin | `GET /reports` ด้วยสมาชิก, ไม่มี token หรือ auth-service ล่ม | `403 forbidden`, `401 unauthorized` หรือ `503 auth_unavailable` |
+| NA-70 | admin ลบรายการรายงานได้ | `DELETE /reports/<report_id>` ด้วย admin | `204` · รายงานหาย แต่ Note ยังอยู่ |
+| NA-71 | สมาชิกทั่วไปลบรายงานไม่ได้ | `DELETE /reports/<report_id>` ด้วย member | `403 forbidden` และ report ยังอยู่ |
+| NA-72 | ลบ report ที่ไม่มีอยู่ | admin `DELETE /reports/<id>` ด้วย id ที่ไม่มี | `404 not_found` |
+| NA-73 | admin IDs อ่านจาก env และข้ามค่าที่ไม่ใช่ตัวเลข | `ADMIN_USER_IDS` มี whitespace และค่าที่ไม่ใช่ตัวเลข | แปลงเฉพาะ numeric IDs; ไม่มีค่าแล้วไม่มี admin |
+| NA-74 | ลบ Note ยังคงทำงานเมื่อมี report ผูกอยู่ | ลบ Note ด้วย edit token หลังสร้าง report | Note และ report ที่ผูกผ่าน FK ถูกลบตาม cascade |
 
 ### 2.5 Notes Service — แก้ไข/ลบโน้ต (`pytest`, US-19 #19 + US-20 #20)
 

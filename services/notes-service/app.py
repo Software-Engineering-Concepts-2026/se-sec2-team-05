@@ -7,6 +7,9 @@ Endpoint:
                               ถ้า login จะมี is_favorited ต่อโน้ต ไม่ login เป็น null (US-15)
     GET  /notes/favorites     รายการโปรดของตัวเอง ต้อง login (US-15)
     GET  /notes/<id>          รายละเอียดโน้ตหนึ่งรายการ
+    POST /notes/<id>/reports รายงานเนื้อหาที่ไม่เหมาะสม (Issue #17)
+    GET  /reports             รายการรายงานสำหรับ admin (Issue #17)
+    DELETE /reports/<id>      ลบรายการรายงานสำหรับ admin (Issue #17)
     POST /notes/<id>/comments แสดงความคิดเห็นใต้โน้ต (Issue #14)
     GET  /notes/<id>/comments  รายการความคิดเห็น (Issue #14)
     DELETE /notes/<id>/comments/<comment_id> ลบความคิดเห็นของตัวเอง (Issue #14)
@@ -31,7 +34,7 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 
 from identity import IdentityUnavailable, identity_from_env
-from models import Comment, Favorite, Note, build_session_factory
+from models import Comment, Favorite, Note, Report, build_session_factory
 from preview import PreviewUnavailable, render_preview
 from storage import storage_from_env
 from tokens import HEADER_NAME, issue_token, token_matches
@@ -48,6 +51,40 @@ MAX_PAGE_SIZE = 100
 
 # Issue #14 - Comment validation
 MAX_COMMENT_LENGTH = 1000
+MAX_REPORT_REASON_LENGTH = 500
+
+
+def configured_admin_user_ids() -> set[int]:
+    return {
+        int(value.strip())
+        for value in os.environ.get("ADMIN_USER_IDS", "").split(",")
+        if value.strip().isascii() and value.strip().isdecimal()
+    }
+
+
+def is_admin(user) -> bool:
+    return user is not None and user.get("id") in configured_admin_user_ids()
+
+
+def validate_report_reason(value):
+    if not isinstance(value, str):
+        raise ValueError("required")
+
+    reason = value.strip()
+    if not reason:
+        raise ValueError("required")
+    if len(reason) > MAX_REPORT_REASON_LENGTH:
+        raise ValueError("max_length")
+
+    return reason
+
+
+def is_duplicate_report_error(error):
+    constraint_name = getattr(getattr(error.orig, "diag", None), "constraint_name", None)
+    if constraint_name == "uq_reports_reporter_note":
+        return True
+
+    return "UNIQUE constraint failed: reports.reporter_id, reports.note_id" in str(error.orig)
 
 
 def validate_comment_content(value):
@@ -341,6 +378,14 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
             return None, (jsonify(error="unauthorized"), 401, {"WWW-Authenticate": "Bearer"})
         return user, None
 
+    def require_admin():
+        user, failure = require_user()
+        if failure:
+            return None, failure
+        if not is_admin(user):
+            return None, (jsonify(error="forbidden"), 403)
+        return user, None
+
     def optional_user_id():
         """id ของผู้ใช้ที่ login หรือ None — ใช้กับ route อ่านที่เปิดให้คนไม่ login ด้วย
 
@@ -460,6 +505,77 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
                 return jsonify(error="not_found"), 404
             flags = favorite_flags(session, optional_user_id(), [note])
             return jsonify({**note.to_dict(), "is_favorited": flags.get(note.id)})
+
+    @app.post("/notes/<int:note_id>/reports")
+    def create_report(note_id):
+        user, failure = require_user()
+        if failure:
+            return failure
+
+        payload = request.get_json(silent=True)
+        try:
+            reason = validate_report_reason(payload.get("reason") if isinstance(payload, dict) else None)
+        except ValueError as error:
+            return jsonify(error="validation_failed", fields={"reason": str(error)}), 400
+
+        with session_factory() as session:
+            if session.get(Note, note_id) is None:
+                return jsonify(error="not_found"), 404
+
+            existing = session.scalars(
+                select(Report).where(
+                    Report.reporter_id == user["id"],
+                    Report.note_id == note_id,
+                )
+            ).first()
+            if existing is not None:
+                return jsonify(error="already_reported"), 409
+
+            report = Report(
+                note_id=note_id,
+                reporter_id=user["id"],
+                reporter_name=user["display_name"],
+                reason=reason,
+            )
+            session.add(report)
+            try:
+                session.commit()
+            except IntegrityError as error:
+                session.rollback()
+                if is_duplicate_report_error(error):
+                    return jsonify(error="already_reported"), 409
+                raise
+
+            return jsonify(report.to_dict()), 201
+
+    @app.get("/reports")
+    def list_reports():
+        _, failure = require_admin()
+        if failure:
+            return failure
+
+        with session_factory() as session:
+            reports = session.scalars(
+                select(Report).order_by(Report.created_at.desc(), Report.id.desc())
+            ).all()
+            items = [report.to_dict() for report in reports]
+            return jsonify(count=len(items), reports=items)
+
+    @app.delete("/reports/<int:report_id>")
+    def delete_report(report_id):
+        _, failure = require_admin()
+        if failure:
+            return failure
+
+        with session_factory() as session:
+            report = session.get(Report, report_id)
+            if report is None:
+                return jsonify(error="not_found"), 404
+
+            session.delete(report)
+            session.commit()
+
+        return "", 204
 
     # ============================================================
     # Issue #14 - Comment on a Note
