@@ -5,6 +5,7 @@ Endpoint:
     POST /notes               อัปโหลดไฟล์ + metadata (multipart/form-data) ต้อง login (US-31)
     GET  /notes               ค้นหา/กรองด้วย metadata ที่กรอกไว้ (AC ข้อ 4)
                               ถ้า login จะมี is_favorited ต่อโน้ต ไม่ login เป็น null (US-15)
+                              และ thank_status ต่อโน้ต ไม่ login เป็น null (US-28)
     GET  /notes/favorites     รายการโปรดของตัวเอง ต้อง login (US-15)
     GET  /notes/<id>          รายละเอียดโน้ตหนึ่งรายการ
     POST /notes/<id>/reports รายงานเนื้อหาที่ไม่เหมาะสม (Issue #17)
@@ -363,7 +364,11 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
         with session_factory() as session:
             rows = session.scalars(stmt.limit(limit).offset(offset)).all()
             flags = favorite_flags(session, user_id, rows)
-            items = [{**n.to_dict(), "is_favorited": flags.get(n.id)} for n in rows]
+            thanks = thank_statuses(session, user_id, rows)
+            items = [
+                {**n.to_dict(), "is_favorited": flags.get(n.id), "thank_status": thanks.get(n.id)}
+                for n in rows
+            ]
             return jsonify(items=items, count=len(items))
 
     def require_user():
@@ -416,6 +421,29 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
             )
         )
         return {n.id: n.id in favorited for n in notes}
+
+    def thank_statuses(session, user_id, notes):
+        """คืน {note_id: "own_note" | "thanked" | "can_thank"} หรือ {} ถ้าไม่ login — US-28
+
+        query ตาราง thanks ครั้งเดียวทั้งหน้าเหมือน favorite_flags
+        """
+        if user_id is None or not notes:
+            return {}
+        thanked = set(
+            session.scalars(
+                select(Thank.note_id).where(
+                    Thank.user_id == user_id,
+                    Thank.note_id.in_([n.id for n in notes]),
+                )
+            )
+        )
+
+        def status_of(note):
+            if note.uploader_id == user_id:
+                return "own_note"
+            return "thanked" if note.id in thanked else "can_thank"
+
+        return {n.id: status_of(n) for n in notes}
 
     @app.get("/notes/favorites")
     def list_favorites():
@@ -550,8 +578,16 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
             session.commit()
             session.refresh(note)
 
-            flags = favorite_flags(session, optional_user_id(), [note])
-            return jsonify({**note.to_dict(), "is_favorited": flags.get(note.id)})
+            user_id = optional_user_id()
+            flags = favorite_flags(session, user_id, [note])
+            thanks = thank_statuses(session, user_id, [note])
+            return jsonify(
+                {
+                    **note.to_dict(),
+                    "is_favorited": flags.get(note.id),
+                    "thank_status": thanks.get(note.id),
+                }
+            )
 
     @app.post("/notes/<int:note_id>/reports")
     def create_report(note_id):
