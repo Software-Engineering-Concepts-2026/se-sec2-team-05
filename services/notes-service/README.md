@@ -43,8 +43,9 @@ NOTES_STORAGE_DIR=./data python services/notes-service/app.py
 | `GET` | `/notes/favorites` | รายการโปรดของตัวเอง เรียงที่เพิ่งบันทึกก่อน — **ต้อง login** (US-15) |
 | `GET` | `/notes/<id>` | รายละเอียดโน้ตหนึ่งรายการ |
 | `POST` | `/notes/<id>/reports` | รายงานโน้ตด้วย JSON `{"reason": "..."}` → `201` — ต้อง login และรายงานซ้ำต่อโน้ตได้ครั้งเดียว (Issue #17) |
-| `GET` | `/reports` | ดูรายงานทั้งหมด เรียงใหม่ไปเก่า — ต้องเป็น admin (Issue #17) |
-| `DELETE` | `/reports/<report_id>` | ลบรายการรายงาน → `204` — ต้องเป็น admin (Issue #17) |
+| `GET` | `/reports` | ดูรายงานพร้อมข้อมูลโน้ต เหตุผล และผู้รายงาน เรียงใหม่ไปเก่า — ต้องเป็น admin (Issue #17) |
+| `DELETE` | `/reports/<report_id>` | ปฏิเสธ/ปิดรายงาน โดยลบเฉพาะ Report และเก็บ Note ไว้ → `204` — ต้องเป็น admin (Issue #17) |
+| `DELETE` | `/reports/<report_id>/note` | ลบ Note ที่ถูกรายงานพร้อมไฟล์และรายงานที่ผูกอยู่ผ่าน cascade → `204` — ต้องเป็น admin (Issue #18) |
 | `POST` | `/notes/<id>/comments` | แสดงความคิดเห็นใต้โน้ต — ต้อง login และส่ง JSON `{"content": "..."}` → `201` (Issue #14) |
 | `GET` | `/notes/<id>/comments` | แสดงความคิดเห็นของโน้ต เรียงจากใหม่ไปเก่า (Issue #14) |
 | `DELETE` | `/notes/<id>/comments/<comment_id>` | ลบความคิดเห็นของตัวเอง — ต้อง login → `204` (Issue #14) |
@@ -297,9 +298,14 @@ service ตรวจสอบก่อนบันทึก และฐาน�
 | รายงานโน้ตนี้ไปแล้ว | `409` `{"error": "already_reported"}` |
 | auth-service ล่ม | `503` `{"error": "auth_unavailable"}` |
 
-`GET /reports` และ `DELETE /reports/<report_id>` จำกัดเฉพาะ user ID ที่อยู่ใน `ADMIN_USER_IDS`
-(คั่นด้วย comma; ตัวอย่าง `ADMIN_USER_IDS=99,100`) รายการเรียง `created_at` ใหม่ไปเก่า และใช้ `id` เป็นตัวตัดสินเมื่อเวลาเท่ากัน
-การลบรายงานลบเฉพาะ record ของ Report ไม่ได้ลบ Note · หาก Note ถูกลบด้วย edit token เดิม รายงานที่ผูกกับ Note จะถูกลบตาม foreign-key cascade
+`GET /reports`, `DELETE /reports/<report_id>` และ `DELETE /reports/<report_id>/note` จำกัดเฉพาะ user ID
+ที่อยู่ใน `ADMIN_USER_IDS` (คั่นด้วย comma; ตัวอย่าง `ADMIN_USER_IDS=99,100`) รายการเรียง
+`created_at` ใหม่ไปเก่า และใช้ `id` เป็นตัวตัดสินเมื่อเวลาเท่ากัน `GET /reports` แสดง report ID,
+note ID พร้อมข้อมูลโน้ต, เหตุผล, reporter ID/ชื่อ และเวลาที่รายงาน
+
+`DELETE /reports/<report_id>` ใช้ปฏิเสธ/ปิดรายงาน: ลบเฉพาะ record ของ Report และเก็บ Note ไว้
+ส่วน `DELETE /reports/<report_id>/note` ลบ Note พร้อมไฟล์และ preview โดยใช้การ cleanup เดียวกับการลบโน้ตปกติ
+รายงานทั้งหมดที่ผูกกับ Note นั้นจะถูกลบผ่าน foreign-key cascade ไม่กระทบ Note หรือ Report อื่น
 
 #### `GET /reports`
 
@@ -310,7 +316,7 @@ service ตรวจสอบก่อนบันทึก และฐาน�
 | ไม่ใช่ admin | `403` `{"error": "forbidden"}` |
 | auth-service ล่ม | `503` `{"error": "auth_unavailable"}` |
 
-#### `DELETE /reports/<report_id>`
+#### `DELETE /reports/<report_id>` — ปฏิเสธรายงาน เก็บ Note ไว้
 
 | กรณี | Response |
 | --- | --- |
@@ -318,6 +324,16 @@ service ตรวจสอบก่อนบันทึก และฐาน�
 | ไม่มี token หรือ token ไม่ถูกต้อง | `401` `{"error": "unauthorized"}` |
 | ไม่ใช่ admin | `403` `{"error": "forbidden"}` |
 | ไม่พบ report | `404` `{"error": "not_found"}` |
+| auth-service ล่ม | `503` `{"error": "auth_unavailable"}` |
+
+#### `DELETE /reports/<report_id>/note` — ลบ Note ที่ถูกรายงาน
+
+| กรณี | Response |
+| --- | --- |
+| ลบ Note, ไฟล์ และ Report ที่เกี่ยวข้องสำเร็จ | `204` |
+| ไม่มี token หรือ token ไม่ถูกต้อง | `401` `{"error": "unauthorized"}` |
+| ไม่ใช่ admin | `403` `{"error": "forbidden"}` |
+| ไม่พบ report หรือ Note ที่เกี่ยวข้อง | `404` `{"error": "not_found"}` |
 | auth-service ล่ม | `503` `{"error": "auth_unavailable"}` |
 
 ## ตัวอย่างการเรียกใช้

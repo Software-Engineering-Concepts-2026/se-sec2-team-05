@@ -9,7 +9,8 @@ Endpoint:
     GET  /notes/<id>          รายละเอียดโน้ตหนึ่งรายการ
     POST /notes/<id>/reports รายงานเนื้อหาที่ไม่เหมาะสม (Issue #17)
     GET  /reports             รายการรายงานสำหรับ admin (Issue #17)
-    DELETE /reports/<id>      ลบรายการรายงานสำหรับ admin (Issue #17)
+    DELETE /reports/<id>      ปฏิเสธรายการรายงานสำหรับ admin (Issue #17)
+    DELETE /reports/<id>/note ลบโน้ตที่ถูกรายงานสำหรับ admin (Issue #18)
     POST /notes/<id>/comments แสดงความคิดเห็นใต้โน้ต (Issue #14)
     GET  /notes/<id>/comments  รายการความคิดเห็น (Issue #14)
     DELETE /notes/<id>/comments/<comment_id> ลบความคิดเห็นของตัวเอง (Issue #14)
@@ -386,6 +387,18 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
             return None, (jsonify(error="forbidden"), 403)
         return user, None
 
+    def delete_note_record(session, note):
+        storage_key = note.storage_key
+        session.execute(delete(Comment).where(Comment.note_id == note.id))
+        session.execute(delete(Favorite).where(Favorite.note_id == note.id))
+        session.delete(note)
+        session.commit()
+        return storage_key
+
+    def delete_note_files(storage_key):
+        file_storage.delete(storage_key)
+        file_storage.delete(preview_key_for(storage_key))
+
     def optional_user_id():
         """id ของผู้ใช้ที่ login หรือ None — ใช้กับ route อ่านที่เปิดให้คนไม่ login ด้วย
 
@@ -567,7 +580,16 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
             reports = session.scalars(
                 select(Report).order_by(Report.created_at.desc(), Report.id.desc())
             ).all()
-            items = [report.to_dict() for report in reports]
+            notes = {
+                note.id: note
+                for note in session.scalars(
+                    select(Note).where(Note.id.in_([report.note_id for report in reports]))
+                ).all()
+            }
+            items = [
+                {**report.to_dict(), "note": notes[report.note_id].to_dict()}
+                for report in reports
+            ]
             return jsonify(count=len(items), reports=items)
 
     @app.delete("/reports/<int:report_id>")
@@ -584,6 +606,26 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
             session.delete(report)
             session.commit()
 
+        return "", 204
+
+    @app.delete("/reports/<int:report_id>/note")
+    def delete_reported_note(report_id):
+        _, failure = require_admin()
+        if failure:
+            return failure
+
+        with session_factory() as session:
+            report = session.get(Report, report_id)
+            if report is None:
+                return jsonify(error="not_found"), 404
+
+            note = session.get(Note, report.note_id)
+            if note is None:
+                return jsonify(error="not_found"), 404
+
+            storage_key = delete_note_record(session, note)
+
+        delete_note_files(storage_key)
         return "", 204
 
     # ============================================================
@@ -773,17 +815,9 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
             ):
                 return jsonify(error="forbidden"), 403
 
-            storage_key = note.storage_key
-            # ลบ comments (Issue #14) และ favorites (US-15) ของโน้ตนี้ก่อน (transaction เดียวกัน)
-            # favorites มี FK ไป notes ถ้าไม่ลบก่อน Postgres ชน FK → 500
-            session.execute(delete(Comment).where(Comment.note_id == note_id))
-            session.execute(delete(Favorite).where(Favorite.note_id == note_id))
-            session.delete(note)
-            session.commit()
+            storage_key = delete_note_record(session, note)
 
-        file_storage.delete(storage_key)
-
-        file_storage.delete(preview_key_for(storage_key))
+        delete_note_files(storage_key)
         return "", 204
 
     @app.get("/notes/<int:note_id>/download")
