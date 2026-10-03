@@ -144,6 +144,14 @@
 | NA-72 | ลบ report ที่ไม่มีอยู่ | admin `DELETE /reports/<id>` ด้วย id ที่ไม่มี | `404 not_found` |
 | NA-73 | admin IDs อ่านจาก env และข้ามค่าที่ไม่ใช่ตัวเลข | `ADMIN_USER_IDS` มี whitespace และค่าที่ไม่ใช่ตัวเลข | แปลงเฉพาะ numeric IDs; ไม่มีค่าแล้วไม่มี admin |
 | NA-74 | ลบ Note ยังคงทำงานเมื่อมี report ผูกอยู่ | ลบ Note ด้วย edit token หลังสร้าง report | Note และ report ที่ผูกผ่าน FK ถูกลบตาม cascade |
+| NA-75 | admin เห็นโน้ตที่ถูกรายงานในรายการรายงาน (Issue #18) | `GET /reports` ด้วย admin หลังสมาชิกสองคนรายงานโน้ตเดียวกัน | แต่ละ report มี object `note` (`id`, `title`) พร้อมเหตุผลและผู้รายงาน |
+| NA-76 | admin ลบโน้ตที่ถูกรายงานได้ (Issue #18) | `DELETE /reports/<report_id>/note` ด้วย admin | `204` · Note หาย (`GET /notes/<id>` → `404`) และ report ของโน้ตนั้นถูกลบตาม |
+| NA-77 | ลบโน้ตที่ถูกรายงานแล้วไฟล์ใน storage ถูกลบด้วย (Issue #18) | อัปโหลดโน้ต → รายงาน → admin `DELETE /reports/<report_id>/note` | `204` · ไม่เหลือไฟล์ใน storage |
+| NA-78 | ลบโน้ตที่ถูกรายงานไม่กระทบโน้ตหรือ report อื่น (Issue #18) | มีสองโน้ตและสอง report → ลบผ่าน report ของโน้ตแรก | โน้ตแรก `404` · โน้ตที่สองและ report ของมันยังอยู่ |
+| NA-79 | สมาชิกทั่วไปลบโน้ตผ่าน report ไม่ได้ (Issue #18) | `DELETE /reports/<report_id>/note` ด้วย member | `403 forbidden` · Note และ report ยังอยู่ |
+| NA-80 | action ของ admin ต้อง login (Issues #17, #18) | `GET /reports`, `DELETE /reports/<id>`, `DELETE /reports/<id>/note` ไม่มี Bearer token | `401 unauthorized` + `WWW-Authenticate: Bearer` |
+| NA-81 | auth-service ล่มตอน admin ลบโน้ต (Issue #18) | identity โยน `IdentityUnavailable` แล้ว `DELETE /reports/<id>/note` | `503 auth_unavailable` |
+| NA-82 | ลบโน้ตผ่าน report ที่ไม่มีอยู่ (Issue #18) | admin `DELETE /reports/99999/note` | `404 not_found` |
 
 ### 2.5 Notes Service — แก้ไข/ลบโน้ต (`pytest`, US-19 #19 + US-20 #20)
 
