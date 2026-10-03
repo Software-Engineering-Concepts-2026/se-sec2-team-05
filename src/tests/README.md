@@ -11,6 +11,7 @@
 | `test_auth_tokens.py` | ออก/ตรวจ JWT ของ User & Auth Service (US-06) | อติชาติ |
 | `test_auth_api.py` | endpoint `/auth/register`, `/auth/login`, `/auth/logout`, `/auth/me` (US-05, US-06) | อติชาติ |
 | `test_notes_identity.py` | Notes Service ตรวจ token ผ่าน auth-service ตัวจริงทาง HTTP (US-31) | อติชาติ |
+| `test_notes_ratings.py` | Notes Service rating: eligibility, การสร้าง/แก้ไข Rating, ค่าเฉลี่ย, authorization และ cleanup (Issue #13) | Kittamet |
 | `../../prototypes/sprint1/note-utils.test.js` | `escapeHtml`, `formatStars`, `compareNotes` | อติชาติ (Lab 7) |
 
 > ⚠️ **ยังขาด:** เทสต์ของ วชิรวิทย์ และ กฤตเมธ — ตามใบงานทุกคนต้องมีเทสต์เป็นของตัวเอง
