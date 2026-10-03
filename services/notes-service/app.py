@@ -7,6 +7,7 @@ Endpoint:
                               ถ้า login จะมี is_favorited ต่อโน้ต ไม่ login เป็น null (US-15)
     GET  /notes/favorites     รายการโปรดของตัวเอง ต้อง login (US-15)
     GET  /notes/<id>          รายละเอียดโน้ตหนึ่งรายการ
+    PUT  /notes/<id>/rating  ให้/แก้คะแนนโน้ต ต้อง login และเคยเปิด/ดาวน์โหลด (Issue #13)
     POST /notes/<id>/reports รายงานเนื้อหาที่ไม่เหมาะสม (Issue #17)
     GET  /reports             รายการรายงานสำหรับ admin (Issue #17)
     DELETE /reports/<id>      ลบรายการรายงานสำหรับ admin (Issue #17)
@@ -34,7 +35,15 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 
 from identity import IdentityUnavailable, identity_from_env
-from models import Comment, Favorite, Note, Report, build_session_factory
+from models import (
+    Comment,
+    Favorite,
+    Note,
+    NoteAccess,
+    Rating,
+    Report,
+    build_session_factory,
+)
 from preview import PreviewUnavailable, render_preview
 from storage import storage_from_env
 from tokens import HEADER_NAME, issue_token, token_matches
@@ -87,6 +96,22 @@ def is_duplicate_report_error(error):
     return "UNIQUE constraint failed: reports.reporter_id, reports.note_id" in str(error.orig)
 
 
+def is_duplicate_access_error(error):
+    constraint_name = getattr(getattr(error.orig, "diag", None), "constraint_name", None)
+    if constraint_name == "uq_note_accesses_user_note":
+        return True
+
+    return "UNIQUE constraint failed: note_accesses.user_id, note_accesses.note_id" in str(error.orig)
+
+
+def is_duplicate_rating_error(error):
+    constraint_name = getattr(getattr(error.orig, "diag", None), "constraint_name", None)
+    if constraint_name == "uq_ratings_user_note":
+        return True
+
+    return "UNIQUE constraint failed: ratings.user_id, ratings.note_id" in str(error.orig)
+
+
 def validate_comment_content(value):
     """ตรวจสอบข้อความความคิดเห็นของ Issue #14"""
     if not isinstance(value, str):
@@ -103,6 +128,12 @@ def validate_comment_content(value):
         )
 
     return content
+
+
+def validate_rating(value):
+    if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 5:
+        raise ValueError("rating must be an integer from 1 to 5")
+    return value
 
 
 # เพดานขนาด request ทั้งก้อน = ขนาดไฟล์สูงสุด + ที่เผื่อไว้ให้ multipart boundary กับฟิลด์ metadata
@@ -416,6 +447,37 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
         )
         return {n.id: n.id in favorited for n in notes}
 
+    def record_note_access(session, note_id, user_id, counter):
+        if user_id is not None:
+            already_accessed = session.scalars(
+                select(NoteAccess.id).where(
+                    NoteAccess.user_id == user_id,
+                    NoteAccess.note_id == note_id,
+                )
+            ).first()
+            if already_accessed is None:
+                session.add(NoteAccess(user_id=user_id, note_id=note_id))
+
+        session.execute(
+            update(Note)
+            .where(Note.id == note_id)
+            .values({counter: getattr(Note, counter) + 1})
+        )
+        try:
+            session.commit()
+        except IntegrityError as error:
+            session.rollback()
+            if user_id is None or not is_duplicate_access_error(error):
+                raise
+            # Simultaneous first access by the same member: keep the access row unique,
+            # but preserve this request's aggregate view/download count.
+            session.execute(
+                update(Note)
+                .where(Note.id == note_id)
+                .values({counter: getattr(Note, counter) + 1})
+            )
+            session.commit()
+
     @app.get("/notes/favorites")
     def list_favorites():
         """รายการโปรดของตัวเอง เรียงที่เพิ่งบันทึกก่อน — US-15 (#15)"""
@@ -504,16 +566,97 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
             if note is None:
                 return jsonify(error="not_found"), 404
 
-            session.execute(
-                update(Note)
-                .where(Note.id == note_id)
-                .values(view_count=Note.view_count + 1)
-            )
-            session.commit()
+            user_id = optional_user_id()
+            record_note_access(session, note_id, user_id, "view_count")
             session.refresh(note)
 
-            flags = favorite_flags(session, optional_user_id(), [note])
-            return jsonify({**note.to_dict(), "is_favorited": flags.get(note.id)})
+            flags = favorite_flags(session, user_id, [note])
+            result = {**note.to_dict(), "is_favorited": flags.get(note.id)}
+            if user_id is not None:
+                result["can_rate"] = True
+                result["user_rating"] = session.scalars(
+                    select(Rating.value).where(
+                        Rating.user_id == user_id,
+                        Rating.note_id == note_id,
+                    )
+                ).first()
+            return jsonify(result)
+
+    # Issue #13 - Rating a Note
+    @app.put("/notes/<int:note_id>/rating")
+    def set_note_rating(note_id):
+        user, failure = require_user()
+        if failure:
+            return failure
+
+        payload = request.get_json(silent=True)
+        try:
+            rating_value = validate_rating(
+                payload.get("rating") if isinstance(payload, dict) else None
+            )
+        except ValueError as error:
+            return jsonify(
+                error="validation_failed",
+                fields={"rating": str(error)},
+            ), 400
+
+        with session_factory() as session:
+            if session.get(Note, note_id) is None:
+                return jsonify(error="not_found"), 404
+
+            has_accessed = session.scalars(
+                select(NoteAccess.id).where(
+                    NoteAccess.user_id == user["id"],
+                    NoteAccess.note_id == note_id,
+                )
+            ).first()
+            if has_accessed is None:
+                return jsonify(error="not_eligible"), 403
+
+            rating = session.scalars(
+                select(Rating).where(
+                    Rating.user_id == user["id"],
+                    Rating.note_id == note_id,
+                )
+            ).first()
+            created = rating is None
+            if created:
+                rating = Rating(
+                    user_id=user["id"],
+                    note_id=note_id,
+                    value=rating_value,
+                )
+                session.add(rating)
+            else:
+                rating.value = rating_value
+                rating.updated_at = datetime.now(timezone.utc)
+
+            try:
+                session.commit()
+            except IntegrityError as error:
+                session.rollback()
+                if not created or not is_duplicate_rating_error(error):
+                    raise
+                rating = session.scalars(
+                    select(Rating).where(
+                        Rating.user_id == user["id"],
+                        Rating.note_id == note_id,
+                    )
+                ).first()
+                if rating is None:
+                    raise
+                rating.value = rating_value
+                rating.updated_at = datetime.now(timezone.utc)
+                session.commit()
+
+            note = session.get(Note, note_id)
+            session.expire(note, ["ratings"])
+            return jsonify(
+                note_id=note_id,
+                rating=rating.value,
+                average_rating=note.average_rating,
+                rating_count=len(note.ratings),
+            )
 
     @app.post("/notes/<int:note_id>/reports")
     def create_report(note_id):
@@ -778,6 +921,7 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
             # favorites มี FK ไป notes ถ้าไม่ลบก่อน Postgres ชน FK → 500
             session.execute(delete(Comment).where(Comment.note_id == note_id))
             session.execute(delete(Favorite).where(Favorite.note_id == note_id))
+            session.execute(delete(NoteAccess).where(NoteAccess.note_id == note_id))
             session.delete(note)
             session.commit()
 
@@ -800,14 +944,9 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
             except FileNotFoundError:
                 return jsonify(error="file_not_found"), 404
 
-            # update แบบ atomic ใน SQL กันนับตกหล่นเมื่อมีดาวน์โหลดพร้อมกันหลาย request
-            session.execute(
-                update(Note)
-                .where(Note.id == note_id)
-                .values(download_count=Note.download_count + 1)
-            )
-
-            session.commit()
+            # Update แบบ atomic และบันทึกสิทธิ์ให้คะแนนเฉพาะผู้ใช้ที่ตรวจตัวตนได้
+            user_id = optional_user_id()
+            record_note_access(session, note_id, user_id, "download_count")
 
             return send_file(
                 file_handle,

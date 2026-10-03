@@ -55,6 +55,38 @@ NOTES_STORAGE_DIR=./data python services/notes-service/app.py
 | `GET` | `/notes/<id>/download` | ดาวน์โหลดไฟล์จริง (ตั้งชื่อไฟล์ตามที่ผู้ใช้อัปโหลดมา) และนับยอดดาวน์โหลด (US-12) |
 | `GET` | `/notes/<id>/preview` | รูปตัวอย่างของโน้ต (PNG) ดูได้โดยไม่ต้องดาวน์โหลดไฟล์เต็ม ไม่นับ `download_count` (US-11) |
 
+### ให้คะแนนโน้ต (Issue #13)
+
+`GET /notes` และ `GET /notes/<id>` ใส่ `average_rating` กับ `rating_count` ใน object โน้ต
+เพื่อให้ผู้ใช้ทุกคนเห็นคะแนนเฉลี่ยและจำนวนผู้ให้คะแนน โน้ตที่ยังไม่มีคะแนนคืน
+`average_rating: null` และ `rating_count: 0` ค่าเฉลี่ยถูกปัดเป็นทศนิยมสองตำแหน่ง
+ส่วน `GET /notes/<id>` จะเพิ่ม `can_rate: true` และ `user_rating` เฉพาะเมื่อระบุตัวสมาชิกได้
+(`user_rating` เป็น `null` หากยังไม่เคยให้คะแนน)
+
+`GET /notes/<id>` ยังคงเปิดสาธารณะเหมือนเดิม หากเรียกพร้อม token ที่ตรวจสอบได้ จะบันทึกสิทธิ์
+ให้สมาชิกคนนั้นให้คะแนนโน้ตได้ การดาวน์โหลดด้วย `GET /notes/<id>/download` พร้อม token
+ที่ตรวจสอบได้ก็บันทึกสิทธิ์เช่นกัน การเปิดหรือดาวน์โหลดแบบไม่ login จะไม่สร้างสิทธิ์
+
+ส่งคะแนนด้วย `PUT /notes/<id>/rating` โดยต้อง login และเคยเปิดหรือดาวน์โหลดโน้ตขณะ login:
+
+```json
+{"rating": 4}
+```
+
+คะแนนต้องเป็น integer ตั้งแต่ 1 ถึง 5 สมาชิกมีคะแนนเดียวต่อโน้ต; การส่งซ้ำจะอัปเดตคะแนนเดิม
+และคืน `200` พร้อม `{ "note_id", "rating", "average_rating", "rating_count" }`
+การมีสิทธิ์และคะแนนถูกเก็บในตารางใหม่ที่ `models.py` สร้างผ่าน `create_all` ตามรูปแบบเดิม
+ไม่ต้องลบ database volume เพื่อเพิ่มตารางเหล่านี้
+
+| กรณี | Response |
+| --- | --- |
+| ให้คะแนนหรือแก้คะแนนสำเร็จ | `200` + คะแนนของสมาชิกและค่าเฉลี่ยล่าสุด |
+| ไม่มี token หรือ token ใช้ไม่ได้ | `401` `{"error": "unauthorized"}` |
+| auth-service ไม่พร้อมใช้งาน | `503` `{"error": "auth_unavailable"}` |
+| body ไม่ใช่ object หรือคะแนนไม่ใช่ integer 1–5 | `400` `{"error": "validation_failed", "fields": {"rating": ...}}` |
+| โน้ตไม่มีอยู่ | `404` `{"error": "not_found"}` |
+| สมาชิกยังไม่เคยเปิด/ดาวน์โหลดโน้ตขณะ login | `403` `{"error": "not_eligible"}` |
+
 ### `POST /notes`
 
 ต้องส่ง header `Authorization: Bearer <access_token>` ที่ได้จาก `POST /auth/login` ของ auth-service

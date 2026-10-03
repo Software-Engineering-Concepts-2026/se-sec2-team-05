@@ -107,6 +107,20 @@
       <p id="previewStatus" class="preview-status" role="status"></p>
       <img id="previewImage" alt="" hidden>
     </div>
+    <section class="rating-panel" aria-labelledby="ratingHeading">
+      <h3 id="ratingHeading">คะแนนโน้ต</h3>
+      <p id="previewRatingAverage" class="rating-average" aria-live="polite">กำลังโหลดคะแนน…</p>
+      <p id="previewRatingMessage" class="rating-message" role="status"></p>
+      <div id="previewRatingStars" class="rating-stars" role="group" aria-label="เลือกคะแนน 1 ถึง 5" hidden>
+        <button type="button" class="rating-star" data-rating="1" aria-label="1 ดาว" aria-pressed="false">☆</button>
+        <button type="button" class="rating-star" data-rating="2" aria-label="2 ดาว" aria-pressed="false">☆</button>
+        <button type="button" class="rating-star" data-rating="3" aria-label="3 ดาว" aria-pressed="false">☆</button>
+        <button type="button" class="rating-star" data-rating="4" aria-label="4 ดาว" aria-pressed="false">☆</button>
+        <button type="button" class="rating-star" data-rating="5" aria-label="5 ดาว" aria-pressed="false">☆</button>
+      </div>
+      <button type="button" id="submitRating" class="secondary-btn" hidden disabled>ส่งคะแนน</button>
+      <p id="ratingSubmitStatus" class="rating-message" role="status" aria-live="polite"></p>
+    </section>
     <footer class="preview-footer">
       <span id="previewSize" class="note-sub"></span>
       <a id="previewDownload" class="primary-btn" href="#">ดาวน์โหลดไฟล์เต็ม</a>
