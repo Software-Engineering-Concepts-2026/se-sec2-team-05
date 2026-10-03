@@ -367,6 +367,22 @@ def test_admin_can_delete_reported_note_and_cascade_report(client, session_facto
     assert client.get(f"/notes/{note['id']}").status_code == 404
 
 
+def test_delete_reported_note_removes_stored_file(client, tmp_path):
+    note = upload_note(client)
+    storage = tmp_path / "storage"
+    assert any(p.is_file() for p in storage.rglob("*"))
+
+    report_id = create_report(client, note["id"]).get_json()["id"]
+
+    response = client.delete(
+        f"/reports/{report_id}/note",
+        headers=ADMIN_AUTH,
+    )
+
+    assert response.status_code == 204
+    assert not any(p.is_file() for p in storage.rglob("*"))
+
+
 def test_admin_can_reject_report_without_deleting_note(client, session_factory):
     note = upload_note(client)
     report_id = create_report(client, note["id"]).get_json()["id"]
