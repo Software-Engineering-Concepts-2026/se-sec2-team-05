@@ -8,6 +8,7 @@ const {
   formatSize,
   fileTypeLabel,
   ratingSummary,
+  starBar,
   renderNoteCard,
   errorMessage,
   hasMore,
@@ -130,6 +131,19 @@ test('renderNoteCard skips missing optional fields', () => {
 test('ratingSummary handles notes without ratings and rounds for display', () => {
   assert.equal(ratingSummary({ average_rating: null, rating_count: 0 }), 'ยังไม่มีคะแนน');
   assert.equal(ratingSummary({ average_rating: 3.66, rating_count: 3 }), 'เฉลี่ย 3.7 / 5 (3)');
+});
+
+test('starBar fills stars up to the rounded average', () => {
+  assert.equal(starBar({ average_rating: null, rating_count: 0 }), '☆☆☆☆☆');
+  assert.equal(starBar({ average_rating: 4.3, rating_count: 4 }), '★★★★☆');
+  assert.equal(starBar({ average_rating: 4.5, rating_count: 2 }), '★★★★★');
+  assert.equal(starBar({ average_rating: 1, rating_count: 1 }), '★☆☆☆☆');
+});
+
+test('renderNoteCard shows the course tag and the stars', () => {
+  const html = renderNoteCard(sampleNote);
+  assert.match(html, /<span class="tag-course">CS201<\/span>/);
+  assert.match(html, /<span class="note-stars" aria-hidden="true">★★★★☆<\/span>/);
 });
 
 test('errorMessage names the field for invalid_filter', () => {

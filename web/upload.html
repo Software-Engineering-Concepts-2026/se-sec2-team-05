@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>NoteShare - อัปโหลดโน้ต</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Noto+Serif+Thai:wght@500;600&family=Work+Sans:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="style.css">
 <script src="session-utils.js" defer></script>
 <script src="upload-utils.js" defer></script>
@@ -22,6 +25,14 @@
   <p id="uploadError" class="error-box" role="alert" hidden></p>
 
   <form id="uploadForm" class="stack-form" novalidate hidden>
+    <label class="form-field dropzone">
+      <span class="dropzone-label">เลือกไฟล์หรือลากมาวางตรงนี้ <em class="required">*</em></span>
+      <input type="file" name="file" class="file-input" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
+             required aria-describedby="fileHint fileError">
+      <small id="fileHint" class="field-hint">PDF, PNG หรือ JPG ไม่เกิน 20 MB</small>
+      <span id="fileError" class="field-error" data-error-for="file" hidden></span>
+    </label>
+
     <label class="form-field">
       <span>ชื่อโน้ต <em class="required">*</em></span>
       <input type="text" name="title" class="text-input" maxlength="200" required
@@ -93,16 +104,8 @@
       <textarea name="description" class="text-input" rows="3" placeholder="อธิบายเนื้อหาสั้น ๆ"></textarea>
     </label>
 
-    <label class="form-field">
-      <span>ไฟล์โน้ต <em class="required">*</em></span>
-      <input type="file" name="file" class="file-input" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
-             required aria-describedby="fileHint fileError">
-      <small id="fileHint" class="field-hint">PDF, PNG หรือ JPG ไม่เกิน 20 MB</small>
-      <span id="fileError" class="field-error" data-error-for="file" hidden></span>
-    </label>
-
     <p class="field-hint"><em class="required">*</em> จำเป็นต้องกรอก</p>
-    <button type="submit" class="primary-btn">อัปโหลด</button>
+    <button type="submit" class="primary-btn accent-btn">อัปโหลด ✓</button>
   </form>
 
   <!-- POST /notes returns edit_token only once (US-19/US-20). It is shown here and nowhere else. -->
