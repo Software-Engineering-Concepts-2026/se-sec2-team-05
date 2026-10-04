@@ -1,6 +1,14 @@
 import os
+from datetime import datetime, timezone
 
-from sqlalchemy import Integer, String, create_engine
+from sqlalchemy import (
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+    create_engine,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
 
@@ -16,6 +24,24 @@ class Note(Base):
     uploader_name: Mapped[str] = mapped_column(String(120), nullable=False)
     view_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     download_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
+class Thank(Base):
+    """ตาราง `thanks` ของ notes-service (US-28 #28) — stats-service อ่านอย่างเดียว
+
+    notes-service เป็นเจ้าของตารางและเป็นคนสร้าง คอลัมน์ที่นี่ต้องตรงกับ `Thank`
+    ใน services/notes-service/models.py เพราะเทสต์อาจสร้างตารางจากฝั่งนี้ก่อน
+    """
+
+    __tablename__ = "thanks"
+    __table_args__ = (UniqueConstraint("user_id", "note_id", name="uq_thanks_user_note"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    note_id: Mapped[int] = mapped_column(Integer, ForeignKey("notes.id"), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
 
 
 def build_session_factory(database_url: str | None = None):

@@ -10,15 +10,18 @@
 # 2. ผู้แบ่งปันดูจำนวนครั้งที่โน้ตตัวเองถูกเปิด (view)
 #    โดยแยกจากจำนวนดาวน์โหลด
 # 3. ดูสถิติแยกเป็นรายโน้ตได้ ไม่รวมทั้งหมดเป็นก้อนเดียว
+#
+# US-28 (#28) AC3: เจ้าของโน้ตเห็นจำนวนครั้งที่ถูกขอบคุณ (เชื่อมกับ #16)
 # ============================================================
 
 
 from datetime import datetime, timezone
 
 from flask import Flask, jsonify, request
+from sqlalchemy import func, select
 
 from stats_identity import IdentityUnavailable, identity_from_env
-from stats_db import Note, build_session_factory
+from stats_db import Note, Thank, build_session_factory
 
 
 app = Flask(__name__)
@@ -86,7 +89,8 @@ def stats():
 #
 # GET /notes/<note_id>/stats
 #
-# ดูจำนวน Views และ Downloads ของ Note ที่ตัวเองเป็นเจ้าของ
+# ดูจำนวน Views, Downloads และ Thanks ของ Note ที่ตัวเองเป็นเจ้าของ
+# Thanks นับจากตาราง `thanks` ของ notes-service (US-28 AC3) ไม่บอกว่าใครกด
 #
 # Authenticate through auth-service /auth/me before returning note statistics.
 # ============================================================
@@ -114,10 +118,15 @@ def get_note_stats(note_id):
                 error="You can only view statistics of your own note"
             ), 403
 
+        thanks = session.scalar(
+            select(func.count()).select_from(Thank).where(Thank.note_id == note.id)
+        )
+
         return jsonify({
             "note_id": note.id,
             "views": note.view_count,
             "downloads": note.download_count,
+            "thanks": thanks,
         })
 
 

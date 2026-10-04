@@ -41,8 +41,10 @@
 | PY-05 | ต้อง login ก่อนดูสถิติของโน้ต | `GET /notes/<id>/stats` ไม่มี Authorization | `401` |
 | PY-06 | ผู้ใช้ที่ไม่ใช่เจ้าของดูสถิติไม่ได้ | `GET /notes/<id>/stats` ด้วยบัญชีอื่น | `403` |
 | PY-07 | โน้ตที่ไม่มีอยู่ | `GET /notes/<id>/stats` ด้วย id ที่ไม่มี | `404` |
-| PY-08 | เจ้าของโน้ตดูสถิติได้ | `GET /notes/<id>/stats` ด้วยบัญชีเจ้าของ | `200` + `note_id`, `views`, `downloads` |
+| PY-08 | เจ้าของโน้ตดูสถิติได้ | `GET /notes/<id>/stats` ด้วยบัญชีเจ้าของ | `200` + `note_id`, `views`, `downloads`, `thanks` (ยังไม่มีใครขอบคุณ = `0`) |
 | PY-09 | view และ download แยกจากกัน | `GET /notes/<id>` แล้วตรวจ counters | `view_count` เพิ่ม โดย `download_count` ไม่เพิ่ม |
+| PY-10 | เจ้าของเห็นจำนวนคำขอบคุณของโน้ตนั้นเท่านั้น (US-28 AC3) | โน้ต A มีคำขอบคุณ 2 ครั้ง โน้ต B มี 1 ครั้ง → เจ้าของแต่ละคน `GET /notes/<id>/stats` | A ได้ `thanks = 2` · B ได้ `thanks = 1` |
+| PY-11 | คนที่ไม่ใช่เจ้าของไม่เห็นจำนวนคำขอบคุณ (US-28 AC3) | `GET /notes/<id>/stats` ด้วยบัญชีอื่น ขณะโน้ตมีคำขอบคุณ | `403` และไม่มีคีย์ `thanks` |
 
 ### 2.3 Notes Service — validation ของ metadata (`pytest`, US-08 AC ข้อ 2–3)
 

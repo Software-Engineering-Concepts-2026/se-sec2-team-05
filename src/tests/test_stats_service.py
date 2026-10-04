@@ -1,6 +1,7 @@
 """Unit tests สำหรับ Stats Service (ผู้เขียน: อติชาติ)
 
 ครอบคลุม health, aggregate stats และการอ่านสถิติของโน้ตจาก Notes Service DB
+รวมจำนวนคำขอบคุณ (US-28 AC3)
 """
 
 from datetime import datetime
@@ -9,6 +10,7 @@ import os
 import pytest
 
 from models import Note, build_session_factory
+from stats_db import Base as StatsBase, Thank
 
 
 @pytest.fixture
@@ -20,6 +22,8 @@ def client(stats_client):
 @pytest.fixture
 def stats_db(client, monkeypatch):
     session_factory = build_session_factory(os.environ["DATABASE_URL"])
+    # ตาราง thanks เป็นของ notes-service (#76) ถ้ายังไม่มีก็สร้างจาก mapping ฝั่ง stats
+    StatsBase.metadata.create_all(session_factory.kw["bind"], tables=[Thank.__table__])
 
     def authenticate(authorization):
         if authorization == "Bearer owner-101":
@@ -34,6 +38,7 @@ def stats_db(client, monkeypatch):
     monkeypatch.setitem(route_globals, "identity", authenticate)
 
     with session_factory() as session:
+        session.query(Thank).delete()
         session.query(Note).delete()
         session.commit()
 
@@ -81,6 +86,7 @@ def stats_db(client, monkeypatch):
     yield session_factory
 
     with session_factory() as session:
+        session.query(Thank).delete()
         session.query(Note).delete()
         session.commit()
 
@@ -157,4 +163,42 @@ def test_note_stats_returns_separate_view_and_download_counts(client, stats_db):
         "note_id": 9001,
         "views": 7,
         "downloads": 3,
+        "thanks": 0,
     }
+
+
+def test_note_stats_counts_thanks_of_that_note_only(client, stats_db):
+    with stats_db() as session:
+        session.add_all([
+            Thank(user_id=201, note_id=9001),
+            Thank(user_id=202, note_id=9001),
+            Thank(user_id=201, note_id=9002),
+        ])
+        session.commit()
+
+    own = client.get(
+        "/notes/9001/stats",
+        headers={"Authorization": "Bearer owner-101"},
+    )
+    other = client.get(
+        "/notes/9002/stats",
+        headers={"Authorization": "Bearer owner-102"},
+    )
+
+    assert own.status_code == 200
+    assert own.get_json()["thanks"] == 2
+    assert other.get_json()["thanks"] == 1
+
+
+def test_note_stats_hides_thanks_from_non_owner(client, stats_db):
+    with stats_db() as session:
+        session.add(Thank(user_id=201, note_id=9001))
+        session.commit()
+
+    response = client.get(
+        "/notes/9001/stats",
+        headers={"Authorization": "Bearer owner-102"},
+    )
+
+    assert response.status_code == 403
+    assert "thanks" not in response.get_json()
