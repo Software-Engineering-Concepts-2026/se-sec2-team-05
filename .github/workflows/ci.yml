@@ -178,6 +178,51 @@ jobs:
           test "$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:5001/notes/$note_id")" = "404"
           echo "edit/delete OK"
 
+      # Issue #82 + #83 บน Postgres จริง: เจ้าของแก้/ลบด้วยการ login (ADR-008), /notes/mine
+      # และ sort=rating ที่ต้องเอาโน้ตไม่มีคะแนนไว้ท้าย — Postgres เรียง NULL ไว้หน้าสุดเมื่อ DESC
+      # ต่างจาก SQLite ในเทสต์ จึงต้องเช็คบน stack จริง
+      - name: 'Owner login and sort by rating on the real stack (Issues #82, #83)'
+        run: |
+          set -euo pipefail
+          auth=http://localhost:5002/auth
+          notes=http://localhost:5001/notes
+          rater='{"email":"ci.rater@up.ac.th","password":"ci rater password","display_name":"CI Rater"}'
+          curl -fsS -o /dev/null -X POST "$auth/register" -H 'Content-Type: application/json' -d "$rater"
+          rater_token=$(curl -fsS -X POST "$auth/login" -H 'Content-Type: application/json' \
+            -d '{"email":"ci.rater@up.ac.th","password":"ci rater password"}' | jq -r '.access_token')
+          test "$rater_token" != "null"
+          echo "::add-mask::$rater_token"
+
+          printf '%s' '%PDF-1.4 ci owner note' > /tmp/owner.pdf
+          upload() {
+            curl -fsS -X POST "$notes" -H "Authorization: Bearer $UPLOAD_TOKEN" -F "title=$1" \
+              -F 'subject_name=Compilers' -F 'subject_code=CS501' -F 'faculty=ICT' -F 'year_level=4' \
+              -F 'lesson=Parsing' -F 'file=@/tmp/owner.pdf;type=application/pdf' | jq -r '.id'
+          }
+          rated=$(upload 'CI rated note')
+          unrated=$(upload 'CI unrated note')
+
+          # ต้องเปิดดูก่อนถึงให้คะแนนได้ (Issue #13)
+          curl -fsS -o /dev/null "$notes/$rated" -H "Authorization: Bearer $rater_token"
+          curl -fsS -o /dev/null -X PUT "$notes/$rated/rating" -H "Authorization: Bearer $rater_token" \
+            -H 'Content-Type: application/json' -d '{"rating": 4}'
+          # โน้ตที่ไม่มีคะแนนใหม่กว่า แต่ต้องอยู่ท้าย
+          test "$(curl -fsS "$notes?subject_code=CS501&sort=rating" | jq -r '.items | map(.id) | join(",")')" = "$rated,$unrated"
+
+          mine=$(curl -fsS "$notes/mine" -H "Authorization: Bearer $UPLOAD_TOKEN")
+          echo "$mine" | jq -e --argjson a "$rated" --argjson b "$unrated" '[.items[].id] | index($a) != null and index($b) != null' > /dev/null
+          test "$(echo "$mine" | jq -r '.summary.rating_count')" = "1"
+          test "$(curl -s -o /dev/null -w '%{http_code}' "$notes/mine")" = "401"
+
+          # คนอื่นที่ login อยู่แก้/ลบไม่ได้ เจ้าของทำได้โดยไม่ต้องมี edit token
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X PATCH "$notes/$rated" -H "Authorization: Bearer $rater_token" -d 'title=hijacked')" = "403"
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "$notes/$rated" -H "Authorization: Bearer $rater_token")" = "403"
+          test "$(curl -fsS -X PATCH "$notes/$rated" -H "Authorization: Bearer $UPLOAD_TOKEN" -d 'topic=LL(1)' | jq -r '.topic')" = "LL(1)"
+          for id in "$rated" "$unrated"; do
+            test "$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "$notes/$id" -H "Authorization: Bearer $UPLOAD_TOKEN")" = "204"
+          done
+          echo "owner login + sort=rating OK"
+
       # เส้นทางของ US-05/US-06 บน Postgres จริง: สมัคร -> login -> ใช้ token -> logout -> token ต้องใช้ไม่ได้ทันที
       - name: End-to-end smoke test (register -> login -> me -> logout)
         run: |
