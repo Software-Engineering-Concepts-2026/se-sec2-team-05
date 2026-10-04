@@ -144,6 +144,14 @@
 | NA-72 | ลบ report ที่ไม่มีอยู่ | admin `DELETE /reports/<id>` ด้วย id ที่ไม่มี | `404 not_found` |
 | NA-73 | admin IDs อ่านจาก env และข้ามค่าที่ไม่ใช่ตัวเลข | `ADMIN_USER_IDS` มี whitespace และค่าที่ไม่ใช่ตัวเลข | แปลงเฉพาะ numeric IDs; ไม่มีค่าแล้วไม่มี admin |
 | NA-74 | ลบ Note ยังคงทำงานเมื่อมี report ผูกอยู่ | ลบ Note ด้วย edit token หลังสร้าง report | Note และ report ที่ผูกผ่าน FK ถูกลบตาม cascade |
+| NA-75 | admin ดูรายการรายงานพร้อมข้อมูล Note ได้ | `GET /reports` ด้วย admin หลังมีรายงาน 2 รายการ | `200` + `count = 2`; แต่ละรายการมีข้อมูลผู้รายงาน เหตุผล และ Note; เรียง `id` จากใหม่ไปเก่า |
+| NA-76 | admin ลบ Note ที่ถูกรายงานและลบ report ที่ผูกอยู่ตาม cascade | `DELETE /reports/<report_id>/note` ด้วย admin | `204`; Note ตอบ `404` และไม่มี report ที่ผูกกับ Note เหลือ |
+| NA-77 | ลบ Note ที่ถูกรายงานแล้วลบไฟล์ใน storage ด้วย | `DELETE /reports/<report_id>/note` ด้วย admin | `204` และไม่มีไฟล์ใน storage เหลือ |
+| NA-78 | admin ปฏิเสธ report โดยไม่ลบ Note | `DELETE /reports/<report_id>` ด้วย admin | `204`; report ถูกลบ แต่ Note ยังตอบ `200` |
+| NA-79 | ลบ Note ที่ถูกรายงานไม่กระทบ Note หรือ report อื่น | ลบ Note หนึ่งรายการด้วย `DELETE /reports/<report_id>/note` ขณะที่มีอีก Note และ report แยกกัน | `204`; Note ที่ถูกรายงานหาย แต่อีก Note และ report ยังคงอยู่ |
+| NA-80 | ผู้ใช้ที่ไม่ใช่ admin ลบ Note ที่ถูกรายงานไม่ได้ | `DELETE /reports/<report_id>/note` ด้วย non-admin | `403`; Note และ report ยังคงอยู่ |
+| NA-81 | การจัดการ report โดย admin ต้องเข้าสู่ระบบ | `GET /reports`, `DELETE /reports/<report_id>` หรือ `DELETE /reports/<report_id>/note` แบบ unauthenticated | `401 unauthorized` + `WWW-Authenticate: Bearer` |
+| NA-82 | ลบ Note ที่ถูกรายงานเมื่อ identity service ใช้งานไม่ได้ | `DELETE /reports/<report_id>/note` เมื่อ identity unavailable | `503 auth_unavailable` |
 
 ### 2.5 Notes Service — แก้ไข/ลบโน้ต (`pytest`, US-19 #19 + US-20 #20)
 
