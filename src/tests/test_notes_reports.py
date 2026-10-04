@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from identity import IdentityUnavailable
-from models import Report, build_session_factory
+from models import Note, Report, build_session_factory
 from storage import LocalFileStorage
 
 MEMBER = {"id": 7, "display_name": "สมาชิก"}
@@ -270,10 +270,32 @@ def test_admin_can_list_reports(client):
     body = response.get_json()
     assert body["count"] == 2
     assert all(
-        {"id", "note_id", "reporter_id", "reporter_name", "reason", "created_at"}
+        {
+            "id",
+            "note_id",
+            "reporter_id",
+            "reporter_name",
+            "reason",
+            "created_at",
+            "note",
+        }
         == set(report)
         for report in body["reports"]
     )
+    assert all(report["note"]["id"] == note["id"] for report in body["reports"])
+    assert {report["reason"] for report in body["reports"]} == {
+        "first report",
+        "second report",
+    }
+    assert {report["reporter_name"] for report in body["reports"]} == {
+        MEMBER["display_name"],
+        OTHER_MEMBER["display_name"],
+    }
+    assert {report["reporter_id"] for report in body["reports"]} == {
+        MEMBER["id"],
+        OTHER_MEMBER["id"],
+    }
+    assert all(report["note"]["title"] == note["title"] for report in body["reports"])
     assert [report["id"] for report in body["reports"]] == sorted(
         (report["id"] for report in body["reports"]), reverse=True
     )
@@ -329,6 +351,112 @@ def test_non_admin_cannot_delete_report(client, session_factory):
 
 def test_delete_missing_report_returns_404(client):
     response = client.delete("/reports/99999", headers=ADMIN_AUTH)
+
+    assert response.status_code == 404
+    assert response.get_json()["error"] == "not_found"
+
+
+def test_admin_can_delete_reported_note_and_cascade_report(client, session_factory):
+    note = upload_note(client)
+    report_id = create_report(client, note["id"]).get_json()["id"]
+
+    response = client.delete(f"/reports/{report_id}/note", headers=ADMIN_AUTH)
+
+    assert response.status_code == 204
+    assert report_count(session_factory) == 0
+    assert client.get(f"/notes/{note['id']}").status_code == 404
+
+
+def test_delete_reported_note_removes_stored_file(client, tmp_path):
+    note = upload_note(client)
+    storage = tmp_path / "storage"
+    assert any(p.is_file() for p in storage.rglob("*"))
+
+    report_id = create_report(client, note["id"]).get_json()["id"]
+
+    response = client.delete(
+        f"/reports/{report_id}/note",
+        headers=ADMIN_AUTH,
+    )
+
+    assert response.status_code == 204
+    assert not any(p.is_file() for p in storage.rglob("*"))
+
+
+def test_admin_can_reject_report_without_deleting_note(client, session_factory):
+    note = upload_note(client)
+    report_id = create_report(client, note["id"]).get_json()["id"]
+
+    response = client.delete(f"/reports/{report_id}", headers=ADMIN_AUTH)
+
+    assert response.status_code == 204
+    assert report_count(session_factory) == 0
+    assert client.get(f"/notes/{note['id']}").status_code == 200
+
+
+def test_deleting_reported_note_does_not_affect_unrelated_note_or_report(
+    client, session_factory
+):
+    reported_note = upload_note(client)
+    unrelated_note = upload_note(client)
+    reported_id = create_report(client, reported_note["id"]).get_json()["id"]
+    unrelated_report = create_report(
+        client, unrelated_note["id"], headers=OTHER_MEMBER_AUTH
+    ).get_json()
+
+    response = client.delete(f"/reports/{reported_id}/note", headers=ADMIN_AUTH)
+
+    assert response.status_code == 204
+    assert client.get(f"/notes/{reported_note['id']}").status_code == 404
+    assert client.get(f"/notes/{unrelated_note['id']}").status_code == 200
+    assert report_count(session_factory) == 1
+    with session_factory() as session:
+        assert session.get(Report, unrelated_report["id"]) is not None
+        assert session.get(Note, unrelated_note["id"]) is not None
+
+
+def test_non_admin_cannot_delete_reported_note(client, session_factory):
+    note = upload_note(client)
+    report_id = create_report(client, note["id"]).get_json()["id"]
+
+    response = client.delete(
+        f"/reports/{report_id}/note", headers=MEMBER_AUTH
+    )
+
+    assert response.status_code == 403
+    assert client.get(f"/notes/{note['id']}").status_code == 200
+    assert report_count(session_factory) == 1
+
+
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        ("GET", "/reports"),
+        ("DELETE", "/reports/99999"),
+        ("DELETE", "/reports/99999/note"),
+    ],
+)
+def test_admin_report_actions_require_authentication(client, method, path):
+    response = client.open(path, method=method)
+
+    assert response.status_code == 401
+    assert response.get_json()["error"] == "unauthorized"
+    assert response.headers["WWW-Authenticate"] == "Bearer"
+
+
+def test_delete_reported_note_returns_503_when_identity_unavailable(
+    client, identity
+):
+    identity.down = True
+
+    response = client.delete("/reports/99999/note", headers=ADMIN_AUTH)
+
+    assert response.status_code == 503
+    assert response.get_json()["error"] == "auth_unavailable"
+
+
+def test_delete_missing_reported_note_returns_404(client):
+    response = client.delete("/reports/99999/note", headers=ADMIN_AUTH)
 
     assert response.status_code == 404
     assert response.get_json()["error"] == "not_found"

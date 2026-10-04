@@ -144,20 +144,42 @@
 | NA-72 | ลบ report ที่ไม่มีอยู่ | admin `DELETE /reports/<id>` ด้วย id ที่ไม่มี | `404 not_found` |
 | NA-73 | admin IDs อ่านจาก env และข้ามค่าที่ไม่ใช่ตัวเลข | `ADMIN_USER_IDS` มี whitespace และค่าที่ไม่ใช่ตัวเลข | แปลงเฉพาะ numeric IDs; ไม่มีค่าแล้วไม่มี admin |
 | NA-74 | ลบ Note ยังคงทำงานเมื่อมี report ผูกอยู่ | ลบ Note ด้วย edit token หลังสร้าง report | Note และ report ที่ผูกผ่าน FK ถูกลบตาม cascade |
-| NA-75 | ขอบคุณเจ้าของโน้ตครั้งแรก (US-28) | Bob `POST /notes/<id>/thanks` โน้ตของ Alice | `201` + `note_id`, `thanked = true`, `thanked_at` |
-| NA-76 | กดขอบคุณซ้ำไม่เพิ่มยอด | `POST .../thanks` สองครั้ง | ครั้งที่สอง `200` · `thanked_at` เท่าเดิม · ตาราง `thanks` มี 1 แถว |
-| NA-77 | ขอบคุณต้อง login | ไม่มี header · token ที่ไม่รู้จัก · auth-service ล่ม | `401` `unauthorized` (ไม่มีแถวใน `thanks`) · `401` · `503` `auth_unavailable` |
-| NA-78 | โน้ตที่ไม่มีอยู่ | `POST /notes/999/thanks` | `404` `not_found` |
-| NA-79 | ขอบคุณโน้ตของตัวเองไม่ได้ | Alice `POST .../thanks` โน้ตที่ตัวเองอัปโหลด | `403` `own_note` · ไม่มีแถวใน `thanks` |
-| NA-80 | หลายคนขอบคุณโน้ตเดียวกันได้คนละครั้ง และนับแยกโน้ต | Bob กับ Carol ขอบคุณ แล้ว Bob กดซ้ำ · ขอบคุณโน้ตหนึ่งจากสองโน้ต | `201` ทั้งคู่ · ยอดของโน้ตนั้น = 2 · อีกโน้ต = 0 |
-| NA-81 | ยกเลิกคำขอบคุณไม่ได้ | `DELETE /notes/<id>/thanks` หลังขอบคุณ | `405` · `thank_status` ยังเป็น `thanked` |
-| NA-82 | API ไม่ตรวจว่าดาวน์โหลดแล้ว ("หลังดาวน์โหลด" เป็นเงื่อนไขฝั่ง UI) | ขอบคุณโน้ตที่ `download_count = 0` | `201` |
-| NA-83 | `thank_status` เปลี่ยนตามการขอบคุณ และแยกตามผู้ใช้ | อ่านโน้ตก่อน/หลัง Bob ขอบคุณ · Carol อ่านโน้ตเดียวกัน | Bob: `can_thank` → `thanked` · Carol: `can_thank` |
-| NA-84 | `thank_status` ของเจ้าของโน้ต | Alice อ่านโน้ตตัวเอง | `own_note` |
-| NA-85 | ไม่ login หรือ token ใช้ไม่ได้ ได้ `thank_status = null` | `GET /notes`, `GET /notes/<id>` ไม่มี header และด้วย token ที่ไม่รู้จัก | `200` และ `thank_status = null` |
-| NA-86 | auth-service ล่มระหว่างค้นหา ค้นหายังใช้ได้ | identity โยน `IdentityUnavailable` แล้ว `GET /notes`, `GET /notes/<id>` ด้วย token ที่ถูก | `200` และ `thank_status = null` (ไม่ใช่ `503`) |
-| NA-87 | `GET /notes` ให้สถานะต่อโน้ตถูกต้องในหน้าเดียวกัน และ query `thanks` ครั้งเดียว | Bob ค้นหาเจอโน้ตที่ยังไม่ขอบคุณ, ขอบคุณแล้ว และโน้ตของตัวเอง · นับ SQL ตอนมี 5 โน้ต | `can_thank` · `thanked` · `own_note` · อ่านตาราง `thanks` 1 ครั้ง |
-| NA-88 | ลบโน้ตลบคำขอบคุณของโน้ตนั้น (US-20) | Bob กับ Carol ขอบคุณ แล้วลบโน้ตด้วย edit token · มีอีกโน้ตที่ Bob ขอบคุณไว้ | `204` ไม่ชน FK · thanks ของโน้ตที่ลบหายหมด · ของอีกโน้ตยังอยู่ |
+| NA-75 | เปิดดู Note ขณะเข้าสู่ระบบแล้วมีสิทธิ์ให้คะแนน | authenticated `GET /notes/<id>` | บันทึก eligibility ของผู้ใช้สำหรับ Note นั้น |
+| NA-76 | ดาวน์โหลด Note ขณะเข้าสู่ระบบแล้วมีสิทธิ์ให้คะแนน | authenticated download | บันทึก eligibility ของผู้ใช้สำหรับ Note นั้น |
+| NA-77 | ผู้ใช้ที่ไม่ได้เข้าสู่ระบบเปิดดู Note | unauthenticated `GET /notes/<id>` | ไม่บันทึก user eligibility |
+| NA-78 | ผู้ใช้ที่มีสิทธิ์สามารถสร้าง Rating ได้ | `PUT /notes/<id>/rating` ด้วยค่า `1-5` | `200` และสร้าง Rating |
+| NA-79 | Rating รองรับค่าตาม scale 1-5 | `PUT /notes/<id>/rating` ด้วยค่า `1-5` | รับค่าทั้ง 5 ระดับได้ |
+| NA-80 | Rating ที่อยู่นอกช่วงไม่ถูกยอมรับ | `PUT /notes/<id>/rating` ด้วยค่าต่ำกว่า 1 หรือมากกว่า 5 | `400 validation` |
+| NA-81 | ผู้ใช้ให้คะแนน Note เดิมซ้ำได้โดยการแก้ไข | `PUT /notes/<id>/rating` ซ้ำโดยผู้ใช้เดิม | อัปเดต Rating เดิม ไม่สร้างแถวใหม่ |
+| NA-82 | แสดงค่าเฉลี่ย Rating ใน Note | `GET /notes` และ `GET /notes/<id>` | มี `average_rating` และ `rating_count` |
+| NA-83 | ผู้ใช้ที่ยังไม่มี eligibility ไม่สามารถให้คะแนน | authenticated `PUT /notes/<id>/rating` | `403 forbidden` |
+| NA-84 | การให้คะแนนต้องผ่าน authentication | unauthenticated `PUT /notes/<id>/rating` | `401 unauthorized` |
+| NA-85 | ให้คะแนน Note ที่ไม่มีอยู่ | `PUT /notes/<unknown_id>/rating` | `404 not_found` |
+| NA-86 | Auth Service ใช้งานไม่ได้ระหว่างให้คะแนน | `PUT /notes/<id>/rating` เมื่อ auth-service unavailable | `503 auth_unavailable` |
+| NA-87 | Rating ของผู้ใช้แต่ละคนแยกจากกัน | ผู้ใช้หลายคนให้คะแนน Note เดียวกัน | Rating และ `user_rating` ของแต่ละคนไม่ปะปนกัน |
+| NA-88 | ลบ Note แล้วลบ access และ Rating ที่เกี่ยวข้อง | ลบ Note ที่มี access/Rating | access และ Rating ของ Note นั้นถูกลบตาม |
+| NA-89 | admin เห็นโน้ตที่ถูกรายงานในรายการรายงาน (Issue #18) | `GET /reports` ด้วย admin หลังสมาชิกสองคนรายงานโน้ตเดียวกัน | แต่ละ report มี object `note` (`id`, `title`) พร้อมเหตุผลและผู้รายงาน |
+| NA-90 | admin ลบโน้ตที่ถูกรายงานได้ (Issue #18) | `DELETE /reports/<report_id>/note` ด้วย admin | `204` · Note หาย (`GET /notes/<id>` → `404`) และ report ของโน้ตนั้นถูกลบตาม |
+| NA-91 | ลบโน้ตที่ถูกรายงานแล้วไฟล์ใน storage ถูกลบด้วย (Issue #18) | อัปโหลดโน้ต → รายงาน → admin `DELETE /reports/<report_id>/note` | `204` · ไม่เหลือไฟล์ใน storage |
+| NA-92 | ลบโน้ตที่ถูกรายงานไม่กระทบโน้ตหรือ report อื่น (Issue #18) | มีสองโน้ตและสอง report → ลบผ่าน report ของโน้ตแรก | โน้ตแรก `404` · โน้ตที่สองและ report ของมันยังอยู่ |
+| NA-93 | สมาชิกทั่วไปลบโน้ตผ่าน report ไม่ได้ (Issue #18) | `DELETE /reports/<report_id>/note` ด้วย member | `403 forbidden` · Note และ report ยังอยู่ |
+| NA-94 | action ของ admin ต้อง login (Issues #17, #18) | `GET /reports`, `DELETE /reports/<id>`, `DELETE /reports/<id>/note` ไม่มี Bearer token | `401 unauthorized` + `WWW-Authenticate: Bearer` |
+| NA-95 | auth-service ล่มตอน admin ลบโน้ต (Issue #18) | identity โยน `IdentityUnavailable` แล้ว `DELETE /reports/<id>/note` | `503 auth_unavailable` |
+| NA-96 | ลบโน้ตผ่าน report ที่ไม่มีอยู่ (Issue #18) | admin `DELETE /reports/99999/note` | `404 not_found` |
+| NA-97 | ขอบคุณเจ้าของโน้ตครั้งแรก (US-28) | Bob `POST /notes/<id>/thanks` โน้ตของ Alice | `201` + `note_id`, `thanked = true`, `thanked_at` |
+| NA-98 | กดขอบคุณซ้ำไม่เพิ่มยอด | `POST .../thanks` สองครั้ง | ครั้งที่สอง `200` · `thanked_at` เท่าเดิม · ตาราง `thanks` มี 1 แถว |
+| NA-99 | ขอบคุณต้อง login | ไม่มี header · token ที่ไม่รู้จัก · auth-service ล่ม | `401` `unauthorized` (ไม่มีแถวใน `thanks`) · `401` · `503` `auth_unavailable` |
+| NA-100 | โน้ตที่ไม่มีอยู่ | `POST /notes/999/thanks` | `404` `not_found` |
+| NA-101 | ขอบคุณโน้ตของตัวเองไม่ได้ | Alice `POST .../thanks` โน้ตที่ตัวเองอัปโหลด | `403` `own_note` · ไม่มีแถวใน `thanks` |
+| NA-102 | หลายคนขอบคุณโน้ตเดียวกันได้คนละครั้ง และนับแยกโน้ต | Bob กับ Carol ขอบคุณ แล้ว Bob กดซ้ำ · ขอบคุณโน้ตหนึ่งจากสองโน้ต | `201` ทั้งคู่ · ยอดของโน้ตนั้น = 2 · อีกโน้ต = 0 |
+| NA-103 | ยกเลิกคำขอบคุณไม่ได้ | `DELETE /notes/<id>/thanks` หลังขอบคุณ | `405` · `thank_status` ยังเป็น `thanked` |
+| NA-104 | API ไม่ตรวจว่าดาวน์โหลดแล้ว ("หลังดาวน์โหลด" เป็นเงื่อนไขฝั่ง UI) | ขอบคุณโน้ตที่ `download_count = 0` | `201` |
+| NA-105 | `thank_status` เปลี่ยนตามการขอบคุณ และแยกตามผู้ใช้ | อ่านโน้ตก่อน/หลัง Bob ขอบคุณ · Carol อ่านโน้ตเดียวกัน | Bob: `can_thank` → `thanked` · Carol: `can_thank` |
+| NA-106 | `thank_status` ของเจ้าของโน้ต | Alice อ่านโน้ตตัวเอง | `own_note` |
+| NA-107 | ไม่ login หรือ token ใช้ไม่ได้ ได้ `thank_status = null` | `GET /notes`, `GET /notes/<id>` ไม่มี header และด้วย token ที่ไม่รู้จัก | `200` และ `thank_status = null` |
+| NA-108 | auth-service ล่มระหว่างค้นหา ค้นหายังใช้ได้ | identity โยน `IdentityUnavailable` แล้ว `GET /notes`, `GET /notes/<id>` ด้วย token ที่ถูก | `200` และ `thank_status = null` (ไม่ใช่ `503`) |
+| NA-109 | `GET /notes` ให้สถานะต่อโน้ตถูกต้องในหน้าเดียวกัน และ query `thanks` ครั้งเดียว | Bob ค้นหาเจอโน้ตที่ยังไม่ขอบคุณ, ขอบคุณแล้ว และโน้ตของตัวเอง · นับ SQL ตอนมี 5 โน้ต | `can_thank` · `thanked` · `own_note` · อ่านตาราง `thanks` 1 ครั้ง |
+| NA-110 | ลบโน้ตลบคำขอบคุณของโน้ตนั้น (US-20) | Bob กับ Carol ขอบคุณ แล้วลบโน้ตด้วย edit token · มีอีกโน้ตที่ Bob ขอบคุณไว้ | `204` ไม่ชน FK · thanks ของโน้ตที่ลบหายหมด · ของอีกโน้ตยังอยู่ |
 
 ### 2.5 Notes Service — แก้ไข/ลบโน้ต (`pytest`, US-19 #19 + US-20 #20)
 

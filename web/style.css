@@ -199,6 +199,17 @@ body {
 .preview-frame img[hidden] { display: none; }
 .preview-status { color: #666; font-size: 13px; padding: 40px 16px; margin: auto; text-align: center; }
 .preview-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.rating-panel { border-top: 1px solid #e5e7eb; padding-top: 12px; }
+.rating-panel h3 { margin: 0 0 6px; font-size: 14px; }
+.rating-average,
+.rating-message { margin: 4px 0; color: #555; font-size: 13px; }
+.rating-stars { display: flex; gap: 4px; margin: 8px 0; }
+.rating-stars[hidden],
+#submitRating[hidden] { display: none; }
+.rating-star { padding: 0 2px; border: 0; background: none; color: #777; font: inherit; font-size: 28px; cursor: pointer; }
+.rating-star.selected { color: #d98200; }
+.rating-star:disabled { cursor: default; }
+.note-rating-summary { color: #72500b; }
 
 /* ---- Top nav bar (site.js) ---- */
 .site-nav {

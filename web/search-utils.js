@@ -97,6 +97,15 @@
     return FILE_TYPE_LABELS[contentType] || 'ไฟล์';
   }
 
+  function ratingSummary(note) {
+    const average = Number(note.average_rating);
+    const count = Number(note.rating_count) || 0;
+    if (note.average_rating === null || note.average_rating === undefined || !count || !Number.isFinite(average)) {
+      return 'ยังไม่มีคะแนน';
+    }
+    return `เฉลี่ย ${average.toFixed(1)} / 5 (${count})`;
+  }
+
   // One result card. Every value from the API goes through escapeHtml, because titles
   // and descriptions are typed in by other users.
   // US-31 AC3: the uploader's name is on every card.
@@ -117,6 +126,7 @@
   <div class="note-meta">
     ${classDate}
     <span>ดาวน์โหลด ${escapeHtml(Number(note.download_count) || 0)} ครั้ง</span>
+    <span class="note-rating-summary">${escapeHtml(ratingSummary(note))}</span>
     <button type="button" class="preview-link" data-preview-id="${escapeHtml(note.id)}">ดูตัวอย่าง</button>
   </div>
 </article>`;
@@ -154,6 +164,7 @@
     parseQuery,
     formatSize,
     fileTypeLabel,
+    ratingSummary,
     renderNoteCard,
     errorMessage,
     hasMore,

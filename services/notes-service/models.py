@@ -22,7 +22,7 @@ from sqlalchemy import (
     create_engine,
     event,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 
 
 class Base(DeclarativeBase):
@@ -33,6 +33,11 @@ class Note(Base):
     __tablename__ = "notes"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    ratings: Mapped[list["Rating"]] = relationship(
+        back_populates="note",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
 
     # --- metadata ที่ผู้แบ่งปันกรอก (US-08) ---
     title: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -74,6 +79,12 @@ class Note(Base):
     # ว่างจนกว่าจะถูกแก้ครั้งแรก — AC ข้อ 3 ของ #19 ขอแค่ "เวลาแก้ไขล่าสุด"
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
+    @property
+    def average_rating(self) -> float | None:
+        if not self.ratings:
+            return None
+        return round(sum(rating.value for rating in self.ratings) / len(self.ratings), 2)
+
     def to_dict(self):
         return {
             "id": self.id,
@@ -92,11 +103,57 @@ class Note(Base):
             "uploader_name": self.uploader_name,
             "view_count": self.view_count,
             "download_count": self.download_count,
+            "average_rating": self.average_rating,
+            "rating_count": len(self.ratings),
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "download_url": f"/notes/{self.id}/download",
             "preview_url": f"/notes/{self.id}/preview",
         }
+
+
+class NoteAccess(Base):
+    """บันทึกว่าผู้ใช้เคยเปิดหรือดาวน์โหลดโน้ต เพื่อใช้ตรวจสิทธิ์ให้คะแนน (Issue #13)"""
+
+    __tablename__ = "note_accesses"
+    __table_args__ = (
+        UniqueConstraint("user_id", "note_id", name="uq_note_accesses_user_note"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    note_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("notes.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+
+
+class Rating(Base):
+    """คะแนน 1–5 ที่สมาชิกให้โน้ต — สมาชิกละหนึ่งคะแนนต่อโน้ต (Issue #13)"""
+
+    __tablename__ = "ratings"
+    __table_args__ = (
+        UniqueConstraint("user_id", "note_id", name="uq_ratings_user_note"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    note_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("notes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    value: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    note: Mapped[Note] = relationship(back_populates="ratings")
 
 
 # ============================================================

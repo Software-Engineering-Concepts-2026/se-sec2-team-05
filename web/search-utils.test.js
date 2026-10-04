@@ -7,6 +7,7 @@ const {
   escapeHtml,
   formatSize,
   fileTypeLabel,
+  ratingSummary,
   renderNoteCard,
   errorMessage,
   hasMore,
@@ -26,6 +27,8 @@ const sampleNote = {
   content_type: 'application/pdf',
   uploader_name: 'Somchai',
   download_count: 3,
+  average_rating: 4.25,
+  rating_count: 4,
   preview_url: '/notes/7/preview',
   download_url: '/notes/7/download',
 };
@@ -104,6 +107,7 @@ test('renderNoteCard always shows the uploader name (US-31 AC3)', () => {
   assert.match(html, /data-preview-id="7"/);
   assert.match(html, /CS201 · Data Structures/);
   assert.match(html, /ดาวน์โหลด 3 ครั้ง/);
+  assert.match(html, /เฉลี่ย 4\.3 \/ 5 \(4\)/);
 });
 
 test('renderNoteCard escapes values typed in by other users', () => {
@@ -121,6 +125,11 @@ test('renderNoteCard skips missing optional fields', () => {
   const html = renderNoteCard({ ...sampleNote, topic: null, class_date: null });
   assert.doesNotMatch(html, /null/);
   assert.doesNotMatch(html, /เรียนวันที่/);
+});
+
+test('ratingSummary handles notes without ratings and rounds for display', () => {
+  assert.equal(ratingSummary({ average_rating: null, rating_count: 0 }), 'ยังไม่มีคะแนน');
+  assert.equal(ratingSummary({ average_rating: 3.66, rating_count: 3 }), 'เฉลี่ย 3.7 / 5 (3)');
 });
 
 test('errorMessage names the field for invalid_filter', () => {
