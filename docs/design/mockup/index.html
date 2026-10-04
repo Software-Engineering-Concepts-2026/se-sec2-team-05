@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NoteShare</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,500&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app">
+  <!-- NAV -->
+  <div class="nav">
+    <div class="nav-inner">
+      <div class="brand" id="brand">
+        <div class="brand-mark"><span></span></div>
+        <span class="brand-name">NoteShare</span>
+      </div>
+      <div class="nav-links">
+        <div class="nav-link" data-view="home" id="nav-home">Browse</div>
+        <div class="nav-link" data-view="upload" id="nav-upload">Upload</div>
+        <div class="nav-link" data-view="profile" id="nav-profile">Profile</div>
+      </div>
+      <div class="nav-auth" id="nav-auth"></div>
+    </div>
+  </div>
+
+  <!-- HOME -->
+  <div class="view" id="view-home">
+    <div class="page">
+      <div class="hero">
+        <h1>Notes worth <span class="highlight">passing on.</span></h1>
+        <p>Find lecture summaries and study notes shared by your classmates — or upload your own for the next person cramming at 2am.</p>
+      </div>
+
+      <div class="search-bar">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#8a8272" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input id="search-input" placeholder="Search by course, topic, or keyword…">
+        <div class="result-count" id="result-count"></div>
+      </div>
+
+      <div class="chip-row" id="chip-row"></div>
+
+      <div class="note-grid" id="note-grid"></div>
+
+      <div class="no-results" id="no-results" style="display:none">
+        <div class="no-results-title" id="no-results-title"></div>
+        <div class="no-results-sub">Try another course or keyword — or be the first to upload one.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DETAIL -->
+  <div class="view" id="view-detail" style="display:none">
+    <div class="page">
+      <div class="back-link" id="back-to-browse">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5c5548" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        Back to Browse
+      </div>
+      <div class="detail-grid">
+        <div>
+          <div class="tag-course" id="d-course"></div>
+          <h2 id="d-title"></h2>
+          <div class="d-meta" id="d-meta"></div>
+          <div class="preview-card">
+            <div class="preview-line" style="width:78%"></div>
+            <div class="preview-line" style="width:92%"></div>
+            <div class="preview-line" style="width:60%;margin-bottom:24px"></div>
+            <div class="preview-line" style="width:85%"></div>
+            <div class="preview-line" style="width:70%"></div>
+            <div class="preview-line" style="width:95%"></div>
+            <div class="preview-footer">— page 1 of 6 — document preview —</div>
+          </div>
+        </div>
+        <div>
+          <div class="detail-actions">
+            <div class="btn-dark" id="btn-download">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f6f1e6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"></path><polyline points="7 11 12 16 17 11"></polyline><path d="M5 21h14"></path></svg>
+              Download
+            </div>
+            <div class="btn-icon" id="btn-bookmark">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#211d17" stroke-width="2"><path d="M6 3h12v18l-6-4-6 4V3z"></path></svg>
+            </div>
+            <div class="btn-icon" id="btn-flag">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#211d17" stroke-width="2"><path d="M4 3v18"></path><path d="M4 4h13l-2 4 2 4H4"></path></svg>
+            </div>
+          </div>
+          <div class="rating-card">
+            <div class="rating-label">Community rating</div>
+            <div class="rating-big" id="d-rating"></div>
+            <div class="rating-label">Your rating</div>
+            <div class="star-input" id="star-input"></div>
+          </div>
+          <div class="flag-note">Flagging notifies moderators to review this note for accuracy or content issues.</div>
+        </div>
+      </div>
+      <div class="comments-section">
+        <div class="comments-title" id="comments-title"></div>
+        <div id="comments-list"></div>
+        <div class="comment-form">
+          <input id="comment-input" placeholder="Add a comment…">
+          <div class="btn-dark btn-post" id="btn-post">Post</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- UPLOAD -->
+  <div class="view" id="view-upload" style="display:none">
+    <div class="page page-narrow">
+      <h2 class="section-title">Upload a note</h2>
+      <p class="section-sub">Share a summary, cheat sheet, or full lecture notes with your classmates.</p>
+
+      <div class="dropzone" id="dropzone">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#a15c00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.9A5 5 0 0 1 5.5 5a5.5 5.5 0 0 1 10.6-.3A4.5 4.5 0 0 1 20 12.9"></path><path d="M12 12v9"></path><polyline points="9 15 12 12 15 15"></polyline></svg>
+        <div class="dropzone-label" id="dropzone-label">Drag file here or browse</div>
+        <div class="dropzone-sub">PDF, DOCX, or image — up to 20MB</div>
+      </div>
+
+      <div class="field-label">Title</div>
+      <input id="upload-title" class="text-input" placeholder="e.g. Week 6 Lecture Recap">
+
+      <div class="field-label">Course</div>
+      <select id="upload-course" class="text-input"></select>
+
+      <div class="field-label">Description (optional)</div>
+      <textarea id="upload-description" class="text-input textarea" placeholder="What does this note cover?"></textarea>
+
+      <div class="field-label">Tags</div>
+      <div class="tag-editor" id="tag-editor">
+        <input id="tag-input" class="tag-input" placeholder="+ add tag, press Enter">
+      </div>
+
+      <div class="upload-actions">
+        <div class="btn-outline" id="btn-cancel-upload">Cancel</div>
+        <div class="btn-accent" id="btn-publish">Publish ✓</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROFILE -->
+  <div class="view" id="view-profile" style="display:none">
+    <div class="page page-mid">
+      <div class="profile-header">
+        <div class="avatar-lg">YU</div>
+        <div>
+          <div class="profile-name">You</div>
+          <div class="profile-email">you@uni.ac.th · joined 2026</div>
+        </div>
+      </div>
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-num" id="stat-count"></div><div class="stat-label">notes shared</div></div>
+        <div class="stat-card"><div class="stat-num stat-red" id="stat-avg"></div><div class="stat-label">avg rating</div></div>
+        <div class="stat-card"><div class="stat-num" id="stat-downloads"></div><div class="stat-label">downloads</div></div>
+      </div>
+      <div class="section-title" style="font-size:20px;margin-bottom:14px">My uploads</div>
+      <div id="my-uploads"></div>
+    </div>
+  </div>
+
+  <!-- LOGIN -->
+  <div class="view" id="view-login" style="display:none">
+    <div class="page page-login">
+      <div class="login-card">
+        <div class="login-left">
+          <div class="login-brand">NoteShare</div>
+          <div class="login-quote">"The best notes in class are the ones someone bothered to share."</div>
+          <div class="login-sub">Join thousands of students studying together.</div>
+        </div>
+        <div class="login-right">
+          <div class="auth-tabs">
+            <div class="auth-tab active" id="tab-login">Log in</div>
+            <div class="auth-tab" id="tab-signup">Sign up</div>
+          </div>
+          <div class="field-label">University email</div>
+          <input class="text-input" placeholder="you@uni.ac.th">
+          <div class="field-label">Password</div>
+          <input type="password" class="text-input" placeholder="••••••••" style="margin-bottom:22px">
+          <div class="btn-accent" id="btn-login-submit" style="margin-bottom:16px" ></div>
+          <div class="or-divider">— or continue with —</div>
+          <div class="sso-row">
+            <div class="btn-outline sso-btn">University SSO</div>
+            <div class="btn-outline sso-btn">Google</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
