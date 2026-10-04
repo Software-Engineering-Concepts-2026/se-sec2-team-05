@@ -144,7 +144,6 @@
 | NA-72 | ลบ report ที่ไม่มีอยู่ | admin `DELETE /reports/<id>` ด้วย id ที่ไม่มี | `404 not_found` |
 | NA-73 | admin IDs อ่านจาก env และข้ามค่าที่ไม่ใช่ตัวเลข | `ADMIN_USER_IDS` มี whitespace และค่าที่ไม่ใช่ตัวเลข | แปลงเฉพาะ numeric IDs; ไม่มีค่าแล้วไม่มี admin |
 | NA-74 | ลบ Note ยังคงทำงานเมื่อมี report ผูกอยู่ | ลบ Note ด้วย edit token หลังสร้าง report | Note และ report ที่ผูกผ่าน FK ถูกลบตาม cascade |
-
 | NA-75 | เปิดดู Note ขณะเข้าสู่ระบบแล้วมีสิทธิ์ให้คะแนน | authenticated `GET /notes/<id>` | บันทึก eligibility ของผู้ใช้สำหรับ Note นั้น |
 | NA-76 | ดาวน์โหลด Note ขณะเข้าสู่ระบบแล้วมีสิทธิ์ให้คะแนน | authenticated download | บันทึก eligibility ของผู้ใช้สำหรับ Note นั้น |
 | NA-77 | ผู้ใช้ที่ไม่ได้เข้าสู่ระบบเปิดดู Note | unauthenticated `GET /notes/<id>` | ไม่บันทึก user eligibility |
