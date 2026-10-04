@@ -158,6 +158,14 @@
 | NA-86 | Auth Service ใช้งานไม่ได้ระหว่างให้คะแนน | `PUT /notes/<id>/rating` เมื่อ auth-service unavailable | `503 auth_unavailable` |
 | NA-87 | Rating ของผู้ใช้แต่ละคนแยกจากกัน | ผู้ใช้หลายคนให้คะแนน Note เดียวกัน | Rating และ `user_rating` ของแต่ละคนไม่ปะปนกัน |
 | NA-88 | ลบ Note แล้วลบ access และ Rating ที่เกี่ยวข้อง | ลบ Note ที่มี access/Rating | access และ Rating ของ Note นั้นถูกลบตาม |
+| NA-89 | admin เห็นโน้ตที่ถูกรายงานในรายการรายงาน (Issue #18) | `GET /reports` ด้วย admin หลังสมาชิกสองคนรายงานโน้ตเดียวกัน | แต่ละ report มี object `note` (`id`, `title`) พร้อมเหตุผลและผู้รายงาน |
+| NA-90 | admin ลบโน้ตที่ถูกรายงานได้ (Issue #18) | `DELETE /reports/<report_id>/note` ด้วย admin | `204` · Note หาย (`GET /notes/<id>` → `404`) และ report ของโน้ตนั้นถูกลบตาม |
+| NA-91 | ลบโน้ตที่ถูกรายงานแล้วไฟล์ใน storage ถูกลบด้วย (Issue #18) | อัปโหลดโน้ต → รายงาน → admin `DELETE /reports/<report_id>/note` | `204` · ไม่เหลือไฟล์ใน storage |
+| NA-92 | ลบโน้ตที่ถูกรายงานไม่กระทบโน้ตหรือ report อื่น (Issue #18) | มีสองโน้ตและสอง report → ลบผ่าน report ของโน้ตแรก | โน้ตแรก `404` · โน้ตที่สองและ report ของมันยังอยู่ |
+| NA-93 | สมาชิกทั่วไปลบโน้ตผ่าน report ไม่ได้ (Issue #18) | `DELETE /reports/<report_id>/note` ด้วย member | `403 forbidden` · Note และ report ยังอยู่ |
+| NA-94 | action ของ admin ต้อง login (Issues #17, #18) | `GET /reports`, `DELETE /reports/<id>`, `DELETE /reports/<id>/note` ไม่มี Bearer token | `401 unauthorized` + `WWW-Authenticate: Bearer` |
+| NA-95 | auth-service ล่มตอน admin ลบโน้ต (Issue #18) | identity โยน `IdentityUnavailable` แล้ว `DELETE /reports/<id>/note` | `503 auth_unavailable` |
+| NA-96 | ลบโน้ตผ่าน report ที่ไม่มีอยู่ (Issue #18) | admin `DELETE /reports/99999/note` | `404 not_found` |
 
 ### 2.5 Notes Service — แก้ไข/ลบโน้ต (`pytest`, US-19 #19 + US-20 #20)
 
