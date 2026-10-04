@@ -14,6 +14,7 @@
     hasMore,
     formatSize,
     fileTypeLabel,
+    ratingSummary,
   } = window.SearchUtils;
 
   const form = document.getElementById('searchForm');
@@ -32,6 +33,12 @@
   const previewSize = document.getElementById('previewSize');
   const previewDownload = document.getElementById('previewDownload');
   const previewClose = document.getElementById('previewClose');
+  const previewRatingAverage = document.getElementById('previewRatingAverage');
+  const previewRatingMessage = document.getElementById('previewRatingMessage');
+  const previewRatingStars = document.getElementById('previewRatingStars');
+  const ratingStarButtons = [...previewRatingStars.querySelectorAll('[data-rating]')];
+  const submitRating = document.getElementById('submitRating');
+  const ratingSubmitStatus = document.getElementById('ratingSubmitStatus');
 
   const notesById = new Map();
   let currentFilters = emptyFilters();
@@ -160,6 +167,8 @@
   let previewOpener = null;
   let previewObjectUrl = null;
   let previewSeq = 0;
+  let selectedRating = 0;
+  let activeRatingNote = null;
 
   function releasePreviewImage() {
     previewImage.hidden = true;
@@ -175,10 +184,112 @@
     previewStatus.hidden = false;
   }
 
+  function showRatingSelection(value) {
+    selectedRating = value;
+    for (const star of ratingStarButtons) {
+      const selected = Number(star.dataset.rating) <= value;
+      star.textContent = selected ? '★' : '☆';
+      star.classList.toggle('selected', selected);
+      star.setAttribute('aria-pressed', String(Number(star.dataset.rating) === value));
+    }
+    submitRating.disabled = value === 0;
+  }
+
+  function setAverageRating(note) {
+    previewRatingAverage.textContent = ratingSummary(note);
+    const cardRating = resultsList.querySelector(
+      `[data-note-id="${note.id}"] .note-rating-summary`
+    );
+    if (cardRating) cardRating.textContent = ratingSummary(note);
+  }
+
+  async function loadRatingState(note, seq) {
+    const session = window.Site.currentSession();
+    const result = await window.Site.fetchJson(`/notes/${note.id}`, {
+      headers: window.SessionUtils.authHeaders(session),
+    });
+    if (seq !== previewSeq) return;
+
+    if (!result.ok || !result.body) {
+      previewRatingMessage.textContent =
+        result.status === 503
+          ? 'ระบบยืนยันตัวตนไม่พร้อมใช้งาน ลองโหลดข้อมูลคะแนนอีกครั้ง'
+          : 'โหลดข้อมูลคะแนนไม่สำเร็จ ลองเปิดตัวอย่างอีกครั้ง';
+      return;
+    }
+
+    activeRatingNote = { ...note, ...result.body };
+    setAverageRating(activeRatingNote);
+    if (!session) {
+      previewRatingMessage.textContent = 'เข้าสู่ระบบ แล้วเปิดหรือดาวน์โหลดโน้ตขณะเข้าสู่ระบบเพื่อให้คะแนน';
+      return;
+    }
+    if (result.body.can_rate !== true) {
+      previewRatingMessage.textContent = 'เปิดหรือดาวน์โหลดโน้ตขณะเข้าสู่ระบบก่อนจึงจะให้คะแนนได้';
+      return;
+    }
+
+    previewRatingStars.hidden = false;
+    submitRating.hidden = false;
+    const currentRating = Number(result.body.user_rating) || 0;
+    showRatingSelection(currentRating);
+    previewRatingMessage.textContent = currentRating
+      ? `คะแนนปัจจุบันของคุณคือ ${currentRating} ดาว คุณสามารถแก้ไขได้`
+      : 'คุณเปิดโน้ตนี้ขณะเข้าสู่ระบบแล้ว เลือกคะแนนเพื่อให้คะแนนโน้ต';
+  }
+
+  async function submitNoteRating() {
+    if (!activeRatingNote || selectedRating === 0) return;
+    const session = window.Site.currentSession();
+    if (!session) {
+      previewRatingMessage.textContent = 'กรุณาเข้าสู่ระบบก่อนให้คะแนน';
+      return;
+    }
+
+    submitRating.disabled = true;
+    ratingSubmitStatus.textContent = 'กำลังบันทึกคะแนน…';
+    const result = await window.Site.fetchJson(`/notes/${activeRatingNote.id}/rating`, {
+      method: 'PUT',
+      headers: {
+        ...window.SessionUtils.authHeaders(session),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ rating: selectedRating }),
+    });
+
+    if (!result.ok || !result.body) {
+      submitRating.disabled = selectedRating === 0;
+      ratingSubmitStatus.textContent =
+        result.status === 401
+          ? 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่'
+          : result.status === 403
+            ? 'เปิดหรือดาวน์โหลดโน้ตขณะเข้าสู่ระบบก่อนให้คะแนน'
+            : result.status === 503
+              ? 'ระบบยืนยันตัวตนไม่พร้อมใช้งาน ลองอีกครั้ง'
+              : 'บันทึกคะแนนไม่สำเร็จ ลองอีกครั้ง';
+      return;
+    }
+
+    activeRatingNote.average_rating = result.body.average_rating;
+    activeRatingNote.rating_count = result.body.rating_count;
+    setAverageRating(activeRatingNote);
+    ratingSubmitStatus.textContent = 'บันทึกคะแนนแล้ว';
+    previewRatingMessage.textContent = `คะแนนปัจจุบันของคุณคือ ${result.body.rating} ดาว คุณสามารถแก้ไขได้`;
+    submitRating.disabled = false;
+  }
+
   async function openPreview(note, opener) {
     previewOpener = opener;
     const seq = ++previewSeq;
     releasePreviewImage();
+    activeRatingNote = null;
+    previewRatingStars.hidden = true;
+    submitRating.hidden = true;
+    submitRating.disabled = true;
+    previewRatingMessage.textContent = '';
+    ratingSubmitStatus.textContent = '';
+    previewRatingAverage.textContent = ratingSummary(note);
+    showRatingSelection(0);
 
     previewTitle.textContent = note.title;
     previewUploader.textContent = `อัปโหลดโดย ${note.uploader_name}`;
@@ -186,6 +297,7 @@
     previewDownload.href = note.download_url;
     showPreviewStatus('กำลังโหลดตัวอย่าง…');
     dialog.showModal();
+    loadRatingState(note, seq);
 
     // fetch instead of <img src> so a 422/404 can show the API's reason, not a broken image
     let response;
@@ -223,6 +335,12 @@
     const note = notesById.get(button.dataset.previewId);
     if (note) openPreview(note, button);
   });
+
+  previewRatingStars.addEventListener('click', (event) => {
+    const star = event.target.closest('[data-rating]');
+    if (star) showRatingSelection(Number(star.dataset.rating));
+  });
+  submitRating.addEventListener('click', submitNoteRating);
 
   previewClose.addEventListener('click', () => dialog.close());
 

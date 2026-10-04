@@ -144,6 +144,20 @@
 | NA-72 | ลบ report ที่ไม่มีอยู่ | admin `DELETE /reports/<id>` ด้วย id ที่ไม่มี | `404 not_found` |
 | NA-73 | admin IDs อ่านจาก env และข้ามค่าที่ไม่ใช่ตัวเลข | `ADMIN_USER_IDS` มี whitespace และค่าที่ไม่ใช่ตัวเลข | แปลงเฉพาะ numeric IDs; ไม่มีค่าแล้วไม่มี admin |
 | NA-74 | ลบ Note ยังคงทำงานเมื่อมี report ผูกอยู่ | ลบ Note ด้วย edit token หลังสร้าง report | Note และ report ที่ผูกผ่าน FK ถูกลบตาม cascade |
+| NA-75 | เปิดดู Note ขณะเข้าสู่ระบบแล้วมีสิทธิ์ให้คะแนน | authenticated `GET /notes/<id>` | บันทึก eligibility ของผู้ใช้สำหรับ Note นั้น |
+| NA-76 | ดาวน์โหลด Note ขณะเข้าสู่ระบบแล้วมีสิทธิ์ให้คะแนน | authenticated download | บันทึก eligibility ของผู้ใช้สำหรับ Note นั้น |
+| NA-77 | ผู้ใช้ที่ไม่ได้เข้าสู่ระบบเปิดดู Note | unauthenticated `GET /notes/<id>` | ไม่บันทึก user eligibility |
+| NA-78 | ผู้ใช้ที่มีสิทธิ์สามารถสร้าง Rating ได้ | `PUT /notes/<id>/rating` ด้วยค่า `1-5` | `200` และสร้าง Rating |
+| NA-79 | Rating รองรับค่าตาม scale 1-5 | `PUT /notes/<id>/rating` ด้วยค่า `1-5` | รับค่าทั้ง 5 ระดับได้ |
+| NA-80 | Rating ที่อยู่นอกช่วงไม่ถูกยอมรับ | `PUT /notes/<id>/rating` ด้วยค่าต่ำกว่า 1 หรือมากกว่า 5 | `400 validation` |
+| NA-81 | ผู้ใช้ให้คะแนน Note เดิมซ้ำได้โดยการแก้ไข | `PUT /notes/<id>/rating` ซ้ำโดยผู้ใช้เดิม | อัปเดต Rating เดิม ไม่สร้างแถวใหม่ |
+| NA-82 | แสดงค่าเฉลี่ย Rating ใน Note | `GET /notes` และ `GET /notes/<id>` | มี `average_rating` และ `rating_count` |
+| NA-83 | ผู้ใช้ที่ยังไม่มี eligibility ไม่สามารถให้คะแนน | authenticated `PUT /notes/<id>/rating` | `403 forbidden` |
+| NA-84 | การให้คะแนนต้องผ่าน authentication | unauthenticated `PUT /notes/<id>/rating` | `401 unauthorized` |
+| NA-85 | ให้คะแนน Note ที่ไม่มีอยู่ | `PUT /notes/<unknown_id>/rating` | `404 not_found` |
+| NA-86 | Auth Service ใช้งานไม่ได้ระหว่างให้คะแนน | `PUT /notes/<id>/rating` เมื่อ auth-service unavailable | `503 auth_unavailable` |
+| NA-87 | Rating ของผู้ใช้แต่ละคนแยกจากกัน | ผู้ใช้หลายคนให้คะแนน Note เดียวกัน | Rating และ `user_rating` ของแต่ละคนไม่ปะปนกัน |
+| NA-88 | ลบ Note แล้วลบ access และ Rating ที่เกี่ยวข้อง | ลบ Note ที่มี access/Rating | access และ Rating ของ Note นั้นถูกลบตาม |
 
 ### 2.5 Notes Service — แก้ไข/ลบโน้ต (`pytest`, US-19 #19 + US-20 #20)
 
