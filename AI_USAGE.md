@@ -34,6 +34,8 @@
 | 2026-10-01, branch `feature/web-search-preview` | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | ตรวจสถานะ PR ที่เปิดอยู่ → merge PR #72 ตามที่เลือก → เสนอทางเลือกการต่อ frontend ให้เลือก 3 เรื่อง → ทำหน้าค้นหา + preview ตัวจริงใน `web/` (`index.html`, `app.js`, `search-utils.js` + เทสต์ 15 ตัว, `style.css`), nginx gateway (`web/nginx.conf`, `web/Dockerfile`, service `web` ใน `docker-compose.yml`), step `node --test` ของ `web/` และ smoke step DK-08 ใน `ci.yml`, ADR-006 ทั้งสองภาษา, README ของ `web/` และ architecture, test plan หัวข้อ 2.13 | อติชาติเลือกเองทุกทางแยกจากเมนูที่เสนอ: nginx gateway แทน CORS หรือให้ Flask เสิร์ฟหน้าเว็บ (เพื่อไม่แตะ `services/notes-service/app.py` ที่ #68/#69 conflict อยู่), slice แรกเป็นค้นหา + preview (ปิด AC3 ของ #11 และ #31), โฟลเดอร์ใหม่ `web/` โดยไม่แก้ `prototypes/sprint1/`, และอนุมัติแผนทั้งชุดก่อนลงมือ · `node --test` ใน `web/` ผ่าน 15/15 · ตรวจบน Chrome กับ notes-service และ auth-service ตัวจริงบน SQLite ผ่านสคริปต์ที่ทำตัวแทน nginx: ปิด preview ด้วย Esc/ฉากหลัง/ปุ่ม ✕ แล้ว scroll เท่าเดิมและ focus กลับปุ่มเดิม · ตัว nginx จริงยังรอผล DK-08 บน CI เพราะ Docker daemon ไม่ได้เปิด · ตรวจด้วย `git merge-tree` แล้วว่า branch นี้ไม่เพิ่มไฟล์ conflict ให้ #68/#69 · ยังไม่ได้ commit/push/เปิด PR |
 | 2026-10-02, merge PR #73 และแก้ conflict/approve/merge PR #68 | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | ตรวจสถานะ PR → เปิด #31 ที่ถูกปิดด้วยมือก่อน merge กลับมา แล้ว merge #73 (`main` = `d857bab`, #11 และ #31 ปิดโดย PR) → รวมการแก้ conflict ที่เตรียมไว้ใน branch local `prep-68-merge` เข้ากับ `1f0eb2c` ของกฤตเมธ แล้ว merge `main` ใหม่ตามเข้าไป push ขึ้น `feature/issue-14-comment` (`c784a8c`, `adcb7ed`) → comment อธิบายว่าแก้อะไร → approve → merge #68 (`main` = `65caf42`, #14 ปิดโดย PR) | อติชาติเลือกทุกขั้นจากเมนูที่เสนอ · ก่อน push รัน `pytest src/tests` ได้ 268 passed + 1 xfailed, `ruff check .` ผ่าน, `node --test` ของ `web/` 15/15 · CI 4/4 ผ่านที่ `adcb7ed` · approve โดยอติชาติซึ่งเป็นคนแก้ conflict เอง (ทางที่เสนอเป็นตัวแนะนำคือ dismiss review ของตัวเองแล้วให้วชิรวิทย์ approve) จึงเขียนไว้ใน review ว่าคนแก้กับคน approve เป็นคนเดียวกันและส่วนที่แก้มีแค่การรวมโค้ด · ระหว่างทำ `git merge -F -` ใน Git Bash ไม่อ่านข้อความจาก stdin ทำให้ merge ผิดลำดับและเกิด conflict ใน branch local จึง `git merge --abort` แล้วทำใหม่ด้วยไฟล์ข้อความ tree สุดท้ายตรงกับชุดที่รันเทสต์ ไม่มีอะไรหลุดขึ้น remote |
 | 2026-10-02, branch `feature/web-login-upload` | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | ทำหน้าเข้าสู่ระบบ/สมัครสมาชิก (`web/login.html`, `login.js`), หน้าอัปโหลด (`upload.html`, `upload.js`), แถบเมนูบนทุกหน้า (`site.js`), pure function `session-utils.js` + `upload-utils.js` พร้อมเทสต์ 23 ตัว, แก้ `index.html`/`style.css`/`Dockerfile` ของ `web/`, step DK-08 ใน `ci.yml`, README ของ `web/` และ test plan หัวข้อ 2.14 | อติชาติเลือก 4 เรื่องจากเมนู: เก็บ token ใน `sessionStorage`, แยกหน้า + แถบเมนูบน, ขอบเขต login + สมัคร + logout + upload (แก้/ลบโน้ต, favorites, comments ไว้รอบหน้า) และหยุดก่อน commit · `node --test` ใน `web/` ผ่าน 38/38 · DK-08 ตัวใหม่ผ่านกับสคริปต์ที่ทำตัวแทน nginx · ตรวจบน Chrome กับ notes-service และ auth-service ตัวจริงบน SQLite (รายละเอียดท้ายหัวข้อ 2.14 ของ test plan) · ไม่แตะโค้ดของ service ใด · ยังไม่ได้ commit/push/เปิด PR |
+| 2026-10-04, ตรวจ/approve/แก้ conflict/merge PR #78 และแก้ conflict PR #79 | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | ตรวจ commit ใหม่ของ #78 (`5b0206c`, แก้แค่ docs) เทียบกับรอบก่อน, ร่างข้อความ approve, รวม `main` เข้า #78 แล้วแก้ conflict กับ #77 (ย้าย `delete(NoteAccess)` เข้า `delete_note_record()`, เก็บแถวทั้งสองใน `src/tests/README.md`, ลบบรรทัดว่างที่ทำให้ตาราง NA-75..88 ขาด) เป็น `ac98b5d`, merge #78 (`37ac3aa`), รวม `main` เข้า #79 แล้วเลื่อนแถว NA ของ Issue #18 เป็น NA-89..96 (`3c955cc`) และแก้ body ของ #79 | อติชาติเลือกจากเมนูทุกขั้น: approve #78 (เห็นข้อความเต็มในเมนูก่อนโพสต์) → push การแก้ conflict ของ #78 แล้วรอ CI → merge → push การแก้ conflict ของ #79 + แก้ body · ก่อนโพสต์/push/merge ตรวจว่า head SHA ยังตรงกับที่ตรวจไว้ทุกครั้ง · ผลรันหลังแก้ conflict: pytest 329 passed + 1 xfailed (ทั้งปิดและเปิด PRAGMA foreign_keys), ruff ผ่าน, `node --test` ใน `web/` 39/39 · CI ของ PR ผ่านครบ 4 job ทั้ง #78 และ #79 · หลัง merge ตรวจว่า #13 ปิดจาก `Closes #13` และ CI ของ `main` ผ่าน |
+| 2026-10-04, branch `feature/issue-28-thanks-stats` | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | US-28 AC3: เพิ่ม `thanks` ใน `GET /notes/<id>/stats` ของ stats-service (นับจากตาราง `thanks` ของ notes-service), mapping `Thank` ใน `stats_db.py`, เทสต์ใน `src/tests/test_stats_service.py` และแถว PY-08/PY-10/PY-11 ใน test plan | อติชาติเลือกจากเมนู: ทำ AC3 เอง แตก branch จาก `main` (ไม่ซ้อนบน #76) และทำแค่ API ส่วนหน้าเว็บไว้รอบ web ส่วนที่ 3 · pytest 331 passed + 1 xfailed, ruff ผ่าน · รันซ้ำโดยใช้ `models.py` ของ #76 (ที่สร้างตาราง `thanks` ตัวจริง) ก็ผ่าน · mutation 2 แบบ (ตัดเงื่อนไข `note_id` และตัดคีย์ `thanks`) ทำให้เทสต์ fail ทั้งคู่ · ต้อง merge หลัง #76 |
 
 > **TODO:** วชิรวิทย์และกฤตเมธ — ช่วยกรอกแถวของตัวเองให้ละเอียดขึ้น (prompt ที่ใช้จริง, ช่วง session, และรายละเอียดของสิ่งที่ตรวจ/แก้) เพราะมีแค่เจ้าของงานที่รู้ข้อมูลนี้แน่ชัด — แถวของวชิรวิทย์ที่ยังค้างคือ "สร้าง prototype หน้าค้นหาโน้ต" (2026-07-10); แถว preview-note (2026-09-26 ~ 2026-09-28) ด้านบนเติมรายละเอียดแล้ว
 
@@ -533,6 +535,51 @@ Lab 12B เฟส C ตามลำดับนี้:
 - กฎตรวจฟอร์มอัปโหลดใน `web/upload-utils.js` ซ้ำกับ `services/notes-service/validation.py` · ถ้าแก้ฝั่ง service ต้องแก้ฝั่งเว็บด้วย
   (มี comment กำกับไว้ทั้งสองจุดในไฟล์เว็บ) · ถ้าลืม ผลที่เกิดคือหน้าเว็บกันค่าที่ service รับได้ หรือปล่อยค่าที่ service ไม่รับไปให้ service ตอบ `400` เอง
 
+### งาน Sprint 2 — สถิติคำขอบคุณ (ไม่ผูกกับ Lab)
+
+#### Prompt 19 — merge PR #78, แก้ conflict PR #79 และทำ US-28 AC3 (อติชาติ, Claude Code, 2026-10-04)
+
+- **เครื่องมือที่ใช้:** Claude Code
+- **ที่มาของ prompt:** แบบเดียวกับ Prompt 17–18 คือพิมพ์คำสั้น ๆ แล้วตัดสินใจทุกขั้นด้วยการเลือกจากเมนูทางเลือกที่ Claude Code เสนอ
+  ข้อความที่พิมพ์เอง (คำต่อคำ):
+
+```
+เช็คงานล่าสุดให้ที
+```
+
+```
+จัดการต่อให้ที
+```
+
+```
+จัดการต่อให้เลยที
+```
+
+```
+งานของฉันมีอะไรอีกมั้ย
+```
+
+```
+AC3 ฉันทำเอง
+```
+
+  ("จัดการต่อให้ที" พิมพ์สองครั้ง ครั้งแรกหลังเสนอแก้ conflict ของ #78 ครั้งที่สองหลังเสนอ merge #78)
+- **การตัดสินใจที่เลือกจากเมนู (ตามลำดับ):** approve #78 → push การแก้ conflict ของ #78 แล้วรอ CI → (merge #78 จากข้อความที่พิมพ์)
+  → push การแก้ conflict ของ #79 + แก้ body → AC3 แตก branch จาก `main` → ทำแค่ API → commit + push + เปิด PR พร้อมบันทึกไฟล์นี้
+- **ผลลัพธ์:** ดูแถว `2026-10-04, …` สองแถวในตาราง Log และแถวในตาราง "ส่วนที่รับจาก AI ตรงๆ"
+- **ตรวจสอบแล้วว่าเข้าใจทุกบรรทัดที่ส่ง:** [ ] ← ทีมติ๊กเองหลังอ่านครบ
+
+เทียบกับ Five S's: **Specific** มาจากการเลือกในเมนู ไม่ได้มาจากข้อความที่พิมพ์ ข้อความ "AC3 ฉันทำเอง" สั้นมาก ขอบเขตจริง (ฐาน branch, API อย่างเดียว)
+ถูกกำหนดตอนเลือกเมนู · **Surrounding** AI อ่านเองจาก issue #28, โค้ดของ #76 และ stats-service · **Single task** ไม่ผ่านเต็ม
+เพราะรอบเดียวมีทั้งงานคุม PR ของทีมและงานเขียนโค้ด จึงแยกบันทึกเป็นสองแถวใน Log
+
+**บทเรียนจริงจากรอบนี้:**
+- บรรทัดว่างหนึ่งบรรทัดก่อน NA-75 ทำให้แถว NA-75..88 ของ #78 หลุดออกจากตาราง GitHub แสดงเป็นข้อความธรรมดา (ปัญหาเดียวกับที่เคยเกิดในตาราง Log ของไฟล์นี้)
+- PR ที่ conflict กับ `main` ไม่มี CI รันเลย เพราะ GitHub สร้าง merge commit ให้ workflow `pull_request` ไม่ได้ ผล CI ของ #78 จึงมาหลังแก้ conflict แล้วเท่านั้น
+- เลข NA ชนกันระหว่าง PR ที่เปิดพร้อมกันได้ง่าย (#76, #78, #79 ใช้ NA-75 เป็นเลขแรกทั้งสามตัว) · PR ที่เข้าทีหลังเลื่อนเลขตอนแก้ conflict
+- stats-service อ่านตาราง `thanks` ที่ notes-service เป็นเจ้าของ จึงต้องมี mapping ซ้ำใน `stats_db.py` ที่คอลัมน์ตรงกัน
+  เทสต์ถูกรันทั้งกับ `models.py` ของ `main` และของ #76 เพื่อยืนยันว่าตารางที่สร้างจากสองฝั่งใช้แทนกันได้
+
 ### รายการที่ยังไม่ระบุ Lab
 
 รายการต่อไปนี้ไม่ได้ระบุ Lab ไว้ในข้อมูลเดิม จึงแยกมาไว้ท้ายหัวข้อนี้
@@ -669,5 +716,7 @@ user story ระดับ Must ของ Sprint 1 ที่ปิดไปแ�
 | `web/` ทั้งโฟลเดอร์ (`index.html`, `app.js`, `search-utils.js`, `search-utils.test.js`, `style.css`, `nginx.conf`, `Dockerfile`, `README.md`), `docs/architecture/adr/0006-nginx-web-gateway.md`/`.th.md`, service `web` ใน `docker-compose.yml`, step `Run web search-utils tests` และ smoke step DK-08 ใน `.github/workflows/ci.yml`, ส่วนที่เพิ่มใน `docs/architecture/README.md`/`README.th.md` และ `docs/testing/readme.md` (DK-08, หัวข้อ 2.13) (branch `feature/web-search-preview`) | Claude Code (2026-10-01) | generate ทั้งหมด ไม่มีคนแก้บรรทัดใด · ทางเลือกสถาปัตยกรรม (nginx gateway, ขอบเขต slice, ที่เก็บโค้ด) อติชาติเป็นคนเลือก · verify ด้วย `node --test` 15/15 และตรวจบน Chrome กับ service ตัวจริง (SQLite) · nginx ตัวจริงยังไม่ได้รันบนเครื่อง รอผล DK-08 บน CI · **ยังไม่ผ่านการรีวิวโค้ดโดยคนในทีม** |
 | การแก้ conflict ของ PR #68 กับ `main` (branch local `prep-68-merge`, 2026-10-01) ที่ push เป็น `c784a8c`/`adcb7ed`, ข้อความ merge commit ทั้งสอง และข้อความ comment กับ approve ที่โพสต์ใน PR #68 ผ่าน `gh` | Claude Code (2026-10-01 ~ 2026-10-02) | AI ทำการแก้ conflict และร่างข้อความทั้งหมด อติชาติเลือกให้ push, approve และ merge จากเมนูทีละขั้น ไม่ได้แก้ถ้อยคำหรือโค้ด · verify ด้วย `pytest src/tests` (268 passed + 1 xfailed) และ CI 4/4 ก่อน approve |
 | `web/login.html`, `login.js`, `upload.html`, `upload.js`, `site.js`, `session-utils.js`, `upload-utils.js`, `session-utils.test.js`, `upload-utils.test.js` ทั้งไฟล์, ส่วนที่แก้ใน `web/index.html`/`style.css`/`Dockerfile`/`README.md`, ส่วนที่แก้ใน step DK-08 และชื่อ step `Run web unit tests` ใน `.github/workflows/ci.yml`, หัวข้อ 2.14 และแถว DK-08/Test Report ใน `docs/testing/readme.md` (branch `feature/web-login-upload`) | Claude Code (2026-10-02) | generate ทั้งหมด ไม่มีคนแก้บรรทัดใด · ทางเลือก (ที่เก็บ token, การแยกหน้า, ขอบเขต) อติชาติเป็นคนเลือก · verify ด้วย `node --test` 38/38, DK-08 กับตัวแทน nginx และตรวจบน Chrome กับ service ตัวจริง (SQLite) · nginx ตัวจริงรอผล DK-08 บน CI · **ยังไม่ผ่านการรีวิวโค้ดโดยคนในทีม** |
+| ข้อความ approve ที่โพสต์ใน PR #78 ผ่าน `gh`, การแก้ conflict ของ PR #78 (`ac98b5d`) และ PR #79 (`3c955cc`) พร้อมข้อความ merge commit, และ body ใหม่ของ PR #79 | Claude Code (2026-10-04) | AI ร่างข้อความและทำการแก้ conflict ทั้งหมด อติชาติอ่านข้อความ approve และ body ฉบับเต็มในเมนูก่อนเลือก และเลือกให้ push/merge ทีละขั้น ไม่ได้แก้ถ้อยคำ · ผลการแก้ conflict ตรวจด้วยเทสต์และ CI (ดูแถว Log `2026-10-04, ตรวจ/approve/…`) |
+| ส่วนที่แก้ใน `services/stats-service/app.py`/`stats_db.py`, เทสต์ที่เพิ่มใน `src/tests/test_stats_service.py` และแถว PY-08/PY-10/PY-11 ใน `docs/testing/readme.md` (US-28 AC3, branch `feature/issue-28-thanks-stats`) | Claude Code (2026-10-04) | generate ทั้งหมด อติชาติเลือกขอบเขตและฐาน branch จากเมนู · ตรวจด้วยเทสต์ การรันกับ `models.py` ของ #76 และ mutation 2 แบบ (ดูแถว Log `2026-10-04, branch feature/issue-28-thanks-stats`) · ยังไม่ผ่านการรีวิวโค้ดจากเพื่อนในทีม |
 
 ส่วนที่เป็นงานที่คนแก้เองบางส่วน ไม่ใช่รับจาก AI ตรง ๆ: ฟังก์ชัน `esc()` กัน XSS และการ clamp ค่าใน `stars()` ของหน้าค้นหา ก่อน Lab 7 (เข้ามาในรอบที่ PR #37 ถูก CHANGES_REQUESTED โดยทีมรีวิวพบช่องโหว่ XSS แล้ววชิรวิทย์ใช้ Gemini ช่วยหาจุดและเสนอวิธีแก้ตาม Prompt 5 ก่อนนำไปแก้ใน commit `0ea55bd` จึงเป็นงานที่ AI ช่วย ไม่ใช่เขียนเองล้วน) แต่ใน Lab 7 ฟังก์ชันสองตัวนี้ถูกย้าย/เขียนใหม่เป็น `escapeHtml`/`formatStars` ใน `note-utils.js` โดย Claude Code แล้ว (แถวด้านบน) จึงไม่ใช่ "ไม่แก้จาก AI" อีกต่อไปสำหรับตำแหน่งใหม่นี้ ส่วนที่ยังเป็นของคนเขียนเองเหมือนเดิม: การตัดสินใจเรื่อง Tracer vs Prototype และเนื้อหา reflection รายบุคคลทั้งสามไฟล์
