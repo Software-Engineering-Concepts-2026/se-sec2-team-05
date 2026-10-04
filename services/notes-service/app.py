@@ -5,6 +5,7 @@ Endpoint:
     POST /notes               อัปโหลดไฟล์ + metadata (multipart/form-data) ต้อง login (US-31)
     GET  /notes               ค้นหา/กรองด้วย metadata ที่กรอกไว้ (AC ข้อ 4)
                               ถ้า login จะมี is_favorited ต่อโน้ต ไม่ login เป็น null (US-15)
+                              และ thank_status ต่อโน้ต ไม่ login เป็น null (US-28)
     GET  /notes/favorites     รายการโปรดของตัวเอง ต้อง login (US-15)
     GET  /notes/<id>          รายละเอียดโน้ตหนึ่งรายการ
     PUT  /notes/<id>/rating  ให้/แก้คะแนนโน้ต ต้อง login และเคยเปิด/ดาวน์โหลด (Issue #13)
@@ -17,6 +18,7 @@ Endpoint:
     DELETE /notes/<id>/comments/<comment_id> ลบความคิดเห็นของตัวเอง (Issue #14)
     POST   /notes/<id>/favorite  บันทึกเข้ารายการโปรด ต้อง login (US-15)
     DELETE /notes/<id>/favorite  เอาออกจากรายการโปรด ต้อง login (US-15)
+    POST   /notes/<id>/thanks    ขอบคุณเจ้าของโน้ต ต้อง login กดได้ครั้งเดียวต่อโน้ต (US-28)
     PATCH  /notes/<id>        แก้ metadata บางส่วน (US-19) ต้องมี X-Note-Token
     DELETE /notes/<id>        ลบโน้ตพร้อมไฟล์ (US-20) ต้องมี X-Note-Token
     GET  /notes/<id>/download ดาวน์โหลดไฟล์จริง
@@ -43,6 +45,7 @@ from models import (
     NoteAccess,
     Rating,
     Report,
+    Thank,
     build_session_factory,
 )
 from preview import PreviewUnavailable, render_preview
@@ -394,7 +397,11 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
         with session_factory() as session:
             rows = session.scalars(stmt.limit(limit).offset(offset)).all()
             flags = favorite_flags(session, user_id, rows)
-            items = [{**n.to_dict(), "is_favorited": flags.get(n.id)} for n in rows]
+            thanks = thank_statuses(session, user_id, rows)
+            items = [
+                {**n.to_dict(), "is_favorited": flags.get(n.id), "thank_status": thanks.get(n.id)}
+                for n in rows
+            ]
             return jsonify(items=items, count=len(items))
 
     def require_user():
@@ -423,6 +430,7 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
         session.execute(delete(Comment).where(Comment.note_id == note.id))
         session.execute(delete(Favorite).where(Favorite.note_id == note.id))
         session.execute(delete(NoteAccess).where(NoteAccess.note_id == note.id))
+        session.execute(delete(Thank).where(Thank.note_id == note.id))
         session.delete(note)
         session.commit()
         return storage_key
@@ -460,6 +468,29 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
             )
         )
         return {n.id: n.id in favorited for n in notes}
+
+    def thank_statuses(session, user_id, notes):
+        """คืน {note_id: "own_note" | "thanked" | "can_thank"} หรือ {} ถ้าไม่ login — US-28
+
+        query ตาราง thanks ครั้งเดียวทั้งหน้าเหมือน favorite_flags
+        """
+        if user_id is None or not notes:
+            return {}
+        thanked = set(
+            session.scalars(
+                select(Thank.note_id).where(
+                    Thank.user_id == user_id,
+                    Thank.note_id.in_([n.id for n in notes]),
+                )
+            )
+        )
+
+        def status_of(note):
+            if note.uploader_id == user_id:
+                return "own_note"
+            return "thanked" if note.id in thanked else "can_thank"
+
+        return {n.id: status_of(n) for n in notes}
 
     def record_note_access(session, note_id, user_id, counter):
         if user_id is not None:
@@ -572,6 +603,43 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
             session.commit()
         return "", 204
 
+    @app.post("/notes/<int:note_id>/thanks")
+    def thank_owner(note_id):
+        """ขอบคุณเจ้าของโน้ต — US-28 (#28)
+
+        ต้อง login · ขอบคุณโน้ตตัวเองไม่ได้ · ครั้งแรก 201 กดซ้ำ 200 (ไม่เพิ่มยอด) ·
+        ไม่มี endpoint ยกเลิก · "หลังดาวน์โหลด" เป็นเงื่อนไขฝั่ง UI ไม่ได้ตรวจที่นี่
+        """
+        user, failure = require_user()
+        if failure:
+            return failure
+        with session_factory() as session:
+            note = session.get(Note, note_id)
+            if note is None:
+                return jsonify(error="not_found"), 404
+            if note.uploader_id == user["id"]:
+                return jsonify(error="own_note"), 403
+
+            def find_existing():
+                return session.scalars(
+                    select(Thank).where(Thank.user_id == user["id"], Thank.note_id == note_id)
+                ).first()
+
+            thank, status = find_existing(), 200
+            if thank is None:
+                thank, status = Thank(user_id=user["id"], note_id=note_id), 201
+                session.add(thank)
+                try:
+                    session.commit()
+                except IntegrityError:
+                    # กดซ้อนสองครั้งพร้อมกัน — อีก request บันทึกไปก่อน ถือว่ากดซ้ำ
+                    session.rollback()
+                    thank, status = find_existing(), 200
+            return (
+                jsonify(note_id=note_id, thanked=True, thanked_at=utc_iso(thank.created_at)),
+                status,
+            )
+
     @app.get("/notes/<int:note_id>")
     def get_note(note_id):
         with session_factory() as session:
@@ -585,7 +653,12 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
             session.refresh(note)
 
             flags = favorite_flags(session, user_id, [note])
-            result = {**note.to_dict(), "is_favorited": flags.get(note.id)}
+            thanks = thank_statuses(session, user_id, [note])
+            result = {
+                **note.to_dict(),
+                "is_favorited": flags.get(note.id),
+                "thank_status": thanks.get(note.id),
+            }
             if user_id is not None:
                 result["can_rate"] = True
                 result["user_rating"] = session.scalars(
