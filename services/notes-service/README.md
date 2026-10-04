@@ -3,9 +3,9 @@
 Service ที่ดูแล metadata และไฟล์ของโน้ต — ทำตาม [US-08 (#8)](https://github.com/Software-Engineering-Concepts-2026/se-sec2-team-05/issues/8)
 ขอบเขตและสิ่งที่จงใจยังไม่ทำในรอบนี้อธิบายไว้ใน [ADR-003](../../docs/architecture/adr/0003-tracer-bullet-scope.th.md)
 
-> ⚠️ **การอัปโหลดต้อง login แล้ว** (US-31) แต่ endpoint ที่อ่านอย่างเดียวยังเปิดหมด ส่วนการแก้/ลบยังกันด้วย
-> edit token ต่อโน้ต ไม่ได้ดูจากบัญชีที่ login (ดู [ADR-004](../../docs/architecture/adr/0004-per-note-edit-token.th.md))
-> และ auth-service ยังไม่มีการยืนยันอีเมล ([ADR-005](../../docs/architecture/adr/0005-auth-jwt-with-server-side-sessions.th.md))
+> ⚠️ **การอัปโหลดต้อง login แล้ว** (US-31) แต่ endpoint ที่อ่านอย่างเดียวยังเปิดหมด ส่วนการแก้/ลบใช้ได้ทั้ง
+> edit token ต่อโน้ต ([ADR-004](../../docs/architecture/adr/0004-per-note-edit-token.th.md)) และบัญชีเจ้าของที่ login อยู่
+> ([ADR-008](../../docs/architecture/adr/0008-owner-login-for-note-changes.th.md)) และ auth-service ยังไม่มีการยืนยันอีเมล ([ADR-005](../../docs/architecture/adr/0005-auth-jwt-with-server-side-sessions.th.md))
 > จึงยังห้าม deploy ออกสู่สาธารณะ
 
 ## รันในเครื่อง
@@ -41,6 +41,7 @@ NOTES_STORAGE_DIR=./data python services/notes-service/app.py
 | `POST` | `/notes` | อัปโหลดไฟล์ + metadata (`multipart/form-data`) → `201` พร้อม object ของโน้ต — **ต้อง login** (US-31) |
 | `GET` | `/notes` | ค้นหา/กรอง → `{ items: [...], count: n }` |
 | `GET` | `/notes/favorites` | รายการโปรดของตัวเอง เรียงที่เพิ่งบันทึกก่อน — **ต้อง login** (US-15) |
+| `GET` | `/notes/mine` | โน้ตที่ตัวเองอัปโหลด ใหม่สุดก่อน พร้อม `summary` ยอดรวม — **ต้อง login** (Issue #82) |
 | `GET` | `/notes/<id>` | รายละเอียดโน้ตหนึ่งรายการ |
 | `POST` | `/notes/<id>/reports` | รายงานโน้ตด้วย JSON `{"reason": "..."}` → `201` — ต้อง login และรายงานซ้ำต่อโน้ตได้ครั้งเดียว (Issue #17) |
 | `GET` | `/reports` | ดูรายงานพร้อมข้อมูลโน้ต เหตุผล และผู้รายงาน เรียงใหม่ไปเก่า — ต้องเป็น admin (Issue #17) |
@@ -52,8 +53,8 @@ NOTES_STORAGE_DIR=./data python services/notes-service/app.py
 | `POST` | `/notes/<id>/favorite` | บันทึกเข้ารายการโปรด → `201` (ครั้งแรก) / `200` (มีอยู่แล้ว) — **ต้อง login** (US-15) |
 | `DELETE` | `/notes/<id>/favorite` | เอาออกจากรายการโปรด → `204` — **ต้อง login** (US-15) |
 | `POST` | `/notes/<id>/thanks` | ขอบคุณเจ้าของโน้ต → `201` (ครั้งแรก) / `200` (กดซ้ำ) — **ต้อง login** กดได้ครั้งเดียวต่อโน้ต (US-28) |
-| `PATCH` | `/notes/<id>` | แก้ metadata บางส่วน — ต้องมี `X-Note-Token` (US-19) |
-| `DELETE` | `/notes/<id>` | ลบโน้ตพร้อมไฟล์ — ต้องมี `X-Note-Token` (US-20) → `204` |
+| `PATCH` | `/notes/<id>` | แก้ metadata บางส่วน — ต้องมี `X-Note-Token` หรือ login เป็นเจ้าของ (US-19, ADR-008) |
+| `DELETE` | `/notes/<id>` | ลบโน้ตพร้อมไฟล์ — ต้องมี `X-Note-Token` หรือ login เป็นเจ้าของ (US-20, ADR-008) → `204` |
 | `GET` | `/notes/<id>/download` | ดาวน์โหลดไฟล์จริง (ตั้งชื่อไฟล์ตามที่ผู้ใช้อัปโหลดมา) และนับยอดดาวน์โหลด (US-12) |
 | `GET` | `/notes/<id>/preview` | รูปตัวอย่างของโน้ต (PNG) ดูได้โดยไม่ต้องดาวน์โหลดไฟล์เต็ม ไม่นับ `download_count` (US-11) |
 
@@ -105,7 +106,7 @@ notes-service ส่ง header นี้ต่อไปตรวจที่ `GE
 
 **ชื่อผู้อัปโหลดมาจากบัญชีที่ login เสมอ** (US-31) — `uploader_name` ในโน้ตคือ `display_name` ของบัญชี
 ณ ตอนอัปโหลด ถ้าฟอร์มส่ง `uploader_name` มาด้วยจะถูกเมิน ไม่ถือเป็น error · ระบบเก็บ id ของบัญชีไว้ใน
-คอลัมน์ `uploader_id` ด้วย เพื่อให้เปลี่ยนไปเช็คความเป็นเจ้าของจากบัญชีได้ในอนาคต (ADR-004) แต่ยังไม่ส่งออกใน API
+คอลัมน์ `uploader_id` ด้วย ซึ่งใช้เช็คความเป็นเจ้าของตอนแก้/ลบ (ADR-008) และกรอง `GET /notes/mine` แต่ไม่ส่งออกใน API
 
 | กรณี | Response |
 | --- | --- |
@@ -125,7 +126,7 @@ request ที่ใหญ่เกิน 21 MB (ไฟล์ 20 MB + ที่�
 
 `q` (ค้นในชื่อ/วิชา/รหัส/บทเรียน/หัวข้อ), `faculty`, `subject_code`, `year_level`,
 `file_type` (`pdf` | `png` | `jpg`), `topic`, `date_from`, `date_to`,
-`sort` (`new` | `old` | `class_date` | `title`), `limit` (สูงสุด 100), `offset`
+`sort` (`new` | `old` | `class_date` | `title` | `rating`), `limit` (สูงสุด 100), `offset`
 
 `file_type` ส่งซ้ำได้หลายค่าเพื่อกรองแบบ OR เช่น `?file_type=pdf&file_type=png` (US-10)
 ค่าที่รับมาจาก client เป็นนามสกุลสั้น แล้วแปลงเป็น content type ผ่าน allowlist ของ `validation.py`
@@ -141,6 +142,9 @@ request ที่ใหญ่เกิน 21 MB (ไฟล์ 20 MB + ที่�
 จะไม่ถูกนับเมื่อใช้ตัวกรองนี้เช่นกัน (หาเจอได้ด้วย `q` หรือตัวกรองอื่นตามปกติ)
 
 ทุกตัวกรองต่อกันด้วย AND ใช้พร้อมกันได้ทั้งหมด (US-10 + US-26)
+
+`sort=rating` (Issue #83) เรียงคะแนนเฉลี่ยมากไปน้อย โน้ตที่ยังไม่มีใครให้คะแนนอยู่ท้ายสุด ·
+คะแนนเฉลี่ยเท่ากันให้โน้ตที่มีคนให้คะแนนมากกว่าขึ้นก่อน แล้วค่อยดูว่าใหม่กว่า · ใช้กับตัวกรองอื่นได้ตามปกติ
 
 `limit` ถูก clamp ไว้ที่ 1–100 และ `offset` ต่ำสุด 0 ค่าติดลบจึงไม่หลุดไปถึง SQL
 
@@ -191,6 +195,27 @@ curl -X POST   http://localhost:5001/notes/1/favorite -H "Authorization: Bearer 
 curl           http://localhost:5001/notes/favorites -H "Authorization: Bearer $TOKEN"
 curl -X DELETE http://localhost:5001/notes/1/favorite -H "Authorization: Bearer $TOKEN"   # 204
 ```
+
+### `GET /notes/mine` — โน้ตของฉัน (Issue #82)
+
+ต้องส่ง `Authorization: Bearer <access_token>` · เจ้าของรายการมาจาก token เสมอ ไม่รับ user id จาก URL
+· รับ `limit`/`offset` กติกาเดียวกับ `GET /notes` · เรียงที่อัปโหลดล่าสุดก่อน
+
+```json
+{
+  "items": [{ "id": 7, "title": "...", "view_count": 12, "download_count": 4,
+              "average_rating": 4.5, "rating_count": 2, "thank_count": 1, "...": "..." }],
+  "count": 1,
+  "summary": { "note_count": 3, "total_views": 30, "total_downloads": 9,
+               "total_thanks": 2, "average_rating": 4.25, "rating_count": 4 }
+}
+```
+
+- **`items`** เป็น object ของโน้ตแบบเดียวกับ `GET /notes` บวก `thank_count` (จำนวนคำขอบคุณของโน้ตนั้น
+  ไม่บอกว่าใครกด เหมือน stats-service ใน US-28 AC3) · ไม่มี `edit_token`
+- **`summary`** นับจาก**โน้ตทั้งหมด**ของผู้ใช้ ไม่ใช่แค่หน้าที่ส่งกลับ · `average_rating` เฉลี่ยจากคะแนนทุกครั้ง
+  ที่ได้รับ (โน้ตที่มีคนให้คะแนนมากมีน้ำหนักมากกว่า) เป็น `null` ถ้ายังไม่มีใครให้คะแนนเลย
+- ไม่ login / token ใช้ไม่ได้ → `401` · auth-service ล่ม → `503` · `limit`/`offset` ไม่ใช่ตัวเลข → `400`
 
 ### ขอบคุณเจ้าของโน้ต (US-28)
 
@@ -278,11 +303,16 @@ render ซ้ำ และไฟล์ตัวอย่างจะถูกล
 
 response ของโน้ต (`GET /notes`, `GET /notes/<id>`) มีฟิลด์ `preview_url` ชี้มาที่ endpoint นี้เสมอ
 
-### `PATCH /notes/<id>` และ `DELETE /notes/<id>` — ต้องมี edit token
+### `PATCH /notes/<id>` และ `DELETE /notes/<id>` — edit token หรือบัญชีเจ้าของ
 
-ตอน `POST /notes` สำเร็จ response จะมีฟิลด์ `edit_token` เพิ่มมา **ครั้งเดียวเท่านั้น**
-เก็บไว้ให้ดี เพราะฐานข้อมูลเก็บแค่ hash และไม่มี endpoint ไหนคืนค่านี้ให้อีก ถ้าทำหาย
-จะแก้หรือลบโน้ตใบนั้นไม่ได้อีกเลย เหตุผลของกลไกนี้และข้อจำกัดอยู่ใน ADR-004
+ยืนยันความเป็นเจ้าของได้สองทาง ทางใดทางหนึ่งก็พอ:
+
+1. **edit token** (ADR-004) — ตอน `POST /notes` สำเร็จ response จะมีฟิลด์ `edit_token` เพิ่มมา **ครั้งเดียวเท่านั้น**
+   ฐานข้อมูลเก็บแค่ hash และไม่มี endpoint ไหนคืนค่านี้ให้อีก ส่งมาใน header `X-Note-Token`
+2. **login เป็นบัญชีที่อัปโหลดโน้ตนั้น** (ADR-008, Issue #82) — ส่ง `Authorization: Bearer <access_token>`
+   ไม่ต้องมี edit token ทำ token หายก็ยังแก้/ลบได้ถ้า login เป็นเจ้าของ
+
+token ถูกตรวจก่อน ถ้าใช้ได้จะไม่เรียก auth-service เลย จึงยังแก้/ลบได้แม้ auth-service ล่ม
 
 ```bash
 # แก้เฉพาะฟิลด์ที่ส่งมา ฟิลด์ที่ไม่ส่งคงค่าเดิม (partial update)
@@ -299,10 +329,17 @@ curl -X DELETE localhost:5001/notes/1 -H "X-Note-Token: $TOKEN"
 | `DELETE` สำเร็จ | `204` ไม่มี body · ลบทั้ง record และไฟล์ใน storage |
 | ค่าที่ส่งมาผิดรูป | `400` `{"error": "validation_failed", "fields": {...}}` |
 | `PATCH` ที่ไม่มีฟิลด์ให้แก้เลย | `400` `{"error": "no_fields_to_update"}` |
-| ไม่ส่ง token หรือ token ผิด | `403` `{"error": "forbidden"}` |
-| ไม่มีโน้ตนั้น | `404` `{"error": "not_found"}` |
+| ไม่ส่งทั้ง token และ `Authorization` หรือ token ผิดและไม่ได้ login | `403` `{"error": "forbidden"}` |
+| login อยู่แต่ไม่ใช่เจ้าของ (และไม่มี token ที่ถูก) | `403` `{"error": "forbidden"}` |
+| ส่ง Bearer ที่ใช้ไม่ได้/หมดอายุ (และไม่มี token ที่ถูก) | `401` `{"error": "unauthorized"}` + `WWW-Authenticate: Bearer` |
+| ไม่มี token ที่ถูก และเรียก auth-service ไม่ถึง | `503` `{"error": "auth_unavailable"}` |
+| ไม่มีโน้ตนั้น | `404` `{"error": "not_found"}` — ตรวจก่อนเรื่องสิทธิ์ |
 
-การแก้/ลบ**ยังไม่ได้ดูจากบัญชีที่ login** — login อยู่แต่ไม่มี edit token ก็ได้ `403` เหมือนเดิม
+```bash
+# เจ้าของที่ login อยู่ ไม่ต้องมี edit token
+curl -X PATCH  localhost:5001/notes/1 -H "Authorization: Bearer $ACCESS_TOKEN" -d 'topic=Heap'
+curl -X DELETE localhost:5001/notes/1 -H "Authorization: Bearer $ACCESS_TOKEN"
+```
 
 แก้ได้เฉพาะ metadata — ตัวไฟล์แก้ไม่ได้ ต้องอัปโหลดใหม่ · ส่ง `uploader_name`, `uploader_id`,
 `created_at` หรือฟิลด์ของไฟล์มาใน `PATCH` จะถูกเมิน ไม่ถือเป็น error ·

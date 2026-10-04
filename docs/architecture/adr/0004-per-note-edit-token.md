@@ -2,7 +2,7 @@
 
 🌐 **English** · [ภาษาไทย](./0004-per-note-edit-token.th.md)
 
-**Status:** Accepted (temporary — to be superseded when #5/#6 land)
+**Status:** Accepted (temporary — to be superseded when #5/#6 land) · amended by [ADR-008](./0008-owner-login-for-note-changes.md): the logged-in uploader can now edit/delete without the token, and the token still works
 
 **Context:**
 US-19 (#19) and US-20 (#20) both carry the acceptance criterion "only the owner" may edit or delete a note. The system has no trustworthy notion of identity yet: [ADR-003](./0003-tracer-bullet-scope.md) deliberately deferred the User & Auth Service (#5, #6), and `uploader_name` is submitted through the upload form and displayed on every note. Checking a request's `uploader_name` against the stored one would therefore check nothing at all — the value is public and anyone can retype it.
