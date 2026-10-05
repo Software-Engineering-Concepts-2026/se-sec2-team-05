@@ -697,12 +697,17 @@ def test_read_endpoints_stay_open_without_login(client, identity):
     assert identity.calls == calls_after_upload
 
 
-def test_edit_and_delete_still_use_the_edit_token_not_the_login(client):
-    """ADR-004 ยังใช้อยู่: login อย่างเดียวไม่พอสำหรับแก้/ลบ ต้องมี edit token ของโน้ตใบนั้น"""
+def test_owner_login_and_edit_token_both_allow_edit_and_delete(client):
+    """ADR-008: เจ้าของที่ login อยู่แก้/ลบได้โดยไม่ต้องมี token และ edit token (ADR-004) ก็ยังใช้ได้
+
+    เทสต์นี้เดิมยืนยันว่า login อย่างเดียวไม่พอ — เปลี่ยนตาม ADR-008 (Issue #82)
+    """
     note_id, token = upload_with_token(client)
 
     assert client.patch(
         f"/notes/{note_id}", data={"title": "แก้ด้วย login"}, headers=AUTH_HEADER
-    ).status_code == 403
-    assert client.delete(f"/notes/{note_id}", headers=AUTH_HEADER).status_code == 403
-    assert client.delete(f"/notes/{note_id}", headers={"X-Note-Token": token}).status_code == 204
+    ).status_code == 200
+    assert client.patch(
+        f"/notes/{note_id}", data={"title": "แก้ด้วย token"}, headers={"X-Note-Token": token}
+    ).status_code == 200
+    assert client.delete(f"/notes/{note_id}", headers=AUTH_HEADER).status_code == 204

@@ -97,7 +97,7 @@
 | NA-23 | เก็บ `uploader_id` แต่ไม่ส่งออก | อ่านคอลัมน์ใน DB ตรง ๆ | `uploader_id` = id ของบัญชี · ไม่มี `uploader_id` ใน response |
 | NA-24 | auth-service ล่ม | identity โยน `IdentityUnavailable` | `503` `{"error": "auth_unavailable"}` · storage ว่าง |
 | NA-25 | endpoint อ่านอย่างเดียวยังเปิด (รวม `/preview`, US-11) | `GET /notes`, `/notes/<id>`, `/download`, `/preview` โดยไม่ login | `200` ทั้งหมด ยกเว้น `/preview` ที่ไม่ใช่ `401` (ไฟล์ default ของเทสต์เป็น PDF ปลอม จึงได้ `422` แทน) และไม่มีการเรียก auth-service เพิ่ม |
-| NA-26 | login อย่างเดียวแก้/ลบไม่ได้ (ADR-004 ยังใช้) | `PATCH`/`DELETE` ด้วย Bearer token แต่ไม่มี edit token | `403` ทั้งคู่ · ด้วย edit token ลบได้ `204` |
+| NA-26 | เจ้าของที่ login อยู่และ edit token ใช้ได้ทั้งคู่ (ADR-008 แก้จากเดิมที่ login อย่างเดียวไม่พอ) | `PATCH` ด้วย Bearer ของเจ้าของ, `PATCH` ด้วย edit token, `DELETE` ด้วย Bearer ของเจ้าของ | `200`, `200`, `204` |
 | NA-27 | กรองตามหัวข้อเลกเชอร์แบบ partial ไม่สนตัวพิมพ์ (US-26) | `?topic=search tree` | เจอเฉพาะโน้ตที่ `topic` มีคำนั้นเป็นส่วนหนึ่ง |
 | NA-28 | `topic` กรองแยกจาก `q` | `?topic=Tree` โดยชื่อวิชามีคำว่า Tree แต่ `topic` ไม่มี | `count = 0` |
 | NA-29 | `topic` escape wildcard ของ SQL | `?topic=50%` โดยมีโน้ต `topic` เป็น `50%` และ `Recursion` | เจอเฉพาะโน้ตที่ `topic` เป็น `50%` จริง ไม่ใช่ทุกโน้ต |
@@ -182,10 +182,35 @@
 | NA-108 | auth-service ล่มระหว่างค้นหา ค้นหายังใช้ได้ | identity โยน `IdentityUnavailable` แล้ว `GET /notes`, `GET /notes/<id>` ด้วย token ที่ถูก | `200` และ `thank_status = null` (ไม่ใช่ `503`) |
 | NA-109 | `GET /notes` ให้สถานะต่อโน้ตถูกต้องในหน้าเดียวกัน และ query `thanks` ครั้งเดียว | Bob ค้นหาเจอโน้ตที่ยังไม่ขอบคุณ, ขอบคุณแล้ว และโน้ตของตัวเอง · นับ SQL ตอนมี 5 โน้ต | `can_thank` · `thanked` · `own_note` · อ่านตาราง `thanks` 1 ครั้ง |
 | NA-110 | ลบโน้ตลบคำขอบคุณของโน้ตนั้น (US-20) | Bob กับ Carol ขอบคุณ แล้วลบโน้ตด้วย edit token · มีอีกโน้ตที่ Bob ขอบคุณไว้ | `204` ไม่ชน FK · thanks ของโน้ตที่ลบหายหมด · ของอีกโน้ตยังอยู่ |
+| NA-111 | เจ้าของที่ login แก้ได้โดยไม่ต้องมี edit token (Issue #82, ADR-008) | Alice `PATCH` ด้วย Bearer ของตัวเอง ไม่มี `X-Note-Token` | `200` · `title` เปลี่ยนจริงเมื่ออ่านซ้ำ |
+| NA-112 | เจ้าของที่ login ลบได้โดยไม่ต้องมี edit token | Alice `DELETE` ด้วย Bearer ของตัวเอง | `204` · `GET` ได้ `404` · ไม่มีไฟล์เหลือใน storage |
+| NA-113 | คนอื่นที่ login อยู่แก้/ลบไม่ได้ | Bob `PATCH`/`DELETE` โน้ตของ Alice | `403 forbidden` ทั้งคู่ · `title` คงเดิม |
+| NA-114 | ไม่มีทั้ง token และ login ยังได้ 403 เหมือนเดิม | `PATCH`/`DELETE` ไม่มี header | `403` ทั้งคู่ |
+| NA-115 | Bearer ใช้ไม่ได้และไม่มี token | `DELETE` ด้วย `Bearer expired` | `401` + `WWW-Authenticate: Bearer` · โน้ตยังอยู่ |
+| NA-116 | auth-service ล่มและไม่มี token | identity โยน `IdentityUnavailable` แล้ว Alice `PATCH` | `503 auth_unavailable` |
+| NA-117 | edit token ถูกตรวจก่อน ไม่ต้องถาม auth-service | auth-service ล่ม + Bob ส่ง Bearer ของตัวเองพร้อม token ที่ถูก | `200` · ไม่มีการเรียก auth-service เพิ่ม |
+| NA-118 | token ผิดแต่ login เป็นเจ้าของ | Alice `PATCH` ด้วย Bearer ของตัวเอง + `X-Note-Token: wrong` | `200` |
+| NA-119 | โน้ตที่ไม่มีอยู่ได้ 404 ก่อนตรวจสิทธิ์ | Bob `DELETE /notes/999` | `404` |
+| NA-120 | `GET /notes/mine` ต้อง login (Issue #82) | ไม่มี header · auth-service ล่ม | `401` + `WWW-Authenticate: Bearer` · `503` |
+| NA-121 | โน้ตของฉันมีเฉพาะของตัวเอง ใหม่สุดก่อน | Alice อัปโหลด 2 ใบ Bob 1 ใบ แล้ว Alice `GET /notes/mine` | `items` = 2 ใบของ Alice ใบใหม่ก่อน · `count = 2` |
+| NA-122 | edit token ไม่รั่วใน `/notes/mine` | อ่าน item แรก | ไม่มี `edit_token` และ `edit_token_hash` |
+| NA-123 | ยังไม่มีโน้ตเลย | Alice `GET /notes/mine` ขณะมีแต่โน้ตของ Bob | `items = []` · `summary` เป็นศูนย์ทั้งหมด · `average_rating = null` |
+| NA-124 | `summary` นับทุกโน้ต ไม่ใช่แค่หน้าที่ส่งกลับ | 3 โน้ต ดาวน์โหลดรวม 3 ครั้ง เปิดดู 1 ครั้ง แล้ว `?limit=1` | `count = 1` · `note_count = 3` · `total_downloads = 3` · `total_views = 1` |
+| NA-125 | `average_rating` ถ่วงน้ำหนักตามจำนวนคะแนน | โน้ต A ได้ 5, 5 · โน้ต B ได้ 2 | `average_rating = 4.0` (ไม่ใช่ 3.5) · `rating_count = 3` |
+| NA-126 | `thank_count` ต่อโน้ตและ `total_thanks` | Bob กับ Carol ขอบคุณโน้ตหนึ่ง อีกโน้ตไม่มีใครขอบคุณ | `thank_count` = 2 กับ 0 · `total_thanks = 2` |
+| NA-127 | `limit` ที่ไม่ใช่ตัวเลขใน `/notes/mine` | `?limit=abc` | `400 {"error": "invalid_filter", "field": "limit/offset"}` |
+| NA-128 | `sort=rating` เรียงคะแนนเฉลี่ยมากไปน้อย ไม่มีคะแนนอยู่ท้าย (Issue #83) | โน้ตคะแนน 3, ไม่มีคะแนน, 5, 4 | ลำดับ 5, 4, 3, ไม่มีคะแนน |
+| NA-129 | ใช้ค่าเฉลี่ย ไม่ใช่คะแนนล่าสุด | โน้ต A ได้ 5 กับ 2 (3.5) · โน้ต B ได้ 4 | B ก่อน A |
+| NA-130 | เฉลี่ยเท่ากัน คนให้คะแนนมากกว่าขึ้นก่อน | เฉลี่ย 4 ทุกใบ จาก 2, 1, 3 คน | 3 คน, 2 คน, 1 คน |
+| NA-131 | เท่ากันทุกอย่าง ใหม่กว่าขึ้นก่อน | สองโน้ตได้ 5 คนละครั้ง โน้ตหนึ่งเก่ากว่า 1 วัน | ใบใหม่ก่อน |
+| NA-132 | ไม่มีคะแนนทั้งหมด ใหม่สุดก่อน | สองโน้ตไม่มีคะแนน | ใบที่อัปโหลดทีหลังก่อน |
+| NA-133 | `sort=rating` ใช้กับตัวกรองและ paging ได้ | `subject_code=CS301` + `limit=1&offset=1` | เฉพาะโน้ต CS301 ตามลำดับคะแนน · หน้า 2 ได้ใบที่สอง |
+| NA-134 | `sort` ที่ไม่รู้จักยังได้ 400 | `?sort=popular` | `400 {"error": "invalid_filter", "field": "sort"}` |
 
 ### 2.5 Notes Service — แก้ไข/ลบโน้ต (`pytest`, US-19 #19 + US-20 #20)
 
 ความเป็นเจ้าของพิสูจน์ด้วย edit token ต่อโน้ต ([ADR-004](../architecture/adr/0004-per-note-edit-token.th.md))
+หรือด้วยบัญชีเจ้าของที่ login อยู่ ([ADR-008](../architecture/adr/0008-owner-login-for-note-changes.th.md), ดู NA-111 ถึง NA-119)
 
 | # | Test case | Request | ผลที่คาดหวัง |
 | --- | --- | --- | --- |
@@ -215,6 +240,7 @@
 | DK-06 | อัปโหลดต้อง login และเครดิตมาจากบัญชี (US-31) บน stack จริง | สมัคร + login บัญชี `CI Uploader` แล้ว `POST /notes` สามแบบ (ไม่มี token / token มั่ว / token จริง + `uploader_name=spoofed name`) | สองแบบแรกได้ `401` · แบบที่สามได้ `uploader_name = CI Uploader` · `count = 1` (ครั้งที่ไม่ผ่านไม่ถูกบันทึก) · notes-service คุยกับ auth-service ผ่านเครือข่ายของ compose จริง |
 | DK-07 | preview endpoint ทำงานจริงบน image ที่ build (US-11) — กัน regression ของบั๊ก Dockerfile ที่เคยลืม copy `preview.py` (commit `8f25b9b`) ซึ่ง unit test จับไม่ได้เพราะ import จาก source tree ตรง ๆ | อัปโหลด PNG จริงแล้ว `GET .../preview` โดยไม่ส่ง token, กับอัปโหลดไฟล์ที่ประกาศเป็น `image/png` แต่เนื้อไม่ใช่รูป | ไฟล์จริงได้ `200` + header `Content-Type: image/png` + ไบต์ 8 ตัวแรกตรง PNG signature · ไฟล์ปลอมได้ `422` ไม่ใช่ `500` |
 | DK-08 | web gateway เสิร์ฟหน้าเว็บและส่งต่อ API จาก origin เดียว (ADR-006, US-11/US-31) | `curl :8080/`, `/login.html`, `/upload.html`, ไฟล์ JS ทั้ง 7 ไฟล์และไฟล์เทสต์ทั้ง 3 ไฟล์ · `GET :8080/notes?subject_code=CS201&year_level=2` และ `?year_level=abc` · `GET :8080/auth/me` แบบไม่มี token และมี token · อัปโหลด PNG ผ่าน `:8080/notes` แล้วเปิด `preview_url` ผ่าน `:8080` · `POST :8080/auth/login` (JSON) → `POST :8080/auth/logout` → `GET :8080/auth/me` ด้วย token เดิม | หน้าแรกมี `id="searchForm"`, หน้า login มี `id="loginForm"`, หน้าอัปโหลดมี `id="uploadForm"` · ไฟล์ JS ได้ `200` · ไฟล์เทสต์ได้ `404` (ไม่ถูก copy เข้า image) · query string ไปถึง service ครบ (`count = 1`, ค่าผิดได้ `400`) · `me` ไม่มี token `401` มี token ได้ `CI Uploader` (header `Authorization` ผ่าน nginx) · upload ได้ `uploader_name = CI Uploader` และ preview ได้ `200` + `image/png` · login ได้ token, logout ได้ `204` แล้ว token เดิมได้ `401` (US-05/US-06 ผ่าน gateway แบบที่หน้าเว็บเรียก) |
+| DK-09 | เจ้าของแก้/ลบด้วย login, `/notes/mine` และ `sort=rating` บน Postgres จริง (Issues #82, #83) | สมัคร + login บัญชี `CI Rater` · `CI Uploader` อัปโหลด 2 โน้ต (`CS501`) · Rater เปิดดูแล้วให้คะแนนใบแรก · `GET /notes?subject_code=CS501&sort=rating` · `GET /notes/mine` · Rater แล้วเจ้าของ `PATCH`/`DELETE` | ใบที่มีคะแนนมาก่อนใบใหม่กว่าที่ไม่มีคะแนน (Postgres วาง NULL ไว้หน้าสุดเมื่อ DESC ต่างจาก SQLite) · `/notes/mine` มีทั้งสองใบ, `rating_count = 1`, ไม่ login ได้ `401` · Rater ได้ `403` ทั้งคู่ · เจ้าของ `PATCH` ได้ค่าใหม่และ `DELETE` ได้ `204` |
 
 ### 2.7 Auth Service — ตรวจข้อมูลสมัครและ hash รหัสผ่าน (`pytest`, US-05 #5)
 
