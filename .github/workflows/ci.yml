@@ -313,6 +313,12 @@ jobs:
           for js in search-utils.test.js session-utils.test.js upload-utils.test.js; do
             test "$(curl -s -o /dev/null -w '%{http_code}' "$gw/$js")" = "404"
           done
+          # หน้าโปรไฟล์ (Issue #85)
+          curl -fsS "$gw/profile.html" -o /tmp/profile.html
+          grep -q 'id="profileStats"' /tmp/profile.html
+          curl -fsS -o /dev/null "$gw/profile.js"
+          curl -fsS -o /dev/null "$gw/profile-utils.js"
+          test "$(curl -s -o /dev/null -w '%{http_code}' "$gw/profile-utils.test.js")" = "404"
 
           # query string ต้องไปถึง notes-service ครบ (โน้ต CS201 สร้างไว้ใน step end-to-end ด้านบน)
           test "$(curl -fsS "$gw/notes?subject_code=CS201&year_level=2" | jq '.count')" -eq 1
