@@ -3,10 +3,11 @@
 Endpoint:
     GET  /health              health check (รูปแบบเดียวกับ stats-service)
     POST /notes               อัปโหลดไฟล์ + metadata (multipart/form-data) ต้อง login (US-31)
-    GET  /notes               ค้นหา/กรองด้วย metadata ที่กรอกไว้ (AC ข้อ 4)
+    GET  /notes               ค้นหา/กรองด้วย metadata ที่กรอกไว้ (AC ข้อ 4) · sort=rating (Issue #83)
                               ถ้า login จะมี is_favorited ต่อโน้ต ไม่ login เป็น null (US-15)
                               และ thank_status ต่อโน้ต ไม่ login เป็น null (US-28)
     GET  /notes/favorites     รายการโปรดของตัวเอง ต้อง login (US-15)
+    GET  /notes/mine          โน้ตที่ตัวเองอัปโหลด พร้อมสรุปยอดรวม ต้อง login (Issue #82)
     GET  /notes/<id>          รายละเอียดโน้ตหนึ่งรายการ
     PUT  /notes/<id>/rating  ให้/แก้คะแนนโน้ต ต้อง login และเคยเปิด/ดาวน์โหลด (Issue #13)
     POST /notes/<id>/reports รายงานเนื้อหาที่ไม่เหมาะสม (Issue #17)
@@ -19,14 +20,14 @@ Endpoint:
     POST   /notes/<id>/favorite  บันทึกเข้ารายการโปรด ต้อง login (US-15)
     DELETE /notes/<id>/favorite  เอาออกจากรายการโปรด ต้อง login (US-15)
     POST   /notes/<id>/thanks    ขอบคุณเจ้าของโน้ต ต้อง login กดได้ครั้งเดียวต่อโน้ต (US-28)
-    PATCH  /notes/<id>        แก้ metadata บางส่วน (US-19) ต้องมี X-Note-Token
-    DELETE /notes/<id>        ลบโน้ตพร้อมไฟล์ (US-20) ต้องมี X-Note-Token
+    PATCH  /notes/<id>        แก้ metadata บางส่วน (US-19) ต้องมี X-Note-Token หรือ login เป็นเจ้าของ
+    DELETE /notes/<id>        ลบโน้ตพร้อมไฟล์ (US-20) ต้องมี X-Note-Token หรือ login เป็นเจ้าของ
     GET  /notes/<id>/download ดาวน์โหลดไฟล์จริง
     GET  /notes/<id>/preview  รูปตัวอย่าง (PNG) ของโน้ต ไม่นับเป็นการดาวน์โหลด (US-11)
 
 การอัปโหลดต้องส่ง `Authorization: Bearer <token>` ที่ได้จาก auth-service ชื่อผู้อัปโหลด
 มาจากบัญชีนั้น ไม่รับจากฟอร์ม (ดู identity.py) — endpoint ที่อ่านอย่างเดียวยังเปิดหมด
-ส่วนการแก้/ลบยังใช้ edit token ต่อโน้ตเหมือนเดิม (ดู ADR-004 และ tokens.py)
+ส่วนการแก้/ลบใช้ edit token ต่อโน้ต (ADR-004, tokens.py) หรือบัญชีเจ้าของที่ login อยู่ (ADR-008)
 """
 
 import io
@@ -34,7 +35,7 @@ import os
 from datetime import date, datetime, timezone
 
 from flask import Flask, jsonify, request, send_file
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
 
 from identity import IdentityUnavailable, identity_from_env
@@ -169,6 +170,30 @@ EXT_TO_CONTENT_TYPE = {
     ext.lstrip("."): content_type
     for content_type, ext in ALLOWED_CONTENT_TYPES.items()
 }
+
+
+def order_by_rating(stmt):
+    """เรียงคะแนนเฉลี่ยมากไปน้อย โน้ตที่ยังไม่มีคะแนนอยู่ท้าย — Issue #83
+
+    คะแนนเท่ากันให้โน้ตที่มีคนให้คะแนนมากกว่าขึ้นก่อน แล้วค่อยดูว่าใหม่กว่า
+    ใช้ `IS NULL` นำหน้าแทน `NULLS LAST` เพื่อให้ผลเหมือนกันทั้ง SQLite และ Postgres
+    """
+    rating_stats = (
+        select(
+            Rating.note_id,
+            func.avg(Rating.value).label("average"),
+            func.count(Rating.id).label("total"),
+        )
+        .group_by(Rating.note_id)
+        .subquery()
+    )
+    return stmt.outerjoin(rating_stats, rating_stats.c.note_id == Note.id).order_by(
+        rating_stats.c.average.is_(None),
+        rating_stats.c.average.desc(),
+        rating_stats.c.total.desc(),
+        Note.created_at.desc(),
+        Note.id.desc(),
+    )
 
 
 def parse_page(args) -> tuple[int, int]:
@@ -375,13 +400,15 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
 
         sort = args.get("sort", "new")
 
-        if sort not in SORT_COLUMNS:
+        if sort == "rating":
+            stmt = order_by_rating(stmt)
+        elif sort in SORT_COLUMNS:
+            stmt = stmt.order_by(SORT_COLUMNS[sort])
+        else:
             return jsonify(
                 error="invalid_filter",
                 field="sort",
             ), 400
-
-        stmt = stmt.order_by(SORT_COLUMNS[sort])
 
         try:
             # clamp ทั้งขอบบนและขอบล่าง — ค่าติดลบผ่าน int() ได้ แต่ LIMIT -1 มีความหมาย
@@ -424,6 +451,24 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
         if not is_admin(user):
             return None, (jsonify(error="forbidden"), 403)
         return user, None
+
+    def change_denied(note):
+        """ตรวจสิทธิ์แก้/ลบโน้ต คืน None ถ้าผ่าน หรือ error response — ADR-004 + ADR-008
+
+        ผ่านได้สองทาง: edit token ของโน้ตนั้น (ADR-004) หรือ login เป็นบัญชีที่อัปโหลด (Issue #82)
+        token ถูกตรวจก่อนจึงไม่ต้องถาม auth-service ถ้า token ใช้ได้ · ไม่มีทั้งสองอย่างได้ 403
+        เหมือนเดิม · ส่ง Bearer ที่ใช้ไม่ได้ได้ 401 ให้หน้าเว็บรู้ว่าต้อง login ใหม่
+        """
+        if token_matches(request.headers.get(HEADER_NAME), note.edit_token_hash):
+            return None
+        if not request.headers.get("Authorization"):
+            return jsonify(error="forbidden"), 403
+        user, failure = require_user()
+        if failure:
+            return failure
+        if note.uploader_id != user["id"]:
+            return jsonify(error="forbidden"), 403
+        return None
 
     def delete_note_record(session, note):
         storage_key = note.storage_key
@@ -550,6 +595,67 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
                 for note, favorited_at in rows
             ]
             return jsonify(items=items, count=len(items))
+
+    @app.get("/notes/mine")
+    def list_my_notes():
+        """โน้ตที่ตัวเองอัปโหลด ใหม่สุดก่อน พร้อมสรุปยอดรวมทุกโน้ต — Issue #82 (หน้าโปรไฟล์)
+
+        `summary` นับจากโน้ตทั้งหมดของผู้ใช้ ไม่ใช่แค่หน้าที่ส่งกลับ · `average_rating` เฉลี่ยจาก
+        คะแนนทุกครั้งที่ได้รับ (โน้ตที่มีคนให้คะแนนมากมีน้ำหนักมากกว่า) · `thank_count` ต่อโน้ต
+        เปิดให้เจ้าของเห็นเหมือน stats-service (US-28 AC3) แต่ไม่บอกว่าใครกด
+        """
+        user, failure = require_user()
+        if failure:
+            return failure
+        try:
+            limit, offset = parse_page(request.args)
+        except ValueError:
+            return jsonify(error="invalid_filter", field="limit/offset"), 400
+
+        mine = Note.uploader_id == user["id"]
+        with session_factory() as session:
+            rows = session.scalars(
+                select(Note)
+                .where(mine)
+                .order_by(Note.created_at.desc(), Note.id.desc())
+                .limit(limit)
+                .offset(offset)
+            ).all()
+            thank_counts = dict(
+                session.execute(
+                    select(Thank.note_id, func.count(Thank.id))
+                    .where(Thank.note_id.in_([n.id for n in rows]))
+                    .group_by(Thank.note_id)
+                ).all()
+            )
+            note_count, total_views, total_downloads = session.execute(
+                select(
+                    func.count(Note.id),
+                    func.coalesce(func.sum(Note.view_count), 0),
+                    func.coalesce(func.sum(Note.download_count), 0),
+                ).where(mine)
+            ).one()
+            average, rating_count = session.execute(
+                select(func.avg(Rating.value), func.count(Rating.id))
+                .join(Note, Rating.note_id == Note.id)
+                .where(mine)
+            ).one()
+            total_thanks = session.scalar(
+                select(func.count(Thank.id)).join(Note, Thank.note_id == Note.id).where(mine)
+            )
+            items = [{**n.to_dict(), "thank_count": thank_counts.get(n.id, 0)} for n in rows]
+            return jsonify(
+                items=items,
+                count=len(items),
+                summary={
+                    "note_count": note_count,
+                    "total_views": total_views,
+                    "total_downloads": total_downloads,
+                    "total_thanks": total_thanks,
+                    "average_rating": round(float(average), 2) if average is not None else None,
+                    "rating_count": rating_count,
+                },
+            )
 
     @app.post("/notes/<int:note_id>/favorite")
     def add_favorite(note_id):
@@ -982,11 +1088,9 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
             if note is None:
                 return jsonify(error="not_found"), 404
 
-            if not token_matches(
-                request.headers.get(HEADER_NAME),
-                note.edit_token_hash,
-            ):
-                return jsonify(error="forbidden"), 403
+            denied = change_denied(note)
+            if denied:
+                return denied
 
             cleaned, errors = validate_metadata(
                 request.form,
@@ -1026,11 +1130,9 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
             if note is None:
                 return jsonify(error="not_found"), 404
 
-            if not token_matches(
-                request.headers.get(HEADER_NAME),
-                note.edit_token_hash,
-            ):
-                return jsonify(error="forbidden"), 403
+            denied = change_denied(note)
+            if denied:
+                return denied
 
             storage_key = delete_note_record(session, note)
 

@@ -106,27 +106,39 @@
     return `เฉลี่ย ${average.toFixed(1)} / 5 (${count})`;
   }
 
+  // Five stars for the card, filled up to the rounded average. No ratings -> five empty stars.
+  function starBar(note) {
+    const average = Number(note.average_rating);
+    const filled = note.average_rating === null || note.average_rating === undefined || !Number.isFinite(average)
+      ? 0
+      : Math.max(0, Math.min(5, Math.round(average)));
+    return '★'.repeat(filled) + '☆'.repeat(5 - filled);
+  }
+
   // One result card. Every value from the API goes through escapeHtml, because titles
   // and descriptions are typed in by other users.
   // US-31 AC3: the uploader's name is on every card.
   function renderNoteCard(note) {
     const subject = [note.subject_code, note.subject_name].filter(Boolean).join(' · ');
-    const details = [note.faculty, note.year_level ? `ปี ${note.year_level}` : '', note.lesson, note.topic]
+    const tags = [note.faculty, note.year_level ? `ปี ${note.year_level}` : '', note.lesson, note.topic]
       .filter(Boolean)
-      .join(' · ');
+      .map((tag) => `<span class="note-tag">${escapeHtml(tag)}</span>`)
+      .join('');
     const classDate = note.class_date ? `<span>เรียนวันที่ ${escapeHtml(note.class_date)}</span>` : '';
     return `<article class="note-card" data-note-id="${escapeHtml(note.id)}">
-  <div class="thumbnail" aria-hidden="true">${escapeHtml(fileTypeLabel(note.content_type))}</div>
-  <div class="note-info">
-    <h2 class="note-title">${escapeHtml(note.title)}</h2>
-    <p class="note-sub">${escapeHtml(subject)}</p>
-    <p class="note-sub">${escapeHtml(details)}</p>
-    <p class="note-uploader">อัปโหลดโดย <strong>${escapeHtml(note.uploader_name)}</strong></p>
+  <div class="note-card-top">
+    <span class="tag-course">${escapeHtml(note.subject_code)}</span>
+    <span class="file-badge">${escapeHtml(fileTypeLabel(note.content_type))}</span>
   </div>
-  <div class="note-meta">
-    ${classDate}
+  <h2 class="note-title">${escapeHtml(note.title)}</h2>
+  <p class="note-sub">${escapeHtml(subject)}</p>
+  <p class="note-uploader">อัปโหลดโดย <strong>${escapeHtml(note.uploader_name)}</strong></p>
+  <p class="note-rating"><span class="note-stars" aria-hidden="true">${starBar(note)}</span>
+    <span class="note-rating-summary">${escapeHtml(ratingSummary(note))}</span></p>
+  <div class="note-tags">${tags}</div>
+  <div class="note-card-foot">
     <span>ดาวน์โหลด ${escapeHtml(Number(note.download_count) || 0)} ครั้ง</span>
-    <span class="note-rating-summary">${escapeHtml(ratingSummary(note))}</span>
+    ${classDate}
     <button type="button" class="preview-link" data-preview-id="${escapeHtml(note.id)}">ดูตัวอย่าง</button>
   </div>
 </article>`;
@@ -165,6 +177,7 @@
     formatSize,
     fileTypeLabel,
     ratingSummary,
+    starBar,
     renderNoteCard,
     errorMessage,
     hasMore,
