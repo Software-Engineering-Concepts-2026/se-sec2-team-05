@@ -4,8 +4,8 @@
 FROM nginxinc/nginx-unprivileged:1.27-alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 # copy ทีละไฟล์ ไม่ให้ไฟล์เทสต์หรือ README หลุดไปถูกเสิร์ฟ
-COPY index.html login.html upload.html style.css \
-     app.js site.js login.js upload.js search-utils.js session-utils.js upload-utils.js \
+COPY index.html login.html upload.html note.html style.css \
+     app.js site.js login.js upload.js note.js search-utils.js session-utils.js upload-utils.js note-utils.js \
      /usr/share/nginx/html/
 # หน้าโปรไฟล์ (Issue #85)
 COPY profile.html profile.js profile-utils.js /usr/share/nginx/html/

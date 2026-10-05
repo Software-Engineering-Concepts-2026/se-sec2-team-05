@@ -239,7 +239,7 @@
 | DK-05 | สมัคร → login → ใช้ token → logout บน Postgres จริง (US-05/US-06) | `curl` ไปที่ `:5002/auth/*` | สมัคร `201` · สมัครซ้ำ `409` · โดเมนอื่น `400` · รหัสผิดกับอีเมลที่ไม่มีได้ body เดียวกัน · `me` ได้ชื่อถูก · logout `204` แล้ว `me` ด้วย token เดิมได้ `401` |
 | DK-06 | อัปโหลดต้อง login และเครดิตมาจากบัญชี (US-31) บน stack จริง | สมัคร + login บัญชี `CI Uploader` แล้ว `POST /notes` สามแบบ (ไม่มี token / token มั่ว / token จริง + `uploader_name=spoofed name`) | สองแบบแรกได้ `401` · แบบที่สามได้ `uploader_name = CI Uploader` · `count = 1` (ครั้งที่ไม่ผ่านไม่ถูกบันทึก) · notes-service คุยกับ auth-service ผ่านเครือข่ายของ compose จริง |
 | DK-07 | preview endpoint ทำงานจริงบน image ที่ build (US-11) — กัน regression ของบั๊ก Dockerfile ที่เคยลืม copy `preview.py` (commit `8f25b9b`) ซึ่ง unit test จับไม่ได้เพราะ import จาก source tree ตรง ๆ | อัปโหลด PNG จริงแล้ว `GET .../preview` โดยไม่ส่ง token, กับอัปโหลดไฟล์ที่ประกาศเป็น `image/png` แต่เนื้อไม่ใช่รูป | ไฟล์จริงได้ `200` + header `Content-Type: image/png` + ไบต์ 8 ตัวแรกตรง PNG signature · ไฟล์ปลอมได้ `422` ไม่ใช่ `500` |
-| DK-08 | web gateway เสิร์ฟหน้าเว็บและส่งต่อ API จาก origin เดียว (ADR-006, US-11/US-31) | `curl :8080/`, `/login.html`, `/upload.html`, `/profile.html` (Issue #85), ไฟล์ JS ทั้ง 9 ไฟล์และไฟล์เทสต์ทั้ง 4 ไฟล์ · `GET :8080/notes?subject_code=CS201&year_level=2` และ `?year_level=abc` · `GET :8080/auth/me` แบบไม่มี token และมี token · อัปโหลด PNG ผ่าน `:8080/notes` แล้วเปิด `preview_url` ผ่าน `:8080` · `POST :8080/auth/login` (JSON) → `POST :8080/auth/logout` → `GET :8080/auth/me` ด้วย token เดิม | หน้าแรกมี `id="searchForm"`, หน้า login มี `id="loginForm"`, หน้าอัปโหลดมี `id="uploadForm"`, หน้าโปรไฟล์มี `id="profileStats"` · ไฟล์ JS ได้ `200` · ไฟล์เทสต์ได้ `404` (ไม่ถูก copy เข้า image) · query string ไปถึง service ครบ (`count = 1`, ค่าผิดได้ `400`) · `me` ไม่มี token `401` มี token ได้ `CI Uploader` (header `Authorization` ผ่าน nginx) · upload ได้ `uploader_name = CI Uploader` และ preview ได้ `200` + `image/png` · login ได้ token, logout ได้ `204` แล้ว token เดิมได้ `401` (US-05/US-06 ผ่าน gateway แบบที่หน้าเว็บเรียก) |
+| DK-08 | web gateway เสิร์ฟหน้าเว็บและส่งต่อ API จาก origin เดียว (ADR-006, US-11/US-31) | `curl :8080/`, `/login.html`, `/upload.html`, `/note.html?id=1`, `/profile.html` (Issue #85), ไฟล์ JS ทั้ง 11 ไฟล์และไฟล์เทสต์ทั้ง 5 ไฟล์ · `GET :8080/notes?subject_code=CS201&year_level=2` และ `?year_level=abc` · `GET :8080/auth/me` แบบไม่มี token และมี token · อัปโหลด PNG ผ่าน `:8080/notes` แล้วเปิด `preview_url` ผ่าน `:8080` · `POST :8080/auth/login` (JSON) → `POST :8080/auth/logout` → `GET :8080/auth/me` ด้วย token เดิม | หน้าแรกมี `id="searchForm"`, หน้า login มี `id="loginForm"`, หน้าอัปโหลดมี `id="uploadForm"`, หน้ารายละเอียดมี `id="noteDetail"`, หน้าโปรไฟล์มี `id="profileStats"` · ไฟล์ JS ได้ `200` · ไฟล์เทสต์ได้ `404` (ไม่ถูก copy เข้า image) · query string ไปถึง service ครบ (`count = 1`, ค่าผิดได้ `400`) · `me` ไม่มี token `401` มี token ได้ `CI Uploader` (header `Authorization` ผ่าน nginx) · upload ได้ `uploader_name = CI Uploader` และ preview ได้ `200` + `image/png` · login ได้ token, logout ได้ `204` แล้ว token เดิมได้ `401` (US-05/US-06 ผ่าน gateway แบบที่หน้าเว็บเรียก) |
 | DK-09 | เจ้าของแก้/ลบด้วย login, `/notes/mine` และ `sort=rating` บน Postgres จริง (Issues #82, #83) | สมัคร + login บัญชี `CI Rater` · `CI Uploader` อัปโหลด 2 โน้ต (`CS501`) · Rater เปิดดูแล้วให้คะแนนใบแรก · `GET /notes?subject_code=CS501&sort=rating` · `GET /notes/mine` · Rater แล้วเจ้าของ `PATCH`/`DELETE` | ใบที่มีคะแนนมาก่อนใบใหม่กว่าที่ไม่มีคะแนน (Postgres วาง NULL ไว้หน้าสุดเมื่อ DESC ต่างจาก SQLite) · `/notes/mine` มีทั้งสองใบ, `rating_count = 1`, ไม่ login ได้ `401` · Rater ได้ `403` ทั้งคู่ · เจ้าของ `PATCH` ได้ค่าใหม่และ `DELETE` ได้ `204` |
 
 ### 2.7 Auth Service — ตรวจข้อมูลสมัครและ hash รหัสผ่าน (`pytest`, US-05 #5)
@@ -481,6 +481,45 @@ pure function ของหน้าเข้าสู่ระบบและห
 ตอนเข้าสู่ระบบอยู่แล้วไปที่ `/` · ออกจากระบบจากหน้าอัปโหลดกลับหน้าค้นหา · console ไม่มี error · DK-08 ตัวใหม่รันผ่านกับตัวแทน nginx
 (`gateway OK`) ตัว nginx จริงยืนยันบน CI · ยังไม่ได้ตรวจบนหน้าจอมือถือ
 
+### 2.15 Web app — `note-utils.js` (`node --test`, Issue #85 หน้ารายละเอียดโน้ต)
+
+pure function ของหน้ารายละเอียดโน้ตใน [`web/`](../../web/) แยกจากส่วนที่แตะ DOM (`note.js`) · storage ถูกส่งเข้าฟังก์ชันเหมือน 2.14
+
+| # | Test case | Input | ผลที่คาดหวัง |
+| --- | --- | --- | --- |
+| WEB-41 | `noteIdFromSearch` รับเฉพาะเลขจำนวนเต็มบวก | `?id=7`, `?q=x&id=120` · `?id=`, `0`, `-3`, `7abc`, `1.5`, ` 7`, เลข 11 หลัก | `7`, `120` · ที่เหลือได้ `null` |
+| WEB-42 | `noteUrl` ชี้ไปหน้ารายละเอียด | `7` | `/note.html?id=7` |
+| WEB-43 | `formatThaiDateTime` แสดงเวลาไทย (UTC+7) และปี พ.ศ. | `2026-10-04T17:30:00+00:00`, `2026-01-01T02:05:00Z`, เวลาไม่มี timezone (แบบที่ SQLite ส่ง) โดยตั้ง TZ ของเครื่องเป็น `Asia/Bangkok`, `-02:00`, ค่าที่ไม่ใช่วันที่ | `5 ต.ค. 2569 00:30`, `1 ม.ค. 2569 09:05`, `5 ต.ค. 2569 10:24` (ถือเป็น UTC ไม่ใช่เวลาเครื่อง), `12:24`, `''` |
+| WEB-44 | `noteMetaLine` บอกผู้อัปโหลด วิชา และยอดดาวน์โหลด/เปิดดู | โน้ตตัวอย่าง · ยอดเป็น `null` | `อัปโหลดโดย Somchai · CS201 Data Structures · ดาวน์โหลด 3 ครั้ง · เปิดดู 12 ครั้ง` · ได้ `0 ครั้ง` |
+| WEB-45 | `noteTags` ข้ามช่องไม่บังคับที่ว่าง | มี/ไม่มี `topic` กับ `class_date` | ได้ 5 แท็ก / 3 แท็ก ไม่มี `null` |
+| WEB-46 | `commentAuthor` เป็น "คุณ" เฉพาะความคิดเห็นของผู้ชม | ความคิดเห็นของ user 1 ดูโดย user 1, user 2, ไม่ login | `คุณ`, `สมาชิก`, `สมาชิก` |
+| WEB-47 | `renderComment` มีปุ่มลบเฉพาะความคิดเห็นของตัวเอง | เหมือน WEB-46 | มี `data-delete-comment="3"` เฉพาะกรณีแรก · แสดงเวลา `4 ต.ค. 2569 10:00` |
+| WEB-48 | `renderComment` escape ข้อความที่ผู้ใช้พิมพ์ | `<img src=x onerror=alert(1)>` | ไม่มีแท็ก `<img` ได้ `&lt;img …&gt;` |
+| WEB-49 | `textProblem` ใช้กฎเดียวกับ API (trim, ห้ามว่าง, ความยาว) | ช่องว่างล้วน, `undefined`, 1000/1001 ตัว (ความคิดเห็น), 500/501 ตัว (เหตุผลรายงาน) | `ต้องไม่ว่าง` ×2, ผ่าน, `ยาวเกิน 1000 ตัวอักษร`, ผ่าน, `ยาวเกิน 500 ตัวอักษร` |
+| WEB-50 | `markDownloaded` จำการดาวน์โหลดแยกตามผู้ใช้และโน้ต | user 1 ดาวน์โหลดโน้ต 7 สองครั้ง | user 1 โน้ต 7 = จริง · โน้ต 8, user 2, ไม่ login = เท็จ · เก็บ `['1:7']` ครั้งเดียว |
+| WEB-51 | `markDownloaded` ไม่พังเมื่อ storage เสียหรือถูกบล็อก | ค่าที่ไม่ใช่ JSON · storage ที่ throw | อ่านเป็นว่างแล้วเขียนทับได้ · ไม่ throw และได้เท็จ |
+| WEB-52 | `markDownloaded` เก็บแค่ 200 รายการล่าสุด | ดาวน์โหลด 205 โน้ต | เหลือ 200 รายการ โน้ตแรก ๆ หลุด โน้ตล่าสุดยังอยู่ |
+| WEB-53 | `thanksView` ให้กดขอบคุณได้หลังดาวน์โหลดเท่านั้น และไม่ใช่โน้ตตัวเอง (US-28) | `thank_status` = `null`, `own_note`, `thanked`, `can_thank` × ดาวน์โหลดแล้ว/ยัง | `login`, `own`, `thanked`, `need_download`, `ready` (`ready` แบบเดียวที่มีปุ่ม) |
+| WEB-54 | `actionErrorMessage` ครอบ error ของทุกการกระทำในหน้า | `401`, `503`, `409 already_reported`, `403 own_note`/`not_eligible`/`forbidden`, `400` ของ content/reason/rating, `404`, status `0`, `500` | ข้อความเฉพาะของแต่ละกรณี · ที่เหลือใช้ข้อความเดียวกับหน้าค้นหา |
+| WEB-55 | การ์ดค้นหามีลิงก์จากชื่อโน้ตไปหน้ารายละเอียด (`search-utils.test.js`) | โน้ต id 7 | มี `<a class="note-link" href="/note.html?id=7">` |
+| WEB-56 | `safeNextPath` ยอมให้กลับมาหน้ารายละเอียดหลัง login (`session-utils.test.js`) | `/note.html?id=7` | ได้ค่าเดิม (ยังไม่รับหน้าอื่นนอกรายการ) |
+
+mutation 11 แบบถูกจับครบ: ตัดเงื่อนไข `own_note`, ไม่ตรวจว่าดาวน์โหลดแล้ว, ให้ทุกความคิดเห็นเป็นของตัวเอง, ไม่แยกการดาวน์โหลดตามผู้ใช้,
+ไม่ escape ความคิดเห็น, เลื่อนเพดานความยาว, regex ของ id หลวมลง, ไม่ตัดรายการเหลือ 200, เอา `/note.html` ออกจาก `NEXT_PAGES`,
+ตัดลิงก์บนการ์ด และอ่านเวลาที่ไม่มี timezone เป็นเวลาเครื่อง
+
+**ตรวจบน browser จริง (2026-10-05, Issue #85, ด้วยมือ):** รัน `auth-service` กับ `notes-service` ตัวจริงบน SQLite และสคริปต์ Python
+ที่ทำตัวแทน `web/nginx.conf` (เสิร์ฟเฉพาะไฟล์ที่ `web/Dockerfile` copy) แล้วเปิดใน Chrome ด้วยบัญชีผู้อัปโหลดกับบัญชีผู้อ่าน ผล:
+ไม่ login เห็นโน้ต ภาพตัวอย่าง และลิงก์เข้าสู่ระบบในกล่องคะแนน/ขอบคุณ/ความคิดเห็น · ผู้อ่านกดดาวน์โหลด (ปิดการบันทึกไฟล์ลงดิสก์ไว้)
+ได้ไฟล์ชื่อเดิม ยอดดาวน์โหลดขึ้นเป็น 1 แล้วปุ่มขอบคุณจึงขึ้น · กดขอบคุณแล้วปุ่มหาย reload แล้วยังเป็น "ขอบคุณแล้ว" · รายการโปรดสลับได้
+และ `GET /notes/favorites` ตรงกัน · ให้ 4 ดาวแล้วค่าเฉลี่ยเปลี่ยน · ส่งรายงานว่างได้ error ใต้ช่อง ส่งจริงได้ข้อความยืนยัน รายงานซ้ำได้
+"รายงานไปแล้ว" · ความคิดเห็นที่มี `<b>` แสดงเป็นข้อความ โพสต์และลบของตัวเองได้ ลบของคนอื่นไม่มีปุ่ม · เพิกถอน token จากที่อื่นแล้วกด
+รายการโปรดได้ข้อความพร้อมลิงก์ `/login.html?next=%2Fnote.html%3Fid%3D1` แถบเมนูกับทุกกล่องเปลี่ยนเป็นยังไม่ login · เจ้าของโน้ตไม่เห็นปุ่มรายงาน
+และกล่องขอบคุณเป็น "นี่คือโน้ตของคุณ" · ชื่อโน้ตที่มี `<script>` แสดงเป็นข้อความ · `?id=abc` และ `?id=999` ได้ข้อความแทนหน้าว่าง
+· คลิกชื่อโน้ตจากผลค้นหา `?q=Linked&faculty=ICT` แล้ว "กลับไปหน้าค้นหา" ชี้กลับผลค้นหาเดิม · ปุ่ม "เปิดหน้าโน้ต" ใน preview ชี้ถูกโน้ต
+· หน้ารายละเอียด หน้าค้นหา และหน้าอัปโหลดกว้าง 375 px ไม่มี scroll แนวนอน หน้ารายละเอียดเหลือคอลัมน์เดียว · console ไม่มี error
+· รอบนี้เจอบั๊กเวลาความคิดเห็นช้าไป 7 ชั่วโมง (SQLite ส่งเวลาไม่มี timezone) แก้แล้วและเพิ่มเป็น WEB-43
+
 ### 2.16 Web app — `profile-utils.js` + แถบอัปโหลด + เรียงตามคะแนน (`node --test`, Issue #85 + #83)
 
 pure function ของหน้าโปรไฟล์ใน [`web/`](../../web/) แยกจากส่วนที่แตะ DOM (`profile.js`) · เลข WEB ต่อจาก 2.15 ของ PR #88
@@ -519,15 +558,15 @@ event `close` ของ `<dialog>` มาช้า จึงคืน focus ท�
 
 ## 3. Test Report
 
-**รันล่าสุด:** 2026-09-27 (เครื่อง local, Windows 11, branch `feature/safety-net`)
+**รันล่าสุด:** 2026-10-04 (เครื่อง local, Windows 11, `main` ที่ `e6b3b3a` หลัง merge #79 #76 #80) · แถว smoke แบบไม่ใช้ Docker ยังเป็นผลวันที่ 2026-09-27
 
 | ชุด | คำสั่ง | ผล |
 | --- | --- | --- |
-| JS unit | `cd prototypes/sprint1 && node --test` | ✅ 7 passed / 0 failed (69 ms) |
-| Python unit + integration | `pytest src/tests -v` | ✅ 233 passed / 0 failed / 1 xfailed — stats 9, notes validation 18 + boundary 19, notes API 47, notes identity 13, edit-token property 2, fizzbuzz 5, auth credentials 29, auth email_error 9 (AE-09 เป็น xfail), auth tokens 14, auth API 30 · coverage รวม 99% (`identity.py` 100%, `credentials.py` 100%) |
+| JS unit | `cd prototypes/sprint1 && node --test` | ✅ 7 passed / 0 failed |
+| Python unit + integration | `pytest src/tests -v --cov=services/notes-service --cov=services/auth-service --cov=src` (คำสั่งเดียวกับ CI) | ✅ 351 passed / 0 failed / 1 xfailed — notes API 59, notes reports 34, notes favorites 32, auth API 30, auth credentials 29, notes preview 27, notes ratings 21, notes thanks 20, notes validation 18 + boundary 19, auth tokens 14, notes identity 13, stats 11, notes comments 9, auth email_error 9 (AE-09 เป็น xfail), fizzbuzz 5, edit-token property 2 · coverage รวม 98% (`notes-service/app.py` 90%, `identity.py`/`models.py`/`validation.py`/`credentials.py` 100%) · stats-service ไม่อยู่ใน `--cov` ของ CI |
 | Smoke DK-03 ถึง DK-06 แบบไม่ใช้ Docker | รัน `auth-service` กับ `notes-service` ตัวจริงบน SQLite (notes ชี้ `AUTH_SERVICE_URL` ไปที่ auth) แล้วรันสคริปต์ `run:` ของแต่ละ step ที่ดึงออกมาจาก `ci.yml` ตรง ๆ | ✅ ผ่านครบ 6 step (`upload auth OK`, `end-to-end OK`, `edit/delete OK`, `auth OK`, validation `400`) · บน Postgres + compose จริงรอผลจาก CI เพราะ Docker daemon ไม่ได้เปิดบนเครื่องที่ใช้เขียน · ตอนรันบน Windows ต้องแทน `/tmp/` เป็น path ของ Windows เพราะ curl ของ Windows อ่าน `/tmp` ของ Git Bash ไม่ได้ (ไม่ได้แก้ใน `ci.yml` เพราะ CI รันบน Linux) |
-| Container smoke (compose e2e) | `docker compose up` + `curl` | ✅ ผ่านบน CI ([run #33351842320](https://github.com/Software-Engineering-Concepts-2026/se-sec2-team-05/actions/runs/33351842320), 1m6s) — log ยืนยัน `created note #1` และ `end-to-end OK` · ไม่ได้รัน local เพราะ Docker daemon ไม่ได้เปิดบนเครื่องที่ใช้เขียน |
-| JS unit (web) | `cd web && node --test` | ✅ 38 passed / 0 failed (2026-10-02, branch `feature/web-login-upload`) — search-utils 15, session-utils 13, upload-utils 10 |
+| Container smoke (compose e2e) | `docker compose up` + `curl` | ✅ ผ่านบน CI ([run #33351842320](https://github.com/Software-Engineering-Concepts-2026/se-sec2-team-05/actions/runs/33351842320), 1m6s) — log ยืนยัน `created note #1` และ `end-to-end OK` · ไม่ได้รัน local เพราะ Docker daemon ไม่ได้เปิดบนเครื่องที่ใช้เขียน · ล่าสุดผ่านบน CI ของ `main` ที่ `e6b3b3a` ([run #37199787942](https://github.com/Software-Engineering-Concepts-2026/se-sec2-team-05/actions/runs/37199787942), 2026-10-04) |
+| JS unit (web) | `cd web && node --test` | ✅ 39 passed / 0 failed — search-utils 16, session-utils 13, upload-utils 10 |
 
 **ผลรันบน CI (PR #56):** ทั้ง 3 job ผ่านหมด — `js-tests` 13s, `python-tests` 13s, `docker-build` 1m6s
 
@@ -554,8 +593,8 @@ python-tests ─┘
 
 ## 5. งานที่ยังค้าง
 
-- [ ] **วชิรวิทย์** — เขียน unit test ของตัวเอง (เสนอ: logic filter คณะ/ปี/ประเภทไฟล์ และประวัติการค้นหาใน `wachirawit_search_note_prototype.html` ต้องแยก pure function ออกมาก่อนแบบเดียวกับ Lab 7)
-- [ ] **กฤตเมธ** — เขียน unit test ของตัวเอง (เสนอ: การคำนวณคะแนนเฉลี่ยหลังส่ง rating ใน `kittamet_note_rating_prototype.html`)
+- [x] **วชิรวิทย์** — เขียน unit test ของตัวเอง (เสนอ: logic filter คณะ/ปี/ประเภทไฟล์ และประวัติการค้นหาใน `wachirawit_search_note_prototype.html` ต้องแยก pure function ออกมาก่อนแบบเดียวกับ Lab 7) · ทำแล้วเป็นเทสต์ของ Notes Service แทน prototype: `test_notes_preview.py`, `test_notes_favorites.py`, `test_notes_thanks.py` และเทสต์ download/topic/date ใน `test_notes_api.py`
+- [x] **กฤตเมธ** — เขียน unit test ของตัวเอง (เสนอ: การคำนวณคะแนนเฉลี่ยหลังส่ง rating ใน `kittamet_note_rating_prototype.html`) · ทำแล้วเป็นเทสต์ของ service แทน prototype: `test_notes_comments.py`, `test_notes_reports.py`, `test_notes_ratings.py` (รวมค่าเฉลี่ย rating) และเทสต์ stats ใน `test_stats_service.py`
 - [x] เขียนเทสต์ของ `POST /notes` ที่ commit ไม่ผ่าน แล้วต้องไม่ทิ้งไฟล์กำพร้าไว้ใน storage — NA-12
 - [ ] เทสต์ที่รันกับ PostgreSQL จริง — ตอนนี้เทสต์ Python ใช้ SQLite ส่วน compose ใช้ Postgres จึงมีช่องว่างเรื่องความต่างของ dialect (`ilike`, การเทียบวันที่) ที่จับได้แค่ตอน smoke test
 - [ ] เพิ่ม branch protection ให้ `main` ต้องผ่าน CI ก่อน merge (ตั้งใน GitHub Settings ไม่ใช่ในโค้ด)

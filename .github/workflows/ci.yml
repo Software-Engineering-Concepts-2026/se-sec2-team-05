@@ -306,11 +306,13 @@ jobs:
           grep -q 'id="loginForm"' /tmp/login.html
           curl -fsS "$gw/upload.html" -o /tmp/upload.html
           grep -q 'id="uploadForm"' /tmp/upload.html
-          for js in app.js site.js login.js upload.js search-utils.js session-utils.js upload-utils.js; do
+          curl -fsS "$gw/note.html?id=1" -o /tmp/note.html
+          grep -q 'id="noteDetail"' /tmp/note.html
+          for js in app.js site.js login.js upload.js note.js search-utils.js session-utils.js upload-utils.js note-utils.js; do
             curl -fsS -o /dev/null "$gw/$js"
           done
           # ไฟล์เทสต์กับ config ต้องไม่ถูกเสิร์ฟออกไป
-          for js in search-utils.test.js session-utils.test.js upload-utils.test.js; do
+          for js in search-utils.test.js session-utils.test.js upload-utils.test.js note-utils.test.js; do
             test "$(curl -s -o /dev/null -w '%{http_code}' "$gw/$js")" = "404"
           done
           # หน้าโปรไฟล์ (Issue #85)
