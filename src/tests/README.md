@@ -23,8 +23,10 @@
 | `test_notes_comments.py` | ความคิดเห็นบนโน้ต (US-14) | กฤตเมธ |
 | `test_notes_reports.py` | รายงานเนื้อหาและ workflow ตรวจ/ปฏิเสธ/ลบโน้ตของ admin (Issues #17, #18) | กฤตเมธ |
 | `test_notes_ratings.py` | Notes Service rating: eligibility, การสร้าง/แก้ไข Rating, ค่าเฉลี่ย, authorization และ cleanup (Issue #13) | กฤตเมธ |
+| `test_notes_owner.py` | โน้ตของฉัน `GET /notes/mine` และการแก้/ลบด้วยบัญชีเจ้าของ (Issue #82, ADR-008) | อติชาติ |
+| `test_notes_sort_rating.py` | `GET /notes?sort=rating` เรียงตามคะแนนเฉลี่ย (Issue #83) | อติชาติ |
 | `../../prototypes/sprint1/note-utils.test.js` | `escapeHtml`, `formatStars`, `compareNotes` | อติชาติ (Lab 7) |
-| `../../web/*.test.js` | pure function ของหน้าเว็บ: `search-utils`, `session-utils`, `upload-utils` | อติชาติ |
+| `../../web/*.test.js` | pure function ของหน้าเว็บ: `search-utils`, `session-utils`, `upload-utils`, `note-utils`, `profile-utils` | อติชาติ |
 
 ผู้เขียนดูจาก `git blame` ของฟังก์ชันเทสต์ ไฟล์ที่มีหลายคนแปลว่าแต่ละคนเพิ่มเทสต์ของงานตัวเองเข้าไปในไฟล์เดียวกัน
 
