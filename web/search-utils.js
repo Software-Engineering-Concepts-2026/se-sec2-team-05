@@ -117,7 +117,8 @@
 
   // One result card. Every value from the API goes through escapeHtml, because titles
   // and descriptions are typed in by other users.
-  // US-31 AC3: the uploader's name is on every card.
+  // US-31 AC3: the uploader's name is on every card. The title opens the note's own page
+  // (note.html, Issue #85); "ดูตัวอย่าง" still opens the quick preview over the results.
   function renderNoteCard(note) {
     const subject = [note.subject_code, note.subject_name].filter(Boolean).join(' · ');
     const tags = [note.faculty, note.year_level ? `ปี ${note.year_level}` : '', note.lesson, note.topic]
@@ -130,7 +131,7 @@
     <span class="tag-course">${escapeHtml(note.subject_code)}</span>
     <span class="file-badge">${escapeHtml(fileTypeLabel(note.content_type))}</span>
   </div>
-  <h2 class="note-title">${escapeHtml(note.title)}</h2>
+  <h2 class="note-title"><a class="note-link" href="/note.html?id=${encodeURIComponent(note.id)}">${escapeHtml(note.title)}</a></h2>
   <p class="note-sub">${escapeHtml(subject)}</p>
   <p class="note-uploader">อัปโหลดโดย <strong>${escapeHtml(note.uploader_name)}</strong></p>
   <p class="note-rating"><span class="note-stars" aria-hidden="true">${starBar(note)}</span>

@@ -33,6 +33,7 @@
   const previewImage = document.getElementById('previewImage');
   const previewSize = document.getElementById('previewSize');
   const previewDownload = document.getElementById('previewDownload');
+  const previewDetail = document.getElementById('previewDetail');
   const previewClose = document.getElementById('previewClose');
   const previewRatingAverage = document.getElementById('previewRatingAverage');
   const previewRatingMessage = document.getElementById('previewRatingMessage');
@@ -305,6 +306,7 @@
     previewUploader.textContent = `อัปโหลดโดย ${note.uploader_name}`;
     previewSize.textContent = `${fileTypeLabel(note.content_type)} · ${formatSize(note.size_bytes)}`;
     previewDownload.href = note.download_url;
+    previewDetail.href = `/note.html?id=${encodeURIComponent(note.id)}`;
     showPreviewStatus('กำลังโหลดตัวอย่าง…');
     dialog.showModal();
     loadRatingState(note, seq);

@@ -143,6 +143,7 @@ test('starBar fills stars up to the rounded average', () => {
 test('renderNoteCard shows the course tag and the stars', () => {
   const html = renderNoteCard(sampleNote);
   assert.match(html, /<span class="tag-course">CS201<\/span>/);
+  assert.match(html, /<a class="note-link" href="\/note\.html\?id=7">Linked List สรุป<\/a>/);
   assert.match(html, /<span class="note-stars" aria-hidden="true">★★★★☆<\/span>/);
 });
 
