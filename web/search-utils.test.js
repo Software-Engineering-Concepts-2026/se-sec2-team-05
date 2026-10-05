@@ -79,10 +79,15 @@ test('parseQuery reverses buildQuery', () => {
 });
 
 test('parseQuery falls back to defaults for unknown sort and file types', () => {
-  const filters = parseQuery('?sort=rating&file_type=docx&file_type=pdf&file_type=pdf');
+  const filters = parseQuery('?sort=popular&file_type=docx&file_type=pdf&file_type=pdf');
   assert.equal(filters.sort, 'new');
   assert.deepEqual(filters.file_type, ['pdf']);
   assert.equal(filters.q, '');
+});
+
+test('sort=rating (Issue #83) survives the page URL and reaches the API', () => {
+  assert.equal(parseQuery('?sort=rating').sort, 'rating');
+  assert.equal(buildQuery({ ...emptyFilters(), sort: 'rating' }), 'sort=rating');
 });
 
 test('escapeHtml escapes markup and treats null as empty', () => {

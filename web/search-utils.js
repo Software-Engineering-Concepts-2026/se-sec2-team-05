@@ -7,7 +7,7 @@
   // Matches the query parameters GET /notes accepts (services/notes-service/README.md).
   const TEXT_FIELDS = ['q', 'faculty', 'year_level', 'topic', 'date_from', 'date_to'];
   const FILE_TYPES = ['pdf', 'png', 'jpg'];
-  const SORTS = ['new', 'old', 'class_date', 'title'];
+  const SORTS = ['new', 'old', 'class_date', 'title', 'rating'];
   const DEFAULT_SORT = 'new';
   const PAGE_SIZE = 20;
 
