@@ -1,9 +1,9 @@
 // Upload page wiring (US-08 #8, US-31 #31). Checks the login with GET /auth/me, checks the
-// form with UploadUtils.validateUpload, sends it to POST /notes as multipart, then shows
-// the one-time edit token.
+// form with UploadUtils.validateUpload, sends it to POST /notes as multipart with a progress
+// bar (Issue #85), then shows the one-time edit token.
 (function () {
   const { authHeaders, clearSession, loginUrl, fieldErrors } = window.SessionUtils;
-  const { validateUpload, uploadFields, uploadErrorMessage, searchUrlFor } = window.UploadUtils;
+  const { validateUpload, uploadFields, uploadErrorMessage, uploadProgress, searchUrlFor } = window.UploadUtils;
   const { storage, currentSession, fetchJson, showFieldErrors, renderNav } = window.Site;
 
   const form = document.getElementById('uploadForm');
@@ -18,6 +18,9 @@
   const copyButton = document.getElementById('copyToken');
   const copyStatus = document.getElementById('copyStatus');
   const submitButton = form.querySelector('button[type="submit"]');
+  const progressBox = document.getElementById('uploadProgress');
+  const progressBar = document.getElementById('progressBar');
+  const progressText = document.getElementById('progressText');
 
   const loginPage = loginUrl('/upload.html');
 
@@ -65,6 +68,42 @@
     form.hidden = false;
   }
 
+  function showProgress(loaded, total) {
+    const { percent, text } = uploadProgress(loaded, total);
+    // No percent: leave value unset so the browser draws a moving "busy" bar
+    if (percent === null) progressBar.removeAttribute('value');
+    else progressBar.value = percent;
+    progressText.textContent = text;
+    progressBox.hidden = false;
+  }
+
+  // fetch cannot report how much of the request body has gone out, so the upload uses
+  // XMLHttpRequest for its upload.onprogress events. Same result shape as Site.fetchJson.
+  function postWithProgress(url, headers, body) {
+    return new Promise((resolve) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', url);
+      xhr.setRequestHeader('Accept', 'application/json');
+      for (const [name, value] of Object.entries(headers)) xhr.setRequestHeader(name, value);
+      xhr.upload.addEventListener('progress', (event) => {
+        showProgress(event.loaded, event.lengthComputable ? event.total : 0);
+      });
+      xhr.addEventListener('load', () => {
+        let parsed = null;
+        try {
+          parsed = JSON.parse(xhr.responseText);
+        } catch {
+          parsed = null;
+        }
+        resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, body: parsed });
+      });
+      // Network failure or aborted request: status 0, like fetchJson
+      xhr.addEventListener('error', () => resolve({ ok: false, status: 0, body: null }));
+      xhr.addEventListener('abort', () => resolve({ ok: false, status: 0, body: null }));
+      xhr.send(body);
+    });
+  }
+
   function readFields() {
     const data = new FormData(form);
     const fields = {};
@@ -100,10 +139,12 @@
 
     submitButton.disabled = true;
     submitButton.textContent = 'กำลังอัปโหลด…';
+    showProgress(0, file.size);
     // No Content-Type header: the browser sets multipart/form-data with its boundary.
-    const result = await fetchJson('/notes', { method: 'POST', headers: authHeaders(session), body });
+    const result = await postWithProgress('/notes', authHeaders(session), body);
     submitButton.disabled = false;
-    submitButton.textContent = 'อัปโหลด';
+    submitButton.textContent = 'อัปโหลด ✓';
+    progressBox.hidden = true;
 
     if (!result.ok || !result.body) {
       if (result.status === 401) {

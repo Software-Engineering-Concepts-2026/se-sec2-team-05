@@ -3,9 +3,11 @@ const assert = require('node:assert/strict');
 const {
   REQUIRED_FIELDS,
   MAX_FILE_BYTES,
+  validateMetadata,
   validateUpload,
   uploadFields,
   uploadErrorMessage,
+  uploadProgress,
   searchUrlFor,
 } = require('./upload-utils.js');
 
@@ -95,4 +97,22 @@ test('uploadErrorMessage covers notes-service errors and the gateway size limit'
 
 test('searchUrlFor opens the search page on the new note', () => {
   assert.equal(searchUrlFor({ title: 'Linked List & Stack' }), '/?q=Linked+List+%26+Stack');
+});
+
+test('validateMetadata checks the text fields only, for the profile edit form', () => {
+  assert.deepEqual(validateMetadata(goodFields), {});
+  const errors = validateMetadata({ ...goodFields, title: ' ', year_level: '9', class_date: '2026-02-30' });
+  assert.deepEqual(Object.keys(errors).sort(), ['class_date', 'title', 'year_level']);
+  assert.equal(errors.file, undefined);
+});
+
+test('uploadProgress turns upload events into a percent and a Thai line (Issue #85)', () => {
+  const mb = 1024 * 1024;
+  assert.deepEqual(uploadProgress(0, 10 * mb), { percent: 0, text: 'กำลังส่งไฟล์ 0% (0.0 MB จาก 10.0 MB)' });
+  assert.deepEqual(uploadProgress(4.5 * mb, 10 * mb), { percent: 45, text: 'กำลังส่งไฟล์ 45% (4.5 MB จาก 10.0 MB)' });
+  // 99.9% is not done yet: the bar must not claim 100 before the last byte
+  assert.equal(uploadProgress(10 * mb - 1, 10 * mb).percent, 99);
+  assert.deepEqual(uploadProgress(10 * mb, 10 * mb), { percent: 100, text: 'ส่งไฟล์ครบแล้ว รอเซิร์ฟเวอร์บันทึกโน้ต…' });
+  // size unknown (lengthComputable = false): no percent
+  assert.deepEqual(uploadProgress(500, 0), { percent: null, text: 'กำลังส่งไฟล์…' });
 });

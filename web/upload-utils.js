@@ -30,10 +30,10 @@
     return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
   }
 
-  // fields: {name: string} as read from the form. file: {name, size, type} or null.
-  // Returns {field: reason}; empty means the form can be sent. Every field is checked, so
-  // the user fixes them all in one go (the service does the same).
-  function validateUpload(fields, file) {
+  // fields: {name: string} as read from the form. Returns {field: reason} for the text fields;
+  // empty means they can be sent. Every field is checked, so the user fixes them all in one go
+  // (the service does the same). Used by the upload form and the profile page's edit form.
+  function validateMetadata(fields) {
     const errors = {};
     const value = (name) => String(fields[name] ?? '').trim();
 
@@ -61,6 +61,12 @@
     const classDate = value('class_date');
     if (classDate && !isIsoDate(classDate)) errors.class_date = 'ต้องเป็นรูปแบบ YYYY-MM-DD';
 
+    return errors;
+  }
+
+  // validateMetadata plus the file ({name, size, type} or null).
+  function validateUpload(fields, file) {
+    const errors = validateMetadata(fields);
     if (!file || !file.name) {
       errors.file = 'ต้องแนบไฟล์โน้ต';
     } else if (!ALLOWED_CONTENT_TYPES.includes(String(file.type).toLowerCase())) {
@@ -98,6 +104,16 @@
     return `เกิดข้อผิดพลาดจากเซิร์ฟเวอร์ (HTTP ${status}) ลองใหม่อีกครั้ง`;
   }
 
+  // Upload progress from XMLHttpRequest's upload events -> {percent, text} for the progress bar
+  // (Issue #85). `total` is 0 when the browser cannot tell the size; then there is no percent.
+  function uploadProgress(loaded, total) {
+    const mb = (bytes) => `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    if (!total) return { percent: null, text: 'กำลังส่งไฟล์…' };
+    const percent = Math.max(0, Math.min(100, Math.floor((loaded / total) * 100)));
+    if (percent >= 100) return { percent: 100, text: 'ส่งไฟล์ครบแล้ว รอเซิร์ฟเวอร์บันทึกโน้ต…' };
+    return { percent, text: `กำลังส่งไฟล์ ${percent}% (${mb(loaded)} จาก ${mb(total)})` };
+  }
+
   // The search page with the new note's title as the search text.
   function searchUrlFor(note) {
     return `/?${new URLSearchParams({ q: note.title })}`;
@@ -107,9 +123,11 @@
     REQUIRED_FIELDS,
     OPTIONAL_FIELDS,
     MAX_FILE_BYTES,
+    validateMetadata,
     validateUpload,
     uploadFields,
     uploadErrorMessage,
+    uploadProgress,
     searchUrlFor,
   };
 

@@ -106,6 +106,10 @@
 
     <p class="field-hint"><em class="required">*</em> จำเป็นต้องกรอก</p>
     <button type="submit" class="primary-btn accent-btn">อัปโหลด ✓</button>
+    <div id="uploadProgress" class="upload-progress" hidden>
+      <progress id="progressBar" max="100" aria-labelledby="progressText"></progress>
+      <span id="progressText" class="field-hint" role="status" aria-live="polite"></span>
+    </div>
   </form>
 
   <!-- POST /notes returns edit_token only once (US-19/US-20). It is shown here and nowhere else. -->
