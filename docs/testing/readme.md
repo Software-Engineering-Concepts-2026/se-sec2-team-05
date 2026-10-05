@@ -239,7 +239,7 @@
 | DK-05 | สมัคร → login → ใช้ token → logout บน Postgres จริง (US-05/US-06) | `curl` ไปที่ `:5002/auth/*` | สมัคร `201` · สมัครซ้ำ `409` · โดเมนอื่น `400` · รหัสผิดกับอีเมลที่ไม่มีได้ body เดียวกัน · `me` ได้ชื่อถูก · logout `204` แล้ว `me` ด้วย token เดิมได้ `401` |
 | DK-06 | อัปโหลดต้อง login และเครดิตมาจากบัญชี (US-31) บน stack จริง | สมัคร + login บัญชี `CI Uploader` แล้ว `POST /notes` สามแบบ (ไม่มี token / token มั่ว / token จริง + `uploader_name=spoofed name`) | สองแบบแรกได้ `401` · แบบที่สามได้ `uploader_name = CI Uploader` · `count = 1` (ครั้งที่ไม่ผ่านไม่ถูกบันทึก) · notes-service คุยกับ auth-service ผ่านเครือข่ายของ compose จริง |
 | DK-07 | preview endpoint ทำงานจริงบน image ที่ build (US-11) — กัน regression ของบั๊ก Dockerfile ที่เคยลืม copy `preview.py` (commit `8f25b9b`) ซึ่ง unit test จับไม่ได้เพราะ import จาก source tree ตรง ๆ | อัปโหลด PNG จริงแล้ว `GET .../preview` โดยไม่ส่ง token, กับอัปโหลดไฟล์ที่ประกาศเป็น `image/png` แต่เนื้อไม่ใช่รูป | ไฟล์จริงได้ `200` + header `Content-Type: image/png` + ไบต์ 8 ตัวแรกตรง PNG signature · ไฟล์ปลอมได้ `422` ไม่ใช่ `500` |
-| DK-08 | web gateway เสิร์ฟหน้าเว็บและส่งต่อ API จาก origin เดียว (ADR-006, US-11/US-31) | `curl :8080/`, `/login.html`, `/upload.html`, `/note.html?id=1` (Issue #85), ไฟล์ JS ทั้ง 9 ไฟล์และไฟล์เทสต์ทั้ง 4 ไฟล์ · `GET :8080/notes?subject_code=CS201&year_level=2` และ `?year_level=abc` · `GET :8080/auth/me` แบบไม่มี token และมี token · อัปโหลด PNG ผ่าน `:8080/notes` แล้วเปิด `preview_url` ผ่าน `:8080` · `POST :8080/auth/login` (JSON) → `POST :8080/auth/logout` → `GET :8080/auth/me` ด้วย token เดิม | หน้าแรกมี `id="searchForm"`, หน้า login มี `id="loginForm"`, หน้าอัปโหลดมี `id="uploadForm"`, หน้ารายละเอียดมี `id="noteDetail"` · ไฟล์ JS ได้ `200` · ไฟล์เทสต์ได้ `404` (ไม่ถูก copy เข้า image) · query string ไปถึง service ครบ (`count = 1`, ค่าผิดได้ `400`) · `me` ไม่มี token `401` มี token ได้ `CI Uploader` (header `Authorization` ผ่าน nginx) · upload ได้ `uploader_name = CI Uploader` และ preview ได้ `200` + `image/png` · login ได้ token, logout ได้ `204` แล้ว token เดิมได้ `401` (US-05/US-06 ผ่าน gateway แบบที่หน้าเว็บเรียก) |
+| DK-08 | web gateway เสิร์ฟหน้าเว็บและส่งต่อ API จาก origin เดียว (ADR-006, US-11/US-31) | `curl :8080/`, `/login.html`, `/upload.html`, `/note.html?id=1`, `/profile.html` (Issue #85), ไฟล์ JS ทั้ง 11 ไฟล์และไฟล์เทสต์ทั้ง 5 ไฟล์ · `GET :8080/notes?subject_code=CS201&year_level=2` และ `?year_level=abc` · `GET :8080/auth/me` แบบไม่มี token และมี token · อัปโหลด PNG ผ่าน `:8080/notes` แล้วเปิด `preview_url` ผ่าน `:8080` · `POST :8080/auth/login` (JSON) → `POST :8080/auth/logout` → `GET :8080/auth/me` ด้วย token เดิม | หน้าแรกมี `id="searchForm"`, หน้า login มี `id="loginForm"`, หน้าอัปโหลดมี `id="uploadForm"`, หน้ารายละเอียดมี `id="noteDetail"`, หน้าโปรไฟล์มี `id="profileStats"` · ไฟล์ JS ได้ `200` · ไฟล์เทสต์ได้ `404` (ไม่ถูก copy เข้า image) · query string ไปถึง service ครบ (`count = 1`, ค่าผิดได้ `400`) · `me` ไม่มี token `401` มี token ได้ `CI Uploader` (header `Authorization` ผ่าน nginx) · upload ได้ `uploader_name = CI Uploader` และ preview ได้ `200` + `image/png` · login ได้ token, logout ได้ `204` แล้ว token เดิมได้ `401` (US-05/US-06 ผ่าน gateway แบบที่หน้าเว็บเรียก) |
 | DK-09 | เจ้าของแก้/ลบด้วย login, `/notes/mine` และ `sort=rating` บน Postgres จริง (Issues #82, #83) | สมัคร + login บัญชี `CI Rater` · `CI Uploader` อัปโหลด 2 โน้ต (`CS501`) · Rater เปิดดูแล้วให้คะแนนใบแรก · `GET /notes?subject_code=CS501&sort=rating` · `GET /notes/mine` · Rater แล้วเจ้าของ `PATCH`/`DELETE` | ใบที่มีคะแนนมาก่อนใบใหม่กว่าที่ไม่มีคะแนน (Postgres วาง NULL ไว้หน้าสุดเมื่อ DESC ต่างจาก SQLite) · `/notes/mine` มีทั้งสองใบ, `rating_count = 1`, ไม่ login ได้ `401` · Rater ได้ `403` ทั้งคู่ · เจ้าของ `PATCH` ได้ค่าใหม่และ `DELETE` ได้ `204` |
 
 ### 2.7 Auth Service — ตรวจข้อมูลสมัครและ hash รหัสผ่าน (`pytest`, US-05 #5)
@@ -519,6 +519,42 @@ mutation 11 แบบถูกจับครบ: ตัดเงื่อนไ
 · คลิกชื่อโน้ตจากผลค้นหา `?q=Linked&faculty=ICT` แล้ว "กลับไปหน้าค้นหา" ชี้กลับผลค้นหาเดิม · ปุ่ม "เปิดหน้าโน้ต" ใน preview ชี้ถูกโน้ต
 · หน้ารายละเอียด หน้าค้นหา และหน้าอัปโหลดกว้าง 375 px ไม่มี scroll แนวนอน หน้ารายละเอียดเหลือคอลัมน์เดียว · console ไม่มี error
 · รอบนี้เจอบั๊กเวลาความคิดเห็นช้าไป 7 ชั่วโมง (SQLite ส่งเวลาไม่มี timezone) แก้แล้วและเพิ่มเป็น WEB-43
+
+### 2.16 Web app — `profile-utils.js` + แถบอัปโหลด + เรียงตามคะแนน (`node --test`, Issue #85 + #83)
+
+pure function ของหน้าโปรไฟล์ใน [`web/`](../../web/) แยกจากส่วนที่แตะ DOM (`profile.js`) · เลข WEB ต่อจาก 2.15 ของ PR #88
+
+| # | Test case | Input | ผลที่คาดหวัง |
+| --- | --- | --- | --- |
+| WEB-57 | `summaryCards` แสดงยอดรวมทุกช่องจาก `GET /notes/mine` | `note_count 3`, `average_rating 4.33` จาก 6 คะแนน, ดาวน์โหลด 9, เปิดดู 40, ขอบคุณ 2 | `3`, `4.3` (ป้าย `คะแนนเฉลี่ย (6 คะแนน)`), `9`, `40`, `2` |
+| WEB-58 | `summaryCards` กับผู้ใช้ที่ยังไม่มีโน้ตหรือคะแนน | `average_rating null`, `rating_count 0` · `summary` หายไป | `0`, `–`, `0`, `0`, `0` ทั้งสองกรณี |
+| WEB-59 | `renderMyNoteRow` ลิงก์ไปหน้ารายละเอียดและมีปุ่มแก้/ลบ | โน้ต id 7 | มี `href="/note.html?id=7"`, `data-edit-note="7"`, `data-delete-note="7"` และยอดคะแนน/ดาวน์โหลด/เปิดดู/ขอบคุณ |
+| WEB-60 | `renderFavoriteRow` บอกผู้อัปโหลดและมีแค่ปุ่มเอาออก | โน้ตของคนอื่น | มี `อัปโหลดโดย …` และ `data-unfavorite` ไม่มีปุ่มแก้/ลบ |
+| WEB-61 | แถวในหน้าโปรไฟล์ escape ค่าที่ผู้ใช้พิมพ์ | ชื่อโน้ต `<img src=x onerror=…>`, ชื่อผู้อัปโหลด `<b>x</b>` | ไม่มีแท็ก `<img`/`<b>` ได้ `&lt;img` |
+| WEB-62 | `editFormValues` เติมฟอร์มแก้ไขเป็นข้อความทุกช่อง | `year_level 2`, `topic null`, `description null` | ได้ครบ 9 ช่อง `'2'`, `''`, `''` |
+| WEB-63 | `changedFields` ส่งเฉพาะช่องที่เปลี่ยนและ trim แล้ว (US-19 partial update) | แก้ชื่อ (มีช่องว่างหัวท้าย) + เติมหัวข้อ · ไม่แก้อะไร · เติมช่องว่างรอบค่าเดิม | `{title, topic}` · `{}` · `{}` |
+| WEB-64 | `changedFields` ส่ง `''` เมื่อล้างช่องไม่บังคับ | ลบวันที่เรียนออก | `{class_date: ''}` (API ล้างค่าเมื่อได้ค่าว่าง) |
+| WEB-65 | `profileErrorMessage` ครอบ error ของ PATCH/DELETE | `validation_failed`, `no_fields_to_update`, `403 forbidden`, `401`, `503`, `404`, status `0` | ข้อความเฉพาะของแต่ละกรณี |
+| WEB-66 | `validateMetadata` ตรวจเฉพาะช่องข้อความ ใช้ร่วมกับฟอร์มแก้ไข | ฟอร์มถูก · ชื่อว่าง + ชั้นปี 9 + `2026-02-30` | `{}` · error 3 ช่อง ไม่มี `file` |
+| WEB-67 | `uploadProgress` แปลง event ของการส่งไฟล์เป็นเปอร์เซ็นต์และข้อความ | 0 / 4.5 / 10 MB − 1 byte / 10 MB จาก 10 MB · ไม่รู้ขนาด | `0%`, `45% (4.5 MB จาก 10.0 MB)`, `99` (ยังไม่ขึ้น 100 ก่อนไบต์สุดท้าย), `100` + `รอเซิร์ฟเวอร์บันทึกโน้ต…` · `percent null` |
+| WEB-68 | `sort=rating` (Issue #83) อยู่ใน URL ของหน้าได้และส่งต่อถึง API (`search-utils.test.js`) | `?sort=rating` · ตัวกรองที่ `sort = 'rating'` | `sort` เป็น `rating` · query `sort=rating` (เทสต์ "ค่า sort ที่ไม่รู้จัก" เดิมเปลี่ยนไปใช้ `popular`) |
+| WEB-69 | `safeNextPath` ยอมให้กลับมาหน้าโปรไฟล์หลัง login (`session-utils.test.js`) | `/profile.html` | ได้ค่าเดิม |
+
+mutation 11 แบบถูกจับครบ: `changedFields` ส่งทุกช่อง/ไม่ trim, `editFormValues` ไม่แปลง `null`, การ์ดคะแนนไม่เช็กว่ามีคะแนน, ไม่ escape ชื่อโน้ต,
+ตัดข้อความ `forbidden`, ปัดเปอร์เซ็นต์ขึ้น, ตัดกรณีไม่รู้ขนาดไฟล์, `validateUpload` ไม่เรียก `validateMetadata`, เอา `rating` ออกจาก `SORTS`
+และเอา `/profile.html` ออกจาก `NEXT_PAGES`
+
+**ตรวจบน browser จริง (2026-10-05, Issue #85 ส่วนที่สอง, ด้วยมือ):** ตั้งค่าแบบเดียวกับ 2.15 (service จริงบน SQLite + ตัวแทน nginx) ผล:
+เปิด `/profile.html` ตอนไม่ login ถูกพาไป `/login.html?next=%2Fprofile.html` · เจ้าของโน้ตเห็นการ์ดสรุปตรงกับ API (2 โน้ต, คะแนน 5.0 จาก 1 คะแนน,
+ขอบคุณ 1) แถบเมนูมีลิงก์ "โปรไฟล์" · ชื่อโน้ตที่มี `<script>` แสดงเป็นข้อความทั้งในรายการและในกล่องยืนยันลบ · เปิดฟอร์มแก้ไขแล้วค่าเดิมครบ
+กดบันทึกโดยไม่แก้ได้ "ยังไม่ได้แก้ข้อมูลช่องใด" · ล้างชื่อและชั้นปีได้ error ใต้สองช่อง · แก้ชื่อ (มีช่องว่างท้าย) ล้างวันที่เรียน เติมหัวข้อ แล้ว
+`GET /notes/1` ได้ชื่อที่ trim แล้ว `class_date = null`, `topic = Pointers` ส่วนช่องอื่นไม่เปลี่ยน · ยกเลิกแก้/ลบแล้ว focus กลับปุ่มเดิม
+· ลบโน้ตที่อยู่ในรายการโปรดด้วย: หายจากทั้งสองรายการ การ์ดสรุปลดเป็น 1 โน้ต และ `GET /notes/2` ได้ `404` · ผู้อ่านที่ไม่มีโน้ตเห็น
+"ยังไม่ได้อัปโหลดโน้ต" กับการ์ด `0, –, 0, 0, 0` เอาโน้ตออกจากรายการโปรดแล้ว `GET /notes/favorites` ได้ `count 0` · เพิกถอน token แล้ว reload
+ถูกพาไปหน้าเข้าสู่ระบบและ session ถูกล้าง · หน้าโปรไฟล์กว้าง 375 px ไม่มี scroll แนวนอน · อัปโหลด PDF 12 MB: แถบขึ้น 0% แล้ว "ส่งไฟล์ครบแล้ว…"
+ก่อนเห็นกล่องรหัสแก้ไข และปุ่มกลับเป็น "อัปโหลด ✓" (ในเครื่องส่งเร็วจนไม่เห็นเปอร์เซ็นต์ระหว่างทาง ค่ากลางตรวจด้วย WEB-67)
+· `/?sort=rating` เลือก "คะแนนสูงสุด" ในตัวกรองและโน้ตที่มีคะแนนขึ้นก่อน · console ไม่มี error · ในหน้าต่างที่ browser มองว่าซ่อนอยู่
+event `close` ของ `<dialog>` มาช้า จึงคืน focus ทันทีตอนปิดแทนการรอ event
 
 ## 3. Test Report
 

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NoteShare - โปรไฟล์ของฉัน</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Noto+Serif+Thai:wght@500;600&family=Work+Sans:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="session-utils.js" defer></script>
+<script src="search-utils.js" defer></script>
+<script src="upload-utils.js" defer></script>
+<script src="profile-utils.js" defer></script>
+<script src="site.js" defer></script>
+<script src="profile.js" defer></script>
+</head>
+<body>
+
+<nav id="siteNav" class="site-nav" aria-label="เมนูหลัก"></nav>
+
+<!-- Profile page (wireframe 1e, Issue #85): the user's own notes with edit/delete by login
+     (ADR-008, GET /notes/mine) and their favorites (GET /notes/favorites). -->
+<main class="page-card">
+  <header class="profile-head">
+    <h1 id="profileName" class="page-title">โปรไฟล์ของฉัน</h1>
+    <p id="profileEmail" class="note-sub"></p>
+  </header>
+
+  <p id="profileError" class="error-box" role="alert" hidden></p>
+  <p id="profileStatus" class="notice-box" role="status" tabindex="-1" hidden></p>
+
+  <section aria-labelledby="statsHeading">
+    <h2 id="statsHeading" class="visually-hidden">สรุปยอดโน้ตของฉัน</h2>
+    <ul id="profileStats" class="stats-row" aria-busy="true"></ul>
+  </section>
+
+  <section class="profile-section" aria-labelledby="myNotesHeading">
+    <div class="section-head">
+      <h2 id="myNotesHeading" class="section-title">โน้ตของฉัน</h2>
+      <a class="secondary-btn" href="/upload.html">+ อัปโหลดโน้ต</a>
+    </div>
+    <p id="myNotesStatus" class="field-hint" role="status">กำลังโหลด…</p>
+    <ul id="myNotesList" class="profile-list"></ul>
+    <button type="button" id="myNotesMore" class="secondary-btn load-more" hidden>โหลดเพิ่ม</button>
+  </section>
+
+  <section class="profile-section" aria-labelledby="favoritesHeading">
+    <h2 id="favoritesHeading" class="section-title">รายการโปรด</h2>
+    <p id="favoritesStatus" class="field-hint" role="status">กำลังโหลด…</p>
+    <ul id="favoritesList" class="profile-list"></ul>
+    <button type="button" id="favoritesMore" class="secondary-btn load-more" hidden>โหลดเพิ่ม</button>
+  </section>
+</main>
+
+<!-- US-19: edit the metadata of an own note. The file itself cannot be changed. -->
+<dialog id="editDialog" class="preview-dialog" aria-labelledby="editHeading">
+  <form id="editForm" class="preview-body stack-form" novalidate>
+    <header class="preview-header">
+      <h2 id="editHeading" class="preview-title">แก้ไขโน้ต</h2>
+      <button type="button" class="close-btn" data-close-dialog aria-label="ปิดหน้าแก้ไข">✕</button>
+    </header>
+    <p id="editError" class="error-box" role="alert" hidden></p>
+
+    <label class="form-field">
+      <span>ชื่อโน้ต <em class="required">*</em></span>
+      <input type="text" name="title" class="text-input" maxlength="200" required>
+      <span class="field-error" data-error-for="title" hidden></span>
+    </label>
+    <div class="field-grid">
+      <label class="form-field">
+        <span>รหัสวิชา <em class="required">*</em></span>
+        <input type="text" name="subject_code" class="text-input" maxlength="30" required>
+        <span class="field-error" data-error-for="subject_code" hidden></span>
+      </label>
+      <label class="form-field">
+        <span>ชื่อวิชา <em class="required">*</em></span>
+        <input type="text" name="subject_name" class="text-input" maxlength="200" required>
+        <span class="field-error" data-error-for="subject_name" hidden></span>
+      </label>
+      <label class="form-field">
+        <span>คณะ <em class="required">*</em></span>
+        <input type="text" name="faculty" class="text-input" maxlength="100" required>
+        <span class="field-error" data-error-for="faculty" hidden></span>
+      </label>
+      <label class="form-field">
+        <span>ชั้นปี <em class="required">*</em></span>
+        <select name="year_level" class="text-input" required>
+          <option value="">เลือกชั้นปี</option>
+          <option value="1">ปี 1</option>
+          <option value="2">ปี 2</option>
+          <option value="3">ปี 3</option>
+          <option value="4">ปี 4</option>
+          <option value="5">ปี 5</option>
+          <option value="6">ปี 6</option>
+          <option value="7">ปี 7</option>
+          <option value="8">ปี 8</option>
+        </select>
+        <span class="field-error" data-error-for="year_level" hidden></span>
+      </label>
+      <label class="form-field">
+        <span>บทเรียน <em class="required">*</em></span>
+        <input type="text" name="lesson" class="text-input" maxlength="200" required>
+        <span class="field-error" data-error-for="lesson" hidden></span>
+      </label>
+      <label class="form-field">
+        <span>หัวข้อ</span>
+        <input type="text" name="topic" class="text-input" maxlength="200">
+        <span class="field-error" data-error-for="topic" hidden></span>
+      </label>
+      <label class="form-field">
+        <span>วันที่เรียน</span>
+        <input type="date" name="class_date" class="text-input">
+        <span class="field-error" data-error-for="class_date" hidden></span>
+      </label>
+    </div>
+    <label class="form-field">
+      <span>คำอธิบาย</span>
+      <textarea name="description" class="text-input" rows="3"></textarea>
+    </label>
+    <p class="field-hint">แก้ได้เฉพาะข้อมูลของโน้ต ถ้าจะเปลี่ยนไฟล์ให้ลบแล้วอัปโหลดใหม่</p>
+    <div class="form-actions">
+      <button type="submit" class="primary-btn">บันทึก</button>
+      <button type="button" class="secondary-btn" data-close-dialog>ยกเลิก</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- US-20: deleting removes the note, its file and everything attached to it, so ask first.
+     A <dialog> instead of window.confirm(), which some browsers block and cannot be styled. -->
+<dialog id="deleteDialog" class="preview-dialog confirm-dialog" aria-labelledby="deleteHeading">
+  <form id="deleteForm" class="preview-body">
+    <h2 id="deleteHeading" class="preview-title">ลบโน้ตนี้?</h2>
+    <p>โน้ต <strong id="deleteNoteTitle"></strong> จะถูกลบพร้อมไฟล์ คะแนน ความคิดเห็น และคำขอบคุณ ย้อนกลับไม่ได้</p>
+    <p id="deleteError" class="error-box" role="alert" hidden></p>
+    <div class="form-actions">
+      <button type="submit" class="primary-btn danger-fill">ลบโน้ต</button>
+      <button type="button" class="secondary-btn" data-close-dialog>ยกเลิก</button>
+    </div>
+  </form>
+</dialog>
+
+</body>
+</html>

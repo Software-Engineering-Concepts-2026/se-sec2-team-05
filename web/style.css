@@ -622,6 +622,60 @@ textarea.text-input { min-height: 84px; resize: vertical; }
 .token-row { display: flex; gap: 8px; }
 .token-input { flex: 1; min-width: 0; font-family: Consolas, 'Courier New', monospace; }
 
+/* Upload progress (Issue #85) */
+.upload-progress { display: flex; flex-direction: column; gap: 6px; }
+.upload-progress progress { width: 100%; height: 10px; accent-color: var(--amber); }
+
+/* ---- Profile page (1e, Issue #85) ---- */
+.profile-head { margin-bottom: 20px; }
+.profile-head .note-sub { font-size: 14.5px; }
+.stats-row {
+  list-style: none;
+  margin: 0 0 36px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr));
+  gap: 14px;
+}
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  padding: 16px 18px;
+}
+.stat-num { font-family: var(--serif); font-size: 30px; font-weight: 600; line-height: 1.1; }
+.stat-label { font-size: 13px; color: var(--muted); }
+.profile-section { margin-bottom: 40px; }
+.section-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+.section-title { font-family: var(--serif); font-size: 22px; font-weight: 600; margin: 0 0 12px; }
+.section-head .section-title { margin: 0; }
+.profile-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.profile-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 18px;
+}
+.profile-row-main { min-width: 0; flex: 1 1 260px; }
+.profile-row-title { margin: 0 0 2px; font-size: 16px; font-weight: 600; overflow-wrap: anywhere; }
+.profile-row-stats { margin: 4px 0 0; font-size: 13px; color: var(--muted-2); }
+.profile-row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.profile-row-actions .secondary-btn { padding: 7px 14px; font-size: 13.5px; }
+.danger-btn { color: var(--red); }
+.danger-btn:hover { background: var(--red-soft); color: var(--red); }
+.danger-fill { background: var(--red); border-color: var(--red); }
+.danger-fill:hover { background: #8a1f17; }
+.confirm-dialog { width: min(480px, calc(100vw - 32px)); }
+.confirm-dialog p { margin: 0; }
+
 @media (max-width: 720px) {
   .auth-card { grid-template-columns: 1fr; }
   .auth-aside { padding: 28px 24px; gap: 14px; }
