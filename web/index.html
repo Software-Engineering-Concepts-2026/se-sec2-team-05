@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>NoteShare - ค้นหาโน้ต</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Noto+Serif+Thai:wght@500;600&family=Work+Sans:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="style.css">
 <script src="session-utils.js" defer></script>
 <script src="search-utils.js" defer></script>
@@ -15,13 +18,24 @@
 <nav id="siteNav" class="site-nav" aria-label="เมนูหลัก"></nav>
 
 <main class="page-card">
-  <h1 class="page-title">ค้นหาโน้ต</h1>
+  <header class="hero">
+    <h1 class="page-title">โน้ตดี ๆ ที่ควร<mark>ส่งต่อ</mark></h1>
+    <p>หาสรุปเลกเชอร์และโน้ตที่เพื่อนแบ่งปันไว้ หรืออัปโหลดของคุณเองให้คนถัดไปที่กำลังอ่านสอบ</p>
+  </header>
 
   <form id="searchForm" class="search-form" role="search">
-    <label for="q" class="visually-hidden">คำค้นหา</label>
-    <input type="search" id="q" name="q" class="search-input" maxlength="200"
-           placeholder="ชื่อโน้ต วิชา รหัสวิชา บทเรียน หรือหัวข้อ">
+    <div class="search-bar">
+      <svg class="search-icon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <label for="q" class="visually-hidden">คำค้นหา</label>
+      <input type="search" id="q" name="q" class="search-input" maxlength="200"
+             placeholder="ชื่อโน้ต วิชา รหัสวิชา บทเรียน หรือหัวข้อ">
+      <button type="submit" class="primary-btn">ค้นหา</button>
+    </div>
 
+    <details class="filter-panel">
+      <summary>ตัวกรองและการเรียง</summary>
+      <div class="filter-body">
     <div class="filter-row">
       <label class="filter-field">
         <span>คณะ</span>
@@ -77,9 +91,11 @@
     </fieldset>
 
     <div class="form-actions">
-      <button type="submit" class="primary-btn">ค้นหา</button>
+      <button type="submit" class="primary-btn">ใช้ตัวกรอง</button>
       <button type="button" id="resetBtn" class="secondary-btn">ล้างตัวกรอง</button>
     </div>
+      </div>
+    </details>
   </form>
 
   <div class="results-header">
@@ -123,7 +139,7 @@
     </section>
     <footer class="preview-footer">
       <span id="previewSize" class="note-sub"></span>
-      <a id="previewDownload" class="primary-btn" href="#">ดาวน์โหลดไฟล์เต็ม</a>
+      <a id="previewDownload" class="primary-btn" href="#">⬇ ดาวน์โหลดไฟล์เต็ม</a>
     </footer>
   </div>
 </dialog>

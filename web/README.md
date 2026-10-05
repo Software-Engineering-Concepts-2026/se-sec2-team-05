@@ -55,6 +55,19 @@
   แต่ต้องแก้ auth-service และเพิ่มการกัน CSRF จึงยังไม่ทำในรอบนี้
 - session ที่หมดอายุตาม `expires_at` หรืออ่านไม่ออกจะถูกลบทิ้งตอนโหลดหน้า และ API ที่ตอบ `401` ทำให้หน้าเว็บล้าง session ด้วย
 
+## หน้าตา
+
+ตาม mockup ที่อติชาติออกแบบ ([`docs/design/`](../docs/design/README.md), Issue #84): พื้นสีกระดาษ ตัวอักษรสีหมึก สีเน้นอำพัน หัวข้อเป็นตัวมีเชิง
+การ์ดโน้ตเรียงเป็น grid · หน้าค้นหามี hero, ช่องค้นหาแบบแถบเดียว และพับตัวกรองไว้ใน `<details>`
+(กางออกเองเมื่อ URL มีตัวกรอง) · หน้าเข้าสู่ระบบเป็นการ์ดสองคอลัมน์ · ช่องเลือกไฟล์ของหน้าอัปโหลดวาดเป็น drop zone
+แต่ยังเป็น `<input type="file">` ตัวจริง จึงใช้คีย์บอร์ดและลากไฟล์มาวางได้โดยไม่ต้องมีสคริปต์เพิ่ม
+
+- **ฟอนต์** โหลดจาก Google Fonts: Newsreader + Noto Serif Thai (หัวข้อ), Work Sans + IBM Plex Sans Thai (เนื้อหา)
+  Newsreader กับ Work Sans ไม่มีตัวอักษรไทย จึงมีฟอนต์ไทยต่อท้ายในแต่ละชุด ตัวอังกฤษมาจากฟอนต์แรก ตัวไทยมาจากฟอนต์ที่สอง
+  ถ้าโหลด Google Fonts ไม่ได้ หน้าเว็บยังใช้งานได้ด้วยฟอนต์ของระบบ (Georgia / Segoe UI / Tahoma)
+- **สี** ประกาศเป็นตัวแปรใน `:root` ของ `style.css` ที่เดียว
+- ไม่ได้ทำปุ่ม SSO/Google, ระบบ tag และไฟล์ DOCX ที่อยู่ใน mockup เพราะอยู่นอกขอบเขตของระบบ
+
 ## ไฟล์
 
 | ไฟล์ | หน้าที่ |
@@ -69,7 +82,7 @@
 | `session-utils.js` | pure function ของสถานะ login (อ่าน/บันทึก/ล้าง session, ตรวจวันหมดอายุ, ตรวจ `?next=`, ข้อความ error ของ auth) |
 | `upload-utils.js` | pure function ของหน้าอัปโหลด (ตรวจฟอร์มตามกฎของ notes-service, เลือกฟิลด์ที่ส่ง, ข้อความ error) |
 | `session-utils.test.js`, `upload-utils.test.js` | unit test ของสองไฟล์ข้างบนด้วย `node --test` |
-| `style.css` | หน้าตายืมจาก prototype ค้นหาของ Sprint 1 ใช้ร่วมทุกหน้า |
+| `style.css` | หน้าตาตาม wireframe/mockup ของทีม (Issue #84) ใช้ร่วมทุกหน้า ดูหัวข้อ "หน้าตา" |
 | `nginx.conf` | เสิร์ฟไฟล์ static + proxy `/notes` → notes-service, `/auth/` → auth-service |
 | `Dockerfile` | image `nginx-unprivileged` ที่ copy เฉพาะไฟล์ที่ต้องเสิร์ฟ (ไม่มีไฟล์เทสต์/README) |
 

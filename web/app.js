@@ -15,6 +15,7 @@
     formatSize,
     fileTypeLabel,
     ratingSummary,
+    starBar,
   } = window.SearchUtils;
 
   const form = document.getElementById('searchForm');
@@ -63,6 +64,13 @@
     for (const box of form.querySelectorAll('input[name="file_type"]')) {
       box.checked = filters.file_type.includes(box.value);
     }
+    // The filter panel starts folded. A search opened from a link with filters in it
+    // unfolds the panel, so the user can see what is narrowing the results.
+    const panel = form.querySelector('.filter-panel');
+    const defaults = emptyFilters();
+    const filtered = filters.file_type.length > 0 ||
+      ['faculty', 'year_level', 'topic', 'date_from', 'date_to', 'sort'].some((f) => filters[f] !== defaults[f]);
+    if (panel && filtered) panel.open = true;
   }
 
   async function fetchJson(url) {
@@ -201,6 +209,8 @@
       `[data-note-id="${note.id}"] .note-rating-summary`
     );
     if (cardRating) cardRating.textContent = ratingSummary(note);
+    const cardStars = resultsList.querySelector(`[data-note-id="${note.id}"] .note-stars`);
+    if (cardStars) cardStars.textContent = starBar(note);
   }
 
   async function loadRatingState(note, seq) {
