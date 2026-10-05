@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NoteShare - รายละเอียดโน้ต</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Noto+Serif+Thai:wght@500;600&family=Work+Sans:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="session-utils.js" defer></script>
+<script src="search-utils.js" defer></script>
+<script src="note-utils.js" defer></script>
+<script src="site.js" defer></script>
+<script src="note.js" defer></script>
+</head>
+<body>
+
+<nav id="siteNav" class="site-nav" aria-label="เมนูหลัก"></nav>
+
+<!-- Note detail page (wireframe 1d, Issue #85). The search page's preview dialog stays as the
+     quick look; this page puts every action on a note in one place. -->
+<main class="page-card">
+  <a id="backLink" class="back-link" href="/">← กลับไปหน้าค้นหา</a>
+
+  <p id="noteLoading" class="results-count" role="status">กำลังโหลดโน้ต…</p>
+  <p id="noteError" class="error-box" role="alert" hidden></p>
+
+  <div id="noteDetail" class="detail-grid" hidden>
+    <article class="detail-main" aria-labelledby="noteTitle">
+      <span id="noteCourse" class="tag-course"></span>
+      <h1 id="noteTitle" class="detail-title"></h1>
+      <p id="noteMeta" class="detail-meta"></p>
+      <div id="noteTags" class="note-tags"></div>
+      <p id="noteDescription" class="detail-description" hidden></p>
+      <div class="preview-frame detail-preview">
+        <p id="previewStatus" class="preview-status" role="status">กำลังโหลดตัวอย่าง…</p>
+        <img id="previewImage" alt="" hidden>
+      </div>
+    </article>
+
+    <aside class="detail-side" aria-label="การทำงานกับโน้ตนี้">
+      <div class="detail-actions">
+        <button type="button" id="downloadBtn" class="primary-btn detail-download">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"></path><polyline points="7 11 12 16 17 11"></polyline><path d="M5 21h14"></path></svg>
+          ดาวน์โหลด
+        </button>
+        <button type="button" id="favoriteBtn" class="icon-btn" aria-pressed="false" aria-label="บันทึกเป็นรายการโปรด"
+                title="บันทึกเป็นรายการโปรด">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4V3z"></path></svg>
+        </button>
+        <button type="button" id="reportToggle" class="icon-btn" aria-expanded="false" aria-controls="reportForm"
+                aria-label="รายงานโน้ตนี้" title="รายงานโน้ตนี้">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               aria-hidden="true"><path d="M4 3v18"></path><path d="M4 4h13l-2 4 2 4H4"></path></svg>
+        </button>
+      </div>
+      <p id="actionStatus" class="action-status" role="status" aria-live="polite"></p>
+
+      <form id="reportForm" class="side-card stack-form" novalidate hidden>
+        <label class="form-field">
+          เหตุผลที่รายงาน
+          <textarea id="reportReason" name="reason" class="text-input" maxlength="500" required
+                    placeholder="เช่น เนื้อหาไม่ตรงกับชื่อ หรือมีข้อมูลส่วนตัวของคนอื่น"></textarea>
+          <span class="field-error" data-error-for="reason" hidden></span>
+        </label>
+        <div class="form-actions">
+          <button type="submit" class="primary-btn">ส่งรายงาน</button>
+          <button type="button" id="reportCancel" class="secondary-btn">ยกเลิก</button>
+        </div>
+      </form>
+
+      <section class="side-card" aria-labelledby="ratingHeading">
+        <h2 id="ratingHeading" class="side-label">คะแนนจากผู้ใช้</h2>
+        <p id="ratingAverage" class="rating-big" aria-live="polite"></p>
+        <p id="ratingMessage" class="rating-message" role="status"></p>
+        <div id="ratingStars" class="rating-stars" role="group" aria-label="เลือกคะแนน 1 ถึง 5" hidden>
+          <button type="button" class="rating-star" data-rating="1" aria-label="1 ดาว" aria-pressed="false">☆</button>
+          <button type="button" class="rating-star" data-rating="2" aria-label="2 ดาว" aria-pressed="false">☆</button>
+          <button type="button" class="rating-star" data-rating="3" aria-label="3 ดาว" aria-pressed="false">☆</button>
+          <button type="button" class="rating-star" data-rating="4" aria-label="4 ดาว" aria-pressed="false">☆</button>
+          <button type="button" class="rating-star" data-rating="5" aria-label="5 ดาว" aria-pressed="false">☆</button>
+        </div>
+        <button type="button" id="submitRating" class="secondary-btn" hidden disabled>ส่งคะแนน</button>
+        <p id="ratingSubmitStatus" class="rating-message" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="side-card" aria-labelledby="thanksHeading">
+        <h2 id="thanksHeading" class="side-label">ขอบคุณเจ้าของโน้ต</h2>
+        <p id="thanksMessage" class="rating-message" role="status" aria-live="polite"></p>
+        <button type="button" id="thanksBtn" class="secondary-btn accent-btn" hidden>🙏 ขอบคุณ</button>
+      </section>
+
+      <p class="flag-note">ปุ่มธง (รายงาน) จะส่งเรื่องให้ผู้ดูแลตรวจว่าโน้ตมีเนื้อหาไม่เหมาะสมหรือไม่</p>
+    </aside>
+  </div>
+
+  <section id="commentsSection" class="comments-section" aria-labelledby="commentsTitle" hidden>
+    <h2 id="commentsTitle" class="comments-title">ความคิดเห็น</h2>
+    <p id="commentsError" class="error-box" role="alert" hidden></p>
+    <ol id="commentsList" class="comments-list"></ol>
+    <p id="noComments" class="field-hint" hidden>ยังไม่มีความคิดเห็น</p>
+    <form id="commentForm" class="comment-form" novalidate hidden>
+      <label for="commentInput" class="visually-hidden">ความคิดเห็นของคุณ</label>
+      <textarea id="commentInput" name="content" class="text-input" maxlength="1000" rows="2"
+                placeholder="เขียนความคิดเห็น…"></textarea>
+      <button type="submit" class="primary-btn">โพสต์</button>
+    </form>
+    <p id="commentLogin" class="field-hint" hidden></p>
+  </section>
+</main>
+
+</body>
+</html>
