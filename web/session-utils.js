@@ -10,7 +10,7 @@
 
   // Pages a login may send the user back to. Anything else falls back to the search page,
   // so ?next= can never point the browser at another site.
-  const NEXT_PAGES = ['/', '/index.html', '/upload.html'];
+  const NEXT_PAGES = ['/', '/index.html', '/upload.html', '/profile.html'];
   const DEFAULT_NEXT = '/';
 
   // POST /auth/login body -> the session the pages keep. Returns null for a body that is

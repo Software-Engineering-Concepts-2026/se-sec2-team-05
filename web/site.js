@@ -77,7 +77,8 @@
     // The tab forgets it either way: a failed request must not leave the user logged in here.
     await fetchJson('/auth/logout', { method: 'POST', headers: authHeaders(session) });
     clearSession(storage());
-    if (window.location.pathname === '/upload.html') {
+    // pages that only work logged in go back to the search page
+    if (['/upload.html', '/profile.html'].includes(window.location.pathname)) {
       window.location.assign('/');
     } else {
       renderNav();
@@ -94,6 +95,7 @@
     brand.className = 'nav-brand';
     brand.removeAttribute('aria-current');
     left.append(brand, link('/', 'ค้นหาโน้ต'), link('/upload.html', 'อัปโหลดโน้ต'));
+    if (session) left.append(link('/profile.html', 'โปรไฟล์'));
 
     const right = document.createElement('div');
     right.className = 'nav-user';
