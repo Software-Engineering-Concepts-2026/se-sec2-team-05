@@ -483,15 +483,15 @@ pure function ของหน้าเข้าสู่ระบบและห
 
 ## 3. Test Report
 
-**รันล่าสุด:** 2026-09-27 (เครื่อง local, Windows 11, branch `feature/safety-net`)
+**รันล่าสุด:** 2026-10-04 (เครื่อง local, Windows 11, `main` ที่ `e6b3b3a` หลัง merge #79 #76 #80) · แถว smoke แบบไม่ใช้ Docker ยังเป็นผลวันที่ 2026-09-27
 
 | ชุด | คำสั่ง | ผล |
 | --- | --- | --- |
-| JS unit | `cd prototypes/sprint1 && node --test` | ✅ 7 passed / 0 failed (69 ms) |
-| Python unit + integration | `pytest src/tests -v` | ✅ 233 passed / 0 failed / 1 xfailed — stats 9, notes validation 18 + boundary 19, notes API 47, notes identity 13, edit-token property 2, fizzbuzz 5, auth credentials 29, auth email_error 9 (AE-09 เป็น xfail), auth tokens 14, auth API 30 · coverage รวม 99% (`identity.py` 100%, `credentials.py` 100%) |
+| JS unit | `cd prototypes/sprint1 && node --test` | ✅ 7 passed / 0 failed |
+| Python unit + integration | `pytest src/tests -v --cov=services/notes-service --cov=services/auth-service --cov=src` (คำสั่งเดียวกับ CI) | ✅ 351 passed / 0 failed / 1 xfailed — notes API 59, notes reports 34, notes favorites 32, auth API 30, auth credentials 29, notes preview 27, notes ratings 21, notes thanks 20, notes validation 18 + boundary 19, auth tokens 14, notes identity 13, stats 11, notes comments 9, auth email_error 9 (AE-09 เป็น xfail), fizzbuzz 5, edit-token property 2 · coverage รวม 98% (`notes-service/app.py` 90%, `identity.py`/`models.py`/`validation.py`/`credentials.py` 100%) · stats-service ไม่อยู่ใน `--cov` ของ CI |
 | Smoke DK-03 ถึง DK-06 แบบไม่ใช้ Docker | รัน `auth-service` กับ `notes-service` ตัวจริงบน SQLite (notes ชี้ `AUTH_SERVICE_URL` ไปที่ auth) แล้วรันสคริปต์ `run:` ของแต่ละ step ที่ดึงออกมาจาก `ci.yml` ตรง ๆ | ✅ ผ่านครบ 6 step (`upload auth OK`, `end-to-end OK`, `edit/delete OK`, `auth OK`, validation `400`) · บน Postgres + compose จริงรอผลจาก CI เพราะ Docker daemon ไม่ได้เปิดบนเครื่องที่ใช้เขียน · ตอนรันบน Windows ต้องแทน `/tmp/` เป็น path ของ Windows เพราะ curl ของ Windows อ่าน `/tmp` ของ Git Bash ไม่ได้ (ไม่ได้แก้ใน `ci.yml` เพราะ CI รันบน Linux) |
-| Container smoke (compose e2e) | `docker compose up` + `curl` | ✅ ผ่านบน CI ([run #33351842320](https://github.com/Software-Engineering-Concepts-2026/se-sec2-team-05/actions/runs/33351842320), 1m6s) — log ยืนยัน `created note #1` และ `end-to-end OK` · ไม่ได้รัน local เพราะ Docker daemon ไม่ได้เปิดบนเครื่องที่ใช้เขียน |
-| JS unit (web) | `cd web && node --test` | ✅ 38 passed / 0 failed (2026-10-02, branch `feature/web-login-upload`) — search-utils 15, session-utils 13, upload-utils 10 |
+| Container smoke (compose e2e) | `docker compose up` + `curl` | ✅ ผ่านบน CI ([run #33351842320](https://github.com/Software-Engineering-Concepts-2026/se-sec2-team-05/actions/runs/33351842320), 1m6s) — log ยืนยัน `created note #1` และ `end-to-end OK` · ไม่ได้รัน local เพราะ Docker daemon ไม่ได้เปิดบนเครื่องที่ใช้เขียน · ล่าสุดผ่านบน CI ของ `main` ที่ `e6b3b3a` ([run #37199787942](https://github.com/Software-Engineering-Concepts-2026/se-sec2-team-05/actions/runs/37199787942), 2026-10-04) |
+| JS unit (web) | `cd web && node --test` | ✅ 39 passed / 0 failed — search-utils 16, session-utils 13, upload-utils 10 |
 
 **ผลรันบน CI (PR #56):** ทั้ง 3 job ผ่านหมด — `js-tests` 13s, `python-tests` 13s, `docker-build` 1m6s
 
@@ -518,8 +518,8 @@ python-tests ─┘
 
 ## 5. งานที่ยังค้าง
 
-- [ ] **วชิรวิทย์** — เขียน unit test ของตัวเอง (เสนอ: logic filter คณะ/ปี/ประเภทไฟล์ และประวัติการค้นหาใน `wachirawit_search_note_prototype.html` ต้องแยก pure function ออกมาก่อนแบบเดียวกับ Lab 7)
-- [ ] **กฤตเมธ** — เขียน unit test ของตัวเอง (เสนอ: การคำนวณคะแนนเฉลี่ยหลังส่ง rating ใน `kittamet_note_rating_prototype.html`)
+- [x] **วชิรวิทย์** — เขียน unit test ของตัวเอง (เสนอ: logic filter คณะ/ปี/ประเภทไฟล์ และประวัติการค้นหาใน `wachirawit_search_note_prototype.html` ต้องแยก pure function ออกมาก่อนแบบเดียวกับ Lab 7) · ทำแล้วเป็นเทสต์ของ Notes Service แทน prototype: `test_notes_preview.py`, `test_notes_favorites.py`, `test_notes_thanks.py` และเทสต์ download/topic/date ใน `test_notes_api.py`
+- [x] **กฤตเมธ** — เขียน unit test ของตัวเอง (เสนอ: การคำนวณคะแนนเฉลี่ยหลังส่ง rating ใน `kittamet_note_rating_prototype.html`) · ทำแล้วเป็นเทสต์ของ service แทน prototype: `test_notes_comments.py`, `test_notes_reports.py`, `test_notes_ratings.py` (รวมค่าเฉลี่ย rating) และเทสต์ stats ใน `test_stats_service.py`
 - [x] เขียนเทสต์ของ `POST /notes` ที่ commit ไม่ผ่าน แล้วต้องไม่ทิ้งไฟล์กำพร้าไว้ใน storage — NA-12
 - [ ] เทสต์ที่รันกับ PostgreSQL จริง — ตอนนี้เทสต์ Python ใช้ SQLite ส่วน compose ใช้ Postgres จึงมีช่องว่างเรื่องความต่างของ dialect (`ilike`, การเทียบวันที่) ที่จับได้แค่ตอน smoke test
 - [ ] เพิ่ม branch protection ให้ `main` ต้องผ่าน CI ก่อน merge (ตั้งใน GitHub Settings ไม่ใช่ในโค้ด)
