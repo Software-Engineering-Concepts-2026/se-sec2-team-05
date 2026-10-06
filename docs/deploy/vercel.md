@@ -22,12 +22,16 @@
 vercel link
 ```
 
-ตอบให้สร้าง project ใหม่ · คำสั่งนี้สร้างโฟลเดอร์ `.vercel/` ในเครื่อง (อยู่ใน `.gitignore` แล้ว ห้าม commit)
+ตอบให้สร้าง project ใหม่ · คำสั่งนี้สร้างโฟลเดอร์ `.vercel/` และไฟล์ `.env.local` ในเครื่อง (อยู่ใน `.gitignore` แล้ว ห้าม commit)
+
+> ⚠️ `vercel link` และข้อ 2–3 ชอบเพิ่มบรรทัดใน `.gitignore` เอง และ `vercel integration add neon` วางไฟล์ skill ของ Neon
+> ลงใน repo (`.agents/`, `.claude/skills/`, `skills-lock.json`) ทั้งหมดไม่ใช่ส่วนของโปรเจกต์ ให้ `git checkout -- .gitignore`
+> แล้วลบไฟล์เหล่านั้นทิ้งก่อน commit
 
 ## 2. ฐานข้อมูล Neon
 
 ```bash
-vercel integration add neon
+vercel integration add neon --plan free_v3 -m region=iad1
 ```
 
 หรือในหน้า project → **Storage** → **Create Database** → Neon แล้วเชื่อมกับ project นี้
@@ -37,12 +41,12 @@ Vercel จะใส่ `DATABASE_URL` ให้เอง ไม่ต้อง�
 ## 3. ที่เก็บไฟล์ Vercel Blob (private)
 
 ```bash
-vercel blob create-store noteshare-files --access private
+vercel blob create-store noteshare-files --access private --region iad1
 ```
 
 หรือหน้า project → **Storage** → **Create Storage** → **Blob** → ตั้ง access เป็น **Private** แล้วเชื่อมกับ project
-จากนั้นตรวจว่า project มี environment variable **`BLOB_READ_WRITE_TOKEN`** · `vercel` Python SDK ที่ notes-service ใช้
-(0.11.4) อ่าน token จากตัวแปรนี้เท่านั้น ถ้าการเชื่อม store ไม่ได้สร้างให้ ให้สร้าง read-write token ในหน้าตั้งค่าของ store
+การเชื่อม store กับ project จะเพิ่ม **`BLOB_READ_WRITE_TOKEN`** ให้ทุก environment เอง (ตรวจแล้วตอน deploy จริง 2026-10-06)
+ซึ่งเป็นตัวแปรเดียวที่ `vercel` Python SDK ของ notes-service (0.11.4) อ่าน · ถ้าไม่มี ให้สร้าง read-write token ในหน้าตั้งค่าของ store
 แล้วเพิ่มเองด้วย `vercel env add BLOB_READ_WRITE_TOKEN`
 
 ## 4. Environment variables
@@ -57,15 +61,15 @@ vercel blob create-store noteshare-files --access private
 | `NOTES_STORAGE_BACKEND` | `blob` | notes |
 | `ADMIN_USER_IDS` | ว่างไว้ก่อน (ดูข้อ 6) | notes |
 | `DATABASE_URL` | Neon ใส่ให้ (ข้อ 2) | notes, auth, stats |
-| `BLOB_READ_WRITE_TOKEN` | Blob ใส่ให้หรือเพิ่มเอง (ข้อ 3) | notes |
+| `BLOB_READ_WRITE_TOKEN` | Blob ใส่ให้ (ข้อ 3) | notes |
 
 `AUTH_SERVICE_URL` **ไม่ต้องตั้ง** · Vercel ใส่ให้ notes และ stats ผ่าน service binding ใน `vercel.json`
 
 ## 5. Deploy
 
 ```bash
-vercel deploy          # preview — ได้ URL ทดสอบ (ปกติต้อง login Vercel ก่อนเปิด)
-vercel deploy --prod   # production — URL สาธารณะ
+vercel deploy --target preview   # preview — ได้ URL ทดสอบ (ปกติต้อง login Vercel ก่อนเปิด)
+vercel deploy --prod             # production — URL สาธารณะ
 ```
 
 ## 6. ตั้งผู้ดูแล
@@ -82,6 +86,7 @@ vercel deploy --prod   # production — URL สาธารณะ
 - [ ] หน้าสถิติแสดงตัวเลข (ทดสอบ route `/stats` และ `/notes/<id>/stats`)
 - [ ] บัญชีผู้ดูแลเห็นปุ่ม "ตรวจรายงานโน้ต" ในโปรไฟล์
 
+ถ้า preview เปิดไม่ได้เพราะ Deployment Protection ให้ทดสอบด้วย `vercel curl <url>/notes` ซึ่งผ่าน protection ให้เอง
 ถ้ามี error ดูที่หน้า deployment → **Logs** แยกตาม service
 
 ## ข้อจำกัดที่ควรรู้
