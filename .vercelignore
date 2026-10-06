@@ -1,0 +1,8 @@
+# ไฟล์ที่ไม่ต้องส่งขึ้น Vercel ตอน `vercel deploy` จากเครื่อง (ADR-009)
+.venv/
+venv/
+**/__pycache__/
+*.db
+.pytest_cache/
+.coverage
+node_modules/

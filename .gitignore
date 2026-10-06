@@ -22,3 +22,6 @@ dist/
 # OS Header files
 .DS_Store
 Thumbs.db
+
+# Vercel CLI (vercel link) — project id ของเครื่องนี้
+.vercel/
