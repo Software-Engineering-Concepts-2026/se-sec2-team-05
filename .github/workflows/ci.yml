@@ -321,6 +321,16 @@ jobs:
           curl -fsS -o /dev/null "$gw/profile.js"
           curl -fsS -o /dev/null "$gw/profile-utils.js"
           test "$(curl -s -o /dev/null -w '%{http_code}' "$gw/profile-utils.test.js")" = "404"
+          # หน้าตรวจรายงานของผู้ดูแล (Issues #17, #18) และ /reports ต้องผ่าน gateway ไปถึง notes-service
+          # compose ไม่ได้ตั้ง ADMIN_USER_IDS จึงเช็คได้แค่ว่าไม่ login ได้ 401 และสมาชิกทั่วไปได้ 403 แบบ JSON
+          curl -fsS "$gw/admin.html" -o /tmp/admin.html
+          grep -q 'id="reportsList"' /tmp/admin.html
+          curl -fsS -o /dev/null "$gw/admin.js"
+          curl -fsS -o /dev/null "$gw/admin-utils.js"
+          test "$(curl -s -o /dev/null -w '%{http_code}' "$gw/admin-utils.test.js")" = "404"
+          test "$(curl -s -o /dev/null -w '%{http_code}' "$gw/reports")" = "401"
+          test "$(curl -s "$gw/reports" -H "Authorization: Bearer $UPLOAD_TOKEN" | jq -r '.error')" = "forbidden"
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "$gw/reports/1" -H "Authorization: Bearer $UPLOAD_TOKEN")" = "403"
 
           # query string ต้องไปถึง notes-service ครบ (โน้ต CS201 สร้างไว้ใน step end-to-end ด้านบน)
           test "$(curl -fsS "$gw/notes?subject_code=CS201&year_level=2" | jq '.count')" -eq 1
