@@ -239,7 +239,7 @@
 | DK-05 | สมัคร → login → ใช้ token → logout บน Postgres จริง (US-05/US-06) | `curl` ไปที่ `:5002/auth/*` | สมัคร `201` · สมัครซ้ำ `409` · โดเมนอื่น `400` · รหัสผิดกับอีเมลที่ไม่มีได้ body เดียวกัน · `me` ได้ชื่อถูก · logout `204` แล้ว `me` ด้วย token เดิมได้ `401` |
 | DK-06 | อัปโหลดต้อง login และเครดิตมาจากบัญชี (US-31) บน stack จริง | สมัคร + login บัญชี `CI Uploader` แล้ว `POST /notes` สามแบบ (ไม่มี token / token มั่ว / token จริง + `uploader_name=spoofed name`) | สองแบบแรกได้ `401` · แบบที่สามได้ `uploader_name = CI Uploader` · `count = 1` (ครั้งที่ไม่ผ่านไม่ถูกบันทึก) · notes-service คุยกับ auth-service ผ่านเครือข่ายของ compose จริง |
 | DK-07 | preview endpoint ทำงานจริงบน image ที่ build (US-11) — กัน regression ของบั๊ก Dockerfile ที่เคยลืม copy `preview.py` (commit `8f25b9b`) ซึ่ง unit test จับไม่ได้เพราะ import จาก source tree ตรง ๆ | อัปโหลด PNG จริงแล้ว `GET .../preview` โดยไม่ส่ง token, กับอัปโหลดไฟล์ที่ประกาศเป็น `image/png` แต่เนื้อไม่ใช่รูป | ไฟล์จริงได้ `200` + header `Content-Type: image/png` + ไบต์ 8 ตัวแรกตรง PNG signature · ไฟล์ปลอมได้ `422` ไม่ใช่ `500` |
-| DK-08 | web gateway เสิร์ฟหน้าเว็บและส่งต่อ API จาก origin เดียว (ADR-006, US-11/US-31) | `curl :8080/`, `/login.html`, `/upload.html`, `/note.html?id=1`, `/profile.html` (Issue #85), `/admin.html` (Issues #17, #18), ไฟล์ JS ทั้ง 13 ไฟล์และไฟล์เทสต์ทั้ง 6 ไฟล์ · `GET :8080/notes?subject_code=CS201&year_level=2` และ `?year_level=abc` · `GET :8080/reports` แบบไม่มี token และด้วยสมาชิกทั่วไป, `DELETE :8080/reports/1` ด้วยสมาชิกทั่วไป · `GET :8080/auth/me` แบบไม่มี token และมี token · อัปโหลด PNG ผ่าน `:8080/notes` แล้วเปิด `preview_url` ผ่าน `:8080` · `POST :8080/auth/login` (JSON) → `POST :8080/auth/logout` → `GET :8080/auth/me` ด้วย token เดิม | หน้าแรกมี `id="searchForm"`, หน้า login มี `id="loginForm"`, หน้าอัปโหลดมี `id="uploadForm"`, หน้ารายละเอียดมี `id="noteDetail"`, หน้าโปรไฟล์มี `id="profileStats"`, หน้าผู้ดูแลมี `id="reportsList"` · ไฟล์ JS ได้ `200` · ไฟล์เทสต์ได้ `404` (ไม่ถูก copy เข้า image) · query string ไปถึง service ครบ (`count = 1`, ค่าผิดได้ `400`) · `/reports` ไม่มี token `401`, สมาชิกทั่วไปได้ `forbidden` และลบไม่ได้ `403` (nginx ส่ง `/reports` ไปถึง notes-service) · `me` ไม่มี token `401` มี token ได้ `CI Uploader` (header `Authorization` ผ่าน nginx) · upload ได้ `uploader_name = CI Uploader` และ preview ได้ `200` + `image/png` · login ได้ token, logout ได้ `204` แล้ว token เดิมได้ `401` (US-05/US-06 ผ่าน gateway แบบที่หน้าเว็บเรียก) |
+| DK-08 | web gateway เสิร์ฟหน้าเว็บและส่งต่อ API จาก origin เดียว (ADR-006, US-11/US-31) | `curl :8080/`, `/login.html`, `/upload.html`, `/note.html?id=1`, `/profile.html` (Issue #85), `/admin.html` (Issues #17, #18), `/stats.html` (Issue #16), ไฟล์ JS ทั้ง 15 ไฟล์และไฟล์เทสต์ทั้ง 7 ไฟล์ · `GET :8080/stats` · `GET :8080/notes?subject_code=CS201&year_level=2` และ `?year_level=abc` · `GET :8080/notes/<id ของ CS201>/stats` แบบไม่มี token และด้วยเจ้าของ, `GET :8080/notes/<id>` · `GET :8080/reports` แบบไม่มี token และด้วยสมาชิกทั่วไป, `DELETE :8080/reports/1` ด้วยสมาชิกทั่วไป · `GET :8080/auth/me` แบบไม่มี token และมี token · อัปโหลด PNG ผ่าน `:8080/notes` แล้วเปิด `preview_url` ผ่าน `:8080` · `POST :8080/auth/login` (JSON) → `POST :8080/auth/logout` → `GET :8080/auth/me` ด้วย token เดิม | หน้าแรกมี `id="searchForm"`, หน้า login มี `id="loginForm"`, หน้าอัปโหลดมี `id="uploadForm"`, หน้ารายละเอียดมี `id="noteDetail"`, หน้าโปรไฟล์มี `id="profileStats"`, หน้าผู้ดูแลมี `id="reportsList"`, หน้าสถิติมี `id="overviewCards"` · `/stats` ได้ `total_notes` เป็นตัวเลข · ไฟล์ JS ได้ `200` · ไฟล์เทสต์ได้ `404` (ไม่ถูก copy เข้า image) · query string ไปถึง service ครบ (`count = 1`, ค่าผิดได้ `400`) · `/notes/<id>/stats` ไปถึง stats-service (ไม่ login `401`, เจ้าของได้ `downloads` ≥ 1) และ `/notes/<id>` ยังไป notes-service · `/reports` ไม่มี token `401`, สมาชิกทั่วไปได้ `forbidden` และลบไม่ได้ `403` (nginx ส่ง `/reports` ไปถึง notes-service) · `me` ไม่มี token `401` มี token ได้ `CI Uploader` (header `Authorization` ผ่าน nginx) · upload ได้ `uploader_name = CI Uploader` และ preview ได้ `200` + `image/png` · login ได้ token, logout ได้ `204` แล้ว token เดิมได้ `401` (US-05/US-06 ผ่าน gateway แบบที่หน้าเว็บเรียก) |
 | DK-09 | เจ้าของแก้/ลบด้วย login, `/notes/mine` และ `sort=rating` บน Postgres จริง (Issues #82, #83) | สมัคร + login บัญชี `CI Rater` · `CI Uploader` อัปโหลด 2 โน้ต (`CS501`) · Rater เปิดดูแล้วให้คะแนนใบแรก · `GET /notes?subject_code=CS501&sort=rating` · `GET /notes/mine` · Rater แล้วเจ้าของ `PATCH`/`DELETE` | ใบที่มีคะแนนมาก่อนใบใหม่กว่าที่ไม่มีคะแนน (Postgres วาง NULL ไว้หน้าสุดเมื่อ DESC ต่างจาก SQLite) · `/notes/mine` มีทั้งสองใบ, `rating_count = 1`, ไม่ login ได้ `401` · Rater ได้ `403` ทั้งคู่ · เจ้าของ `PATCH` ได้ค่าใหม่และ `DELETE` ได้ `204` |
 
 ### 2.7 Auth Service — ตรวจข้อมูลสมัครและ hash รหัสผ่าน (`pytest`, US-05 #5)
@@ -584,6 +584,37 @@ API เหลือ 2 รายงานและโน้ตยังเปิ�
 · เพิกถอน token แล้วกดยกเลิกรายงาน ถูกพาไปหน้าเข้าสู่ระบบและ session ถูกล้าง · ยกเลิกรายงานสุดท้ายแล้วได้ "ไม่มีรายงานที่รอตรวจ"
 · หน้าผู้ดูแลและหน้าโปรไฟล์กว้าง 375 px ไม่มี scroll แนวนอน · console ไม่มี JavaScript error มีแค่บรรทัด network ของ `403`/`401`/`404` ที่ตั้งใจให้เกิด
 (รวม `403` ของการเช็กลิงก์ผู้ดูแลในหน้าโปรไฟล์ของสมาชิกทั่วไป)
+
+### 2.18 Web app — `stats-utils.js` หน้าสถิติ (`node --test`, Issue #16 + US-28 AC3)
+
+pure function ของหน้า `stats.html` ใน [`web/`](../../web/) แยกจากส่วนที่แตะ DOM (`stats.js`) · เลข WEB ต่อจาก 2.17
+
+| # | Test case | Input | ผลที่คาดหวัง |
+| --- | --- | --- | --- |
+| WEB-79 | `overviewCards` แสดงยอดรวมจาก `GET /stats` | `total_notes 9`, `total_downloads 21`, ผู้แบ่งปัน 6 คน | `9`, `21`, `6` |
+| WEB-80 | `overviewCards` กับ body ที่ไม่มีหรือว่าง | `null`, `{}`, `top_contributors` ที่ไม่ใช่ list | `0`, `0`, `0` ทุกกรณี |
+| WEB-81 | `leaderboard` แสดงอันดับต้น ๆ โดยไม่เปิดเผยเลขบัญชีของคนอื่น | 6 คน, ผู้ดูคือ id 2 (อันดับ 2) · ไม่ login · ไม่มี list | 5 แถว อันดับ 1 = `สมาชิก` 12, อันดับ 2 = `คุณ` 6 ไม่มี `owner_id` ในผล · ไม่ login ทุกแถวเป็น `สมาชิก` · `[]` |
+| WEB-82 | `myRank` บอกอันดับของผู้ดู | id 2 · id 3 (อันดับ 6 นอก 5 อันดับแรก) · id ที่ไม่มี · ไม่ login | `คุณอยู่อันดับ 2 จาก 6 ผู้แบ่งปัน (ดาวน์โหลดรวม 6 ครั้ง)` · อันดับ 6 · `null` · `null` |
+| WEB-83 | `statsLine` แยกเปิดดูกับดาวน์โหลด และมีคำขอบคุณ (#16 AC2, US-28 AC3) | `views 12`, `downloads 3`, `thanks 2` · `{}` | `เปิดดู 12 · ดาวน์โหลด 3 · ขอบคุณ 2` · ศูนย์ทั้งหมด |
+| WEB-84 | `renderStatsRow` แสดงสถานะกำลังโหลด ตัวเลข หรือ error ของโน้ตหนึ่งตัว | `{}` · `{stats}` · `{error}` | `กำลังโหลดสถิติ…` · ลิงก์ `/note.html?id=7` + วิชา + ตัวเลข · ข้อความ error มี class `stats-error` |
+| WEB-85 | `renderStatsRow` ไฮไลต์โน้ตที่เปิดมาจากหน้าโปรไฟล์ (`?id=`) | `selected = true` | class `is-selected` และ `aria-current="true"` |
+| WEB-86 | `renderStatsRow` escape ค่าที่ผู้ใช้พิมพ์ | ชื่อโน้ต `<img …>`, บทเรียน `<b>x</b>` | ไม่มีแท็ก `<img`/`<b>` ได้ `&lt;img` |
+| WEB-87 | `statsErrorMessage` แปลตาม status เพราะ stats-service มีข้อความ error ของตัวเอง | `401`, `403`, `503` (ข้อความอังกฤษจาก service), `404 not_found`, status `0`, `502` | ข้อความไทยเฉพาะของแต่ละกรณี (`403` = ดูสถิติได้เฉพาะโน้ตที่คุณอัปโหลด) |
+| WEB-88 | แถวโน้ตของฉันในหน้าโปรไฟล์มีปุ่มไปหน้าสถิติ (`profile-utils.test.js`) | โน้ต id 7 | มี `<a class="secondary-btn" href="/stats.html?id=7">สถิติ</a>` |
+| WEB-89 | `safeNextPath` ยอมให้กลับมาหน้าสถิติหลัง login (`session-utils.test.js`) | `/stats.html?id=7` | ได้ค่าเดิมพร้อม query |
+
+mutation 11 แบบ ถูกจับ 10 แบบ: ใส่เลขบัญชีในป้ายอันดับ, ไม่ตัดเหลือ 5 อันดับ, ไม่คืน `null` เมื่อไม่มีอันดับ, รวมเปิดดูกับดาวน์โหลด, ไม่ escape ชื่อโน้ต,
+ไม่แสดง error ในแถว, ตัดข้อความ `403`, ไม่เช็กว่า `top_contributors` เป็น list, เอาปุ่มสถิติออกจากหน้าโปรไฟล์ และเอา `/stats.html` ออกจาก `NEXT_PAGES`
+· แบบที่หลุดคือเอาเงื่อนไข "ไม่ login" ออกจากการหาแถว "คุณ" ซึ่งเป็นโค้ดที่ไม่มีผล (`owner_id` เป็น `NOT NULL` จึงไม่มีวันเท่ากับ `null`) จึงลบเงื่อนไขนั้นออกจากโค้ดแทน
+
+**ตรวจบน browser จริง (2026-10-06, อัตโนมัติ):** ตั้งค่าแบบเดียวกับ 2.17 (Edge แบบ headless ผ่าน DevTools Protocol) และรัน stats-service ตัวจริงบน SQLite ไฟล์เดียวกับ
+notes-service · ตัวแทน nginx ส่ง `/stats` และ `/notes/<id>/stats` ไปที่ stats-service ผล: ไม่ login เห็นการ์ด 3 ใบ (3 โน้ต, ดาวน์โหลด 1, ผู้แบ่งปัน 1)
+อันดับเป็น "สมาชิก" ไม่มีกล่องอันดับของตัวเอง ส่วนของฉันมีลิงก์ `/login.html?next=%2Fstats.html` และเมนู "สถิติ" ถูกเลือกอยู่ · เจ้าของโน้ตเห็น
+"คุณอยู่อันดับ 1 จาก 1 ผู้แบ่งปัน…" อันดับเป็น "คุณ" และ 3 แถวตรงกับ stats-service ที่เรียกตรง (โน้ต 1: เปิดดู 2 · ดาวน์โหลด 1 · ขอบคุณ 1) ชื่อโน้ตที่มี
+`<script>` แสดงเป็นข้อความ และ `view_count` ไม่เพิ่มหลังเปิดหน้า · กดปุ่ม "สถิติ" ในโปรไฟล์ไปที่ `?id=1` แล้วแถวนั้นถูกไฮไลต์ · `?id=99` ได้แถว "โน้ต #99"
+พร้อม "ไม่พบโน้ตนี้แล้ว…" · สมาชิกอีกคนเปิด `?id=1` ได้ "ดูสถิติได้เฉพาะโน้ตที่คุณอัปโหลด" · เพิกถอน token แล้ว reload ส่วนของฉันกลายเป็นลิงก์เข้าสู่ระบบ
+session ถูกล้าง การ์ดภาพรวมยังอยู่ · หน้าสถิติและหน้าโปรไฟล์กว้าง 375 px ไม่มี scroll แนวนอน · console ไม่มี JavaScript error มีแค่บรรทัด network ของ
+`404`/`403`/`401` ที่ตั้งใจให้เกิด
 
 ## 3. Test Report
 

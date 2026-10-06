@@ -94,7 +94,7 @@
     const brand = link('/', 'NoteShare');
     brand.className = 'nav-brand';
     brand.removeAttribute('aria-current');
-    left.append(brand, link('/', 'ค้นหาโน้ต'), link('/upload.html', 'อัปโหลดโน้ต'));
+    left.append(brand, link('/', 'ค้นหาโน้ต'), link('/upload.html', 'อัปโหลดโน้ต'), link('/stats.html', 'สถิติ'));
     if (session) left.append(link('/profile.html', 'โปรไฟล์'));
 
     const right = document.createElement('div');

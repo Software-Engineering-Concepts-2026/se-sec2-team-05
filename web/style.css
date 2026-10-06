@@ -680,6 +680,12 @@ textarea.text-input { min-height: 84px; resize: vertical; }
 .report-list { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
 .report-item { border-left: 3px solid #f5c2c0; padding: 2px 0 2px 12px; }
 
+/* Stats page (stats.html) */
+.leaderboard { margin: 0; padding-left: 22px; display: grid; gap: 4px; font-size: 14.5px; }
+.leaderboard .is-you { font-weight: 600; color: var(--amber-text); }
+.profile-row.is-selected { border-color: var(--amber); box-shadow: 0 0 0 3px var(--amber-soft); }
+.stats-error { color: var(--red); }
+
 @media (max-width: 720px) {
   .auth-card { grid-template-columns: 1fr; }
   .auth-aside { padding: 28px 24px; gap: 14px; }

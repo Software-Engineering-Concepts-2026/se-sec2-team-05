@@ -331,10 +331,24 @@ jobs:
           test "$(curl -s -o /dev/null -w '%{http_code}' "$gw/reports")" = "401"
           test "$(curl -s "$gw/reports" -H "Authorization: Bearer $UPLOAD_TOKEN" | jq -r '.error')" = "forbidden"
           test "$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "$gw/reports/1" -H "Authorization: Bearer $UPLOAD_TOKEN")" = "403"
+          # หน้าสถิติ (Issue #16, US-28 AC3) และ GET /stats ที่ gateway ต้องส่งไป stats-service
+          curl -fsS "$gw/stats.html" -o /tmp/stats.html
+          grep -q 'id="overviewCards"' /tmp/stats.html
+          curl -fsS -o /dev/null "$gw/stats.js"
+          curl -fsS -o /dev/null "$gw/stats-utils.js"
+          test "$(curl -s -o /dev/null -w '%{http_code}' "$gw/stats-utils.test.js")" = "404"
+          test "$(curl -fsS "$gw/stats" | jq -r '.total_notes | type')" = "number"
 
           # query string ต้องไปถึง notes-service ครบ (โน้ต CS201 สร้างไว้ใน step end-to-end ด้านบน)
           test "$(curl -fsS "$gw/notes?subject_code=CS201&year_level=2" | jq '.count')" -eq 1
           test "$(curl -s -o /dev/null -w '%{http_code}' "$gw/notes?year_level=abc")" = "400"
+
+          # /notes/<id>/stats ต้องไปถึง stats-service (ตอบ 401 ถ้าไม่ login, เจ้าของเห็นยอดดาวน์โหลดจาก step end-to-end)
+          # ส่วน /notes/<id> ธรรมดายังต้องไป notes-service เหมือนเดิม
+          cs201=$(curl -fsS "$gw/notes?subject_code=CS201" | jq -r '.items[0].id')
+          test "$(curl -s -o /dev/null -w '%{http_code}' "$gw/notes/$cs201/stats")" = "401"
+          test "$(curl -fsS "$gw/notes/$cs201/stats" -H "Authorization: Bearer $UPLOAD_TOKEN" | jq -r '.downloads')" -ge 1
+          test "$(curl -fsS "$gw/notes/$cs201" | jq -r '.subject_code')" = "CS201"
 
           # header Authorization ต้องผ่าน gateway ไปถึง auth-service
           test "$(curl -s -o /dev/null -w '%{http_code}' "$gw/auth/me")" = "401"
