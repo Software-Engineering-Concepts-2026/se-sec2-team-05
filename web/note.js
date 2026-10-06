@@ -57,6 +57,8 @@
 
   const noteId = noteIdFromSearch(window.location.search);
   const here = window.location.pathname + window.location.search;
+  // edit/delete with the edit token shown after upload (US-19, US-20), no login needed
+  if (noteId !== null) byId('editTokenLink').href = `/edit.html?id=${noteId}`;
   let session = currentSession();
   let note = null;
   let comments = [];
