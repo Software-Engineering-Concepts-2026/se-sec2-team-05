@@ -144,7 +144,8 @@ def validate_rating(value):
 # เพดานขนาด request ทั้งก้อน = ขนาดไฟล์สูงสุด + ที่เผื่อไว้ให้ multipart boundary กับฟิลด์ metadata
 # ตั้งให้สูงกว่า MAX_FILE_BYTES เล็กน้อยโดยตั้งใจ ไฟล์ที่เกินนิดเดียวจะได้ตกที่ validate_file
 # ซึ่งบอกเหตุผลรายฟิลด์ แทนที่จะถูกตัดทิ้งแบบไม่มีรายละเอียดตั้งแต่ชั้น Werkzeug
-REQUEST_OVERHEAD_BYTES = 1024 * 1024
+# รวมกันต้องไม่เกิน 4.5 MB ซึ่งเป็นเพดาน body ของ Vercel (ADR-009) จึงเผื่อไว้แค่ 256 KB
+REQUEST_OVERHEAD_BYTES = 256 * 1024
 MAX_REQUEST_BYTES = MAX_FILE_BYTES + REQUEST_OVERHEAD_BYTES
 
 # รูปตัวอย่างของโน้ตไม่เปลี่ยนเลยหลังอัปโหลด (แก้ไฟล์ไม่ได้ ดู IMMUTABLE_FIELDS) จึง cache ได้นาน
