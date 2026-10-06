@@ -28,8 +28,9 @@ NOTES_STORAGE_DIR=./data python services/notes-service/app.py
 
 | Environment variable | ค่า default | ใช้ทำอะไร |
 | --- | --- | --- |
-| `DATABASE_URL` | `sqlite:///notes.db` | SQLAlchemy URL — compose ตั้งเป็น `postgresql+psycopg://...` |
+| `DATABASE_URL` | `sqlite:///notes.db` | SQLAlchemy URL — compose ตั้งเป็น `postgresql+psycopg://...` · URL แบบ `postgres://`/`postgresql://` (Neon บน Vercel) ถูกแปลงให้ใช้ psycopg 3 เอง |
 | `NOTES_STORAGE_DIR` | `/data/notes` | โฟลเดอร์เก็บไฟล์โน้ต (mount เป็น volume ใน compose) |
+| `NOTES_STORAGE_BACKEND` | `local` | `blob` = เก็บไฟล์ใน Vercel Blob แบบ private แทนดิสก์ (ADR-009) ต้องมี `BLOB_READ_WRITE_TOKEN` ด้วย |
 | `AUTH_SERVICE_URL` | `http://localhost:5002` | ที่อยู่ของ auth-service ใช้ตรวจ token ตอนอัปโหลด ใช้รายการโปรด และขอบคุณเจ้าของโน้ต — compose ตั้งเป็น `http://auth-service:5002` |
 | `ADMIN_USER_IDS` | ว่าง | comma-separated user IDs ที่จัดการรายงานได้ เช่น `99,100` — ไม่มีค่าแปลว่าไม่มี admin |
 
@@ -98,7 +99,7 @@ notes-service ส่ง header นี้ต่อไปตรวจที่ `GE
 
 | ฟิลด์ | บังคับ | หมายเหตุ |
 | --- | --- | --- |
-| `file` | ✅ | PDF / PNG / JPEG เท่านั้น ไม่เกิน 20 MB |
+| `file` | ✅ | PDF / PNG / JPEG เท่านั้น ไม่เกิน 4 MB |
 | `title` | ✅ | ชื่อโน้ต |
 | `subject_name`, `subject_code`, `faculty`, `lesson` | ✅ | ข้อความ |
 | `year_level` | ✅ | ตัวเลข 1–8 |
@@ -119,7 +120,7 @@ notes-service ส่ง header นี้ต่อไปตรวจที่ `GE
 { "error": "validation_failed", "fields": { "subject_code": "จำเป็นต้องกรอก", "year_level": "ต้องเป็นตัวเลข" } }
 ```
 
-request ที่ใหญ่เกิน 21 MB (ไฟล์ 20 MB + ที่เผื่อให้ multipart/metadata) จะถูกตัดตั้งแต่ชั้น Werkzeug
+request ที่ใหญ่เกิน 4 MB + 256 KB (ไฟล์ 4 MB + ที่เผื่อให้ multipart/metadata) จะถูกตัดตั้งแต่ชั้น Werkzeug
 และได้ `413` ที่มีรูปร่าง JSON เดียวกัน — ไม่ต้องรอให้อ่าน body เข้ามาครบก่อนถึงจะปฏิเสธ
 
 ### `GET /notes` — query parameters
