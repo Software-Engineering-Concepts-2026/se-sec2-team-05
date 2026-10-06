@@ -51,6 +51,7 @@
     <p class="profile-row-stats">${escapeHtml(ratingSummary(note))} · ดาวน์โหลด ${count(note.download_count)} · เปิดดู ${count(note.view_count)} · ขอบคุณ ${count(note.thank_count)}</p>
   </div>
   <div class="profile-row-actions">
+    <a class="secondary-btn" href="/stats.html?id=${id}">สถิติ</a>
     <button type="button" class="secondary-btn" data-edit-note="${id}">แก้ไข</button>
     <button type="button" class="secondary-btn danger-btn" data-delete-note="${id}">ลบ</button>
   </div>

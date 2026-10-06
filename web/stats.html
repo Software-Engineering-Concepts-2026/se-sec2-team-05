@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NoteShare - สถิติ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Noto+Serif+Thai:wght@500;600&family=Work+Sans:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="session-utils.js" defer></script>
+<script src="search-utils.js" defer></script>
+<script src="note-utils.js" defer></script>
+<script src="stats-utils.js" defer></script>
+<script src="site.js" defer></script>
+<script src="stats.js" defer></script>
+</head>
+<body>
+
+<nav id="siteNav" class="site-nav" aria-label="เมนูหลัก"></nav>
+
+<!-- Stats page (Issue #16, US-28 AC3): numbers from stats-service through the gateway.
+     GET /stats is public; GET /notes/<id>/stats answers only the owner of the note. -->
+<main class="page-card">
+  <header class="profile-head">
+    <h1 class="page-title">สถิติ</h1>
+    <p class="note-sub">ตัวเลขจาก Stats Service · ภาพรวมดูได้ทุกคน ส่วนสถิติรายโน้ตเห็นเฉพาะโน้ตของตัวเอง</p>
+  </header>
+
+  <section class="profile-section" aria-labelledby="overviewHeading">
+    <h2 id="overviewHeading" class="section-title">ภาพรวมทั้งระบบ</h2>
+    <p id="overviewError" class="error-box" role="alert" hidden></p>
+    <ul id="overviewCards" class="stats-row" aria-busy="true"></ul>
+    <p id="myRank" class="notice-box" hidden></p>
+    <h3 class="side-label">ผู้แบ่งปันที่มียอดดาวน์โหลดสูงสุด</h3>
+    <ol id="leaderboard" class="leaderboard"></ol>
+  </section>
+
+  <section class="profile-section" aria-labelledby="mineHeading">
+    <h2 id="mineHeading" class="section-title">สถิติโน้ตของฉัน</h2>
+    <p id="mineStatus" class="field-hint" role="status">กำลังโหลด…</p>
+    <ul id="mineList" class="profile-list"></ul>
+    <button type="button" id="mineMore" class="secondary-btn load-more" hidden>โหลดเพิ่ม</button>
+  </section>
+</main>
+
+</body>
+</html>
