@@ -676,6 +676,10 @@ textarea.text-input { min-height: 84px; resize: vertical; }
 .confirm-dialog { width: min(480px, calc(100vw - 32px)); }
 .confirm-dialog p { margin: 0; }
 
+/* Admin report review (admin.html): the reports of one note, under its title */
+.report-list { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+.report-item { border-left: 3px solid #f5c2c0; padding: 2px 0 2px 12px; }
+
 @media (max-width: 720px) {
   .auth-card { grid-template-columns: 1fr; }
   .auth-aside { padding: 28px 24px; gap: 14px; }

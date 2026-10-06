@@ -9,4 +9,6 @@ COPY index.html login.html upload.html note.html style.css \
      /usr/share/nginx/html/
 # หน้าโปรไฟล์ (Issue #85)
 COPY profile.html profile.js profile-utils.js /usr/share/nginx/html/
+# หน้าตรวจรายงานของผู้ดูแล (Issues #17, #18)
+COPY admin.html admin.js admin-utils.js /usr/share/nginx/html/
 EXPOSE 8080

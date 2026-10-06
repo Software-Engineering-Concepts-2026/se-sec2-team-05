@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NoteShare - ตรวจรายงานโน้ต</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Noto+Serif+Thai:wght@500;600&family=Work+Sans:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="session-utils.js" defer></script>
+<script src="search-utils.js" defer></script>
+<script src="note-utils.js" defer></script>
+<script src="admin-utils.js" defer></script>
+<script src="site.js" defer></script>
+<script src="admin.js" defer></script>
+</head>
+<body>
+
+<nav id="siteNav" class="site-nav" aria-label="เมนูหลัก"></nav>
+
+<!-- Admin report review (Issues #17, #18): GET /reports, dismiss a report with
+     DELETE /reports/<id>, or delete the reported note with DELETE /reports/<id>/note.
+     Only accounts listed in ADMIN_USER_IDS of notes-service get 200; everyone else gets 403. -->
+<main class="page-card">
+  <header class="profile-head">
+    <h1 class="page-title">ตรวจรายงานโน้ต</h1>
+    <p class="note-sub">โน้ตที่สมาชิกกดรายงาน แต่ละโน้ตแสดงเหตุผลทุกข้อ · ยกเลิกรายงานเมื่อโน้ตไม่มีปัญหา หรือลบโน้ตเมื่อเนื้อหาไม่เหมาะสม</p>
+  </header>
+
+  <p id="adminError" class="error-box" role="alert" hidden></p>
+  <p id="adminStatus" class="notice-box" role="status" tabindex="-1" hidden></p>
+
+  <section class="profile-section" aria-labelledby="reportsHeading">
+    <div class="section-head">
+      <h2 id="reportsHeading" class="section-title">รายงานที่รอตรวจ</h2>
+      <button type="button" id="reloadReports" class="secondary-btn">โหลดใหม่</button>
+    </div>
+    <p id="reportsSummary" class="field-hint" role="status">กำลังโหลด…</p>
+    <ul id="reportsList" class="profile-list"></ul>
+  </section>
+</main>
+
+<!-- Deleting removes the note, its file and every report on it, so ask first.
+     A <dialog> instead of window.confirm(), like the profile page. -->
+<dialog id="removeDialog" class="preview-dialog confirm-dialog" aria-labelledby="removeHeading">
+  <form id="removeForm" class="preview-body">
+    <h2 id="removeHeading" class="preview-title">ลบโน้ตที่ถูกรายงาน?</h2>
+    <p>โน้ต <strong id="removeNoteTitle"></strong> จะถูกลบพร้อมไฟล์และรายงานทั้งหมดของโน้ตนี้ ย้อนกลับไม่ได้</p>
+    <p id="removeError" class="error-box" role="alert" hidden></p>
+    <div class="form-actions">
+      <button type="submit" class="primary-btn danger-fill">ลบโน้ต</button>
+      <button type="button" class="secondary-btn" data-close-dialog>ยกเลิก</button>
+    </div>
+  </form>
+</dialog>
+
+</body>
+</html>

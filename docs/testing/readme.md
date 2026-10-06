@@ -239,7 +239,7 @@
 | DK-05 | สมัคร → login → ใช้ token → logout บน Postgres จริง (US-05/US-06) | `curl` ไปที่ `:5002/auth/*` | สมัคร `201` · สมัครซ้ำ `409` · โดเมนอื่น `400` · รหัสผิดกับอีเมลที่ไม่มีได้ body เดียวกัน · `me` ได้ชื่อถูก · logout `204` แล้ว `me` ด้วย token เดิมได้ `401` |
 | DK-06 | อัปโหลดต้อง login และเครดิตมาจากบัญชี (US-31) บน stack จริง | สมัคร + login บัญชี `CI Uploader` แล้ว `POST /notes` สามแบบ (ไม่มี token / token มั่ว / token จริง + `uploader_name=spoofed name`) | สองแบบแรกได้ `401` · แบบที่สามได้ `uploader_name = CI Uploader` · `count = 1` (ครั้งที่ไม่ผ่านไม่ถูกบันทึก) · notes-service คุยกับ auth-service ผ่านเครือข่ายของ compose จริง |
 | DK-07 | preview endpoint ทำงานจริงบน image ที่ build (US-11) — กัน regression ของบั๊ก Dockerfile ที่เคยลืม copy `preview.py` (commit `8f25b9b`) ซึ่ง unit test จับไม่ได้เพราะ import จาก source tree ตรง ๆ | อัปโหลด PNG จริงแล้ว `GET .../preview` โดยไม่ส่ง token, กับอัปโหลดไฟล์ที่ประกาศเป็น `image/png` แต่เนื้อไม่ใช่รูป | ไฟล์จริงได้ `200` + header `Content-Type: image/png` + ไบต์ 8 ตัวแรกตรง PNG signature · ไฟล์ปลอมได้ `422` ไม่ใช่ `500` |
-| DK-08 | web gateway เสิร์ฟหน้าเว็บและส่งต่อ API จาก origin เดียว (ADR-006, US-11/US-31) | `curl :8080/`, `/login.html`, `/upload.html`, `/note.html?id=1`, `/profile.html` (Issue #85), ไฟล์ JS ทั้ง 11 ไฟล์และไฟล์เทสต์ทั้ง 5 ไฟล์ · `GET :8080/notes?subject_code=CS201&year_level=2` และ `?year_level=abc` · `GET :8080/auth/me` แบบไม่มี token และมี token · อัปโหลด PNG ผ่าน `:8080/notes` แล้วเปิด `preview_url` ผ่าน `:8080` · `POST :8080/auth/login` (JSON) → `POST :8080/auth/logout` → `GET :8080/auth/me` ด้วย token เดิม | หน้าแรกมี `id="searchForm"`, หน้า login มี `id="loginForm"`, หน้าอัปโหลดมี `id="uploadForm"`, หน้ารายละเอียดมี `id="noteDetail"`, หน้าโปรไฟล์มี `id="profileStats"` · ไฟล์ JS ได้ `200` · ไฟล์เทสต์ได้ `404` (ไม่ถูก copy เข้า image) · query string ไปถึง service ครบ (`count = 1`, ค่าผิดได้ `400`) · `me` ไม่มี token `401` มี token ได้ `CI Uploader` (header `Authorization` ผ่าน nginx) · upload ได้ `uploader_name = CI Uploader` และ preview ได้ `200` + `image/png` · login ได้ token, logout ได้ `204` แล้ว token เดิมได้ `401` (US-05/US-06 ผ่าน gateway แบบที่หน้าเว็บเรียก) |
+| DK-08 | web gateway เสิร์ฟหน้าเว็บและส่งต่อ API จาก origin เดียว (ADR-006, US-11/US-31) | `curl :8080/`, `/login.html`, `/upload.html`, `/note.html?id=1`, `/profile.html` (Issue #85), `/admin.html` (Issues #17, #18), ไฟล์ JS ทั้ง 13 ไฟล์และไฟล์เทสต์ทั้ง 6 ไฟล์ · `GET :8080/notes?subject_code=CS201&year_level=2` และ `?year_level=abc` · `GET :8080/reports` แบบไม่มี token และด้วยสมาชิกทั่วไป, `DELETE :8080/reports/1` ด้วยสมาชิกทั่วไป · `GET :8080/auth/me` แบบไม่มี token และมี token · อัปโหลด PNG ผ่าน `:8080/notes` แล้วเปิด `preview_url` ผ่าน `:8080` · `POST :8080/auth/login` (JSON) → `POST :8080/auth/logout` → `GET :8080/auth/me` ด้วย token เดิม | หน้าแรกมี `id="searchForm"`, หน้า login มี `id="loginForm"`, หน้าอัปโหลดมี `id="uploadForm"`, หน้ารายละเอียดมี `id="noteDetail"`, หน้าโปรไฟล์มี `id="profileStats"`, หน้าผู้ดูแลมี `id="reportsList"` · ไฟล์ JS ได้ `200` · ไฟล์เทสต์ได้ `404` (ไม่ถูก copy เข้า image) · query string ไปถึง service ครบ (`count = 1`, ค่าผิดได้ `400`) · `/reports` ไม่มี token `401`, สมาชิกทั่วไปได้ `forbidden` และลบไม่ได้ `403` (nginx ส่ง `/reports` ไปถึง notes-service) · `me` ไม่มี token `401` มี token ได้ `CI Uploader` (header `Authorization` ผ่าน nginx) · upload ได้ `uploader_name = CI Uploader` และ preview ได้ `200` + `image/png` · login ได้ token, logout ได้ `204` แล้ว token เดิมได้ `401` (US-05/US-06 ผ่าน gateway แบบที่หน้าเว็บเรียก) |
 | DK-09 | เจ้าของแก้/ลบด้วย login, `/notes/mine` และ `sort=rating` บน Postgres จริง (Issues #82, #83) | สมัคร + login บัญชี `CI Rater` · `CI Uploader` อัปโหลด 2 โน้ต (`CS501`) · Rater เปิดดูแล้วให้คะแนนใบแรก · `GET /notes?subject_code=CS501&sort=rating` · `GET /notes/mine` · Rater แล้วเจ้าของ `PATCH`/`DELETE` | ใบที่มีคะแนนมาก่อนใบใหม่กว่าที่ไม่มีคะแนน (Postgres วาง NULL ไว้หน้าสุดเมื่อ DESC ต่างจาก SQLite) · `/notes/mine` มีทั้งสองใบ, `rating_count = 1`, ไม่ login ได้ `401` · Rater ได้ `403` ทั้งคู่ · เจ้าของ `PATCH` ได้ค่าใหม่และ `DELETE` ได้ `204` |
 
 ### 2.7 Auth Service — ตรวจข้อมูลสมัครและ hash รหัสผ่าน (`pytest`, US-05 #5)
@@ -555,6 +555,35 @@ mutation 11 แบบถูกจับครบ: `changedFields` ส่งท�
 ก่อนเห็นกล่องรหัสแก้ไข และปุ่มกลับเป็น "อัปโหลด ✓" (ในเครื่องส่งเร็วจนไม่เห็นเปอร์เซ็นต์ระหว่างทาง ค่ากลางตรวจด้วย WEB-67)
 · `/?sort=rating` เลือก "คะแนนสูงสุด" ในตัวกรองและโน้ตที่มีคะแนนขึ้นก่อน · console ไม่มี error · ในหน้าต่างที่ browser มองว่าซ่อนอยู่
 event `close` ของ `<dialog>` มาช้า จึงคืน focus ทันทีตอนปิดแทนการรอ event
+
+### 2.17 Web app — `admin-utils.js` หน้าตรวจรายงานของผู้ดูแล (`node --test`, Issues #17, #18)
+
+pure function ของหน้า `admin.html` ใน [`web/`](../../web/) แยกจากส่วนที่แตะ DOM (`admin.js`) · เลข WEB ต่อจาก 2.16
+
+| # | Test case | Input | ผลที่คาดหวัง |
+| --- | --- | --- | --- |
+| WEB-70 | `groupReports` รวมรายงานตามโน้ต เรียงตามรายงานล่าสุดของแต่ละโน้ต | 3 รายงานจาก `GET /reports` (โน้ต 7, 9, 7 ตามลำดับเวลาใหม่ไปเก่า) | 2 กลุ่ม `[7, 9]` · โน้ต 7 มีรายงาน `[5, 2]` · object `note` อยู่ที่กลุ่ม ไม่ซ้ำในแต่ละรายงาน |
+| WEB-71 | `groupReports` กับรายการว่างหรือเสีย | `[]`, `undefined`, รายการที่ไม่มี `note` | `[]` ทุกกรณี |
+| WEB-72 | `withoutReport` เอารายงานออกทีละรายการ และเอาโน้ตออกเมื่อไม่เหลือรายงาน | ยกเลิกรายงาน 5 แล้ว `'2'` | หลังครั้งแรกยังมี 2 กลุ่ม · หลังครั้งที่สองเหลือโน้ต 9 · รายการเดิมไม่ถูกแก้ |
+| WEB-73 | `withoutNote` เอาโน้ตออกพร้อมรายงานทั้งหมด | ลบโน้ต `'7'` | เหลือโน้ต 9 · `reportCount` = 1 |
+| WEB-74 | `summaryLine` นับรายงานและโน้ต | 3 รายงาน 2 โน้ต · ว่าง | `รายงานที่รอตรวจ 3 รายการ จาก 2 โน้ต` · `ไม่มีรายงานที่รอตรวจ` |
+| WEB-75 | `renderReportGroup` แสดงโน้ต เหตุผลทุกข้อ และปุ่มทั้งสองแบบ | กลุ่มของโน้ต 7 | ลิงก์ `/note.html?id=7`, วิชา + ผู้อัปโหลด, `ถูกรายงาน 2 ครั้ง`, เหตุผลทั้งสอง, `data-dismiss-report` 5 และ 2, `data-remove-note="7"`, เวลา `6 ต.ค. 2569 10:00` |
+| WEB-76 | `renderReportGroup` escape ค่าที่ผู้ใช้พิมพ์ | ชื่อโน้ต `<img …>`, เหตุผล `<script>`, ชื่อผู้รายงาน `<b>x</b>`, ผู้อัปโหลด `"q"` | ไม่มีแท็ก `<img`/`<script`/`<b>` ได้ `&lt;…` และ `&quot;` |
+| WEB-77 | `adminErrorMessage` ครอบ error ของ API ผู้ดูแล | `403 forbidden`, `401`, `503`, `404`, status `0`, `500` | ข้อความเฉพาะของแต่ละกรณี (`403` = หน้านี้สำหรับผู้ดูแลระบบเท่านั้น) |
+| WEB-78 | `safeNextPath` ยอมให้กลับมาหน้าผู้ดูแลหลัง login (`session-utils.test.js`) | `/admin.html` | ได้ค่าเดิม |
+
+mutation 10 แบบถูกจับครบ: ไม่เช็กกลุ่มเดิม (สร้างกลุ่มทับ), ไม่ข้ามรายงานที่ไม่มี `note`, ไม่เอากลุ่มว่างออก, เทียบ id โดยไม่แปลงเป็นข้อความ,
+ไม่ escape เหตุผล/ชื่อผู้รายงาน, ตัดข้อความกรณีว่าง, ตัดข้อความ `forbidden`, ใส่ id ของรายงานแทน id ของโน้ตในปุ่มลบ และเอา `/admin.html` ออกจาก `NEXT_PAGES`
+
+**ตรวจบน browser จริง (2026-10-06, อัตโนมัติ):** รอบนี้ extension ที่ใช้คุม Chrome ต่อไม่ได้ จึงใช้ Microsoft Edge แบบ headless (profile ชั่วคราวแยกจากของผู้ใช้)
+คุมผ่าน Chrome DevTools Protocol ด้วยสคริปต์ Node ที่ไม่ได้ commit · service จริงบน SQLite (auth, notes ตั้ง `ADMIN_USER_IDS=1`) + ตัวแทน nginx ที่เพิ่ม `/reports`
+ผล: เปิด `/admin.html` ตอนไม่ login ถูกพาไป `/login.html?next=%2Fadmin.html` · สมาชิกทั่วไปเห็น "หน้านี้สำหรับผู้ดูแลระบบเท่านั้น…" ไม่มีรายการ ปุ่มโหลดใหม่ซ่อน
+และหน้าโปรไฟล์ไม่มีลิงก์ผู้ดูแล · ผู้ดูแลเห็นลิงก์ในโปรไฟล์ กดแล้วได้ "รายงานที่รอตรวจ 3 รายการ จาก 2 โน้ต" รวมเป็น 2 การ์ด ชื่อโน้ต/ชื่อผู้รายงาน/เหตุผลที่มี
+`<script>`, `<b>`, `<img onerror>` แสดงเป็นข้อความ (ไม่มี element ที่ถูกฉีดใน DOM) · ยกเลิกรายงานแล้วได้ "ยกเลิกรายงานแล้ว โน้ตยังอยู่" focus ไปที่ข้อความ
+API เหลือ 2 รายงานและโน้ตยังเปิดได้ (`200`) · กดลบโน้ตแล้วยกเลิก focus กลับปุ่มเดิม · ยืนยันลบแล้วการ์ดหาย `GET /notes/2` ได้ `404`
+· เพิกถอน token แล้วกดยกเลิกรายงาน ถูกพาไปหน้าเข้าสู่ระบบและ session ถูกล้าง · ยกเลิกรายงานสุดท้ายแล้วได้ "ไม่มีรายงานที่รอตรวจ"
+· หน้าผู้ดูแลและหน้าโปรไฟล์กว้าง 375 px ไม่มี scroll แนวนอน · console ไม่มี JavaScript error มีแค่บรรทัด network ของ `403`/`401`/`404` ที่ตั้งใจให้เกิด
+(รวม `403` ของการเช็กลิงก์ผู้ดูแลในหน้าโปรไฟล์ของสมาชิกทั่วไป)
 
 ## 3. Test Report
 

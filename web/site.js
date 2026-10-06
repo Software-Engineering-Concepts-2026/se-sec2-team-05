@@ -78,7 +78,7 @@
     await fetchJson('/auth/logout', { method: 'POST', headers: authHeaders(session) });
     clearSession(storage());
     // pages that only work logged in go back to the search page
-    if (['/upload.html', '/profile.html'].includes(window.location.pathname)) {
+    if (['/upload.html', '/profile.html', '/admin.html'].includes(window.location.pathname)) {
       window.location.assign('/');
     } else {
       renderNav();

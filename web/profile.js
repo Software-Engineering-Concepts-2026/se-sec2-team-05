@@ -26,6 +26,7 @@
   const byId = (id) => document.getElementById(id);
   const profileName = byId('profileName');
   const profileEmail = byId('profileEmail');
+  const adminLink = byId('adminLink');
   const profileError = byId('profileError');
   const profileStatus = byId('profileStatus');
   const profileStats = byId('profileStats');
@@ -333,6 +334,15 @@
     profileStatus.focus();
   });
 
+  // ---- Link to the admin page (Issues #17, #18) ----
+
+  // Who is an admin is set on the server (ADMIN_USER_IDS of notes-service) and no API says it,
+  // so ask GET /reports once: only admins get 200. Everyone else gets 403 and sees no link.
+  async function showAdminLink() {
+    const result = await fetchJson('/reports', { headers: authHeaders(session) });
+    adminLink.hidden = !result.ok;
+  }
+
   myNotesMore.addEventListener('click', () => loadMyNotes({ append: true }));
   favoritesMore.addEventListener('click', () => loadFavorites({ append: true }));
 
@@ -341,4 +351,5 @@
   document.title = `${session.user.display_name} - NoteShare`;
   loadMyNotes();
   loadFavorites();
+  showAdminLink();
 })();
