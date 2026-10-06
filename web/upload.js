@@ -15,6 +15,7 @@
   const doneUploader = document.getElementById('doneUploader');
   const doneSearchLink = document.getElementById('doneSearchLink');
   const tokenInput = document.getElementById('editToken');
+  const doneEditLink = document.getElementById('doneEditLink');
   const copyButton = document.getElementById('copyToken');
   const copyStatus = document.getElementById('copyStatus');
   const submitButton = form.querySelector('button[type="submit"]');
@@ -167,6 +168,7 @@
     doneUploader.textContent = note.uploader_name;
     doneSearchLink.href = searchUrlFor(note);
     tokenInput.value = note.edit_token || '';
+    doneEditLink.href = `/edit.html?id=${encodeURIComponent(note.id)}`;
     copyStatus.textContent = '';
     done.hidden = false;
     doneTitle.focus();
