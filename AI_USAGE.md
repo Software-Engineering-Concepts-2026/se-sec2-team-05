@@ -43,6 +43,7 @@
 | 2026-10-05, ตรวจสถานะ/ตอบคำถามรีวิว #86, merge #86 #87 และแก้ conflict #87 #81 | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | ตรวจ PR ที่เปิดอยู่ (#81 #86 #87 ไม่มี commit ใหม่ ชนกันแค่ `AI_USAGE.md`) → เทียบคำถาม 4 ข้อที่กฤตเมธทิ้งไว้ตอน approve #86 กับโค้ดและเทสต์ แล้วโพสต์คำตอบเป็น comment → merge #86 (`main` = `5e1f4da`, #82 #83 ปิดโดย PR) → รวม `main` เข้า #87 แก้ `AI_USAGE.md` เก็บแถวของทั้งสอง PR (`90dc532`) → merge #87 (`1d492f7`, #84 ปิดโดย PR) → รวม `main` เข้า #81 แก้ `AI_USAGE.md` 3 จุด (`54ebb7c`) | อติชาติเลือกทุกขั้นจากเมนู (ข้อความ comment เห็นเต็มในเมนูก่อนโพสต์) · ก่อนโพสต์/push/merge ตรวจว่า head SHA ยังตรงกับที่ตรวจไว้ทุกครั้ง · ก่อน push การแก้ conflict ทั้งสองรอบรัน pytest ได้ 376 passed + 1 xfailed, ruff ผ่าน, `node --test` ใน `web/` 41/41 และตรวจว่าทุกบรรทัดที่แต่ละ PR เพิ่มยังอยู่ครบ · CI ผ่านครบ 4 job ทั้ง #87, #81 และ `main` หลัง merge ทั้งสองครั้ง · tree ของ merge commit #87 ตรงกับ `90dc532` ที่รันเทสต์ไว้ · push แล้ว approve เดิมยังอยู่ เพราะ repo ไม่ได้ตั้งให้ approve หายเมื่อมี commit ใหม่ |
 | 2026-10-05, branch `feature/issue-85-note-detail` | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | Issue #85 ส่วนแรก: หน้ารายละเอียดโน้ต `web/note.html` + `note.js` (ดาวน์โหลด, รายการโปรด, รายงาน, ให้คะแนน, ขอบคุณ, ความคิดเห็น) และ pure function `note-utils.js` พร้อมเทสต์ 14 ตัวใน `note-utils.test.js` · ลิงก์จากชื่อโน้ตบนการ์ด (`search-utils.js`) และปุ่ม "เปิดหน้าโน้ต" ใน preview (`index.html`, `app.js`) · `/note.html` ใน `NEXT_PAGES` ของ `session-utils.js` · สไตล์ของหน้าใหม่และกฎ `[hidden]` ใน `style.css` · `web/Dockerfile`, step DK-08 ใน `ci.yml`, `web/README.md` และหัวข้อ 2.15 + แถว DK-08 ใน test plan | อติชาติเลือกจากเมนู: แบ่ง #85 เป็น 2 PR (หน้านี้ก่อน หน้าโปรไฟล์ + แถบอัปโหลดทีหลัง), ไม่แก้ backend ให้ความคิดเห็นมีชื่อผู้เขียน, หน้าโปรไฟล์แก้โน้ตในฟอร์ม `<dialog>` (ทำใน PR ถัดไป) · `node --test` ใน `web/` 55/55 (เทสต์ส่วนเวลาตั้ง TZ เองจึงผลเหมือนกันทุกเครื่อง) · mutation 11 แบบถูกจับครบ · ตรวจบน Chrome กับ service จริงบน SQLite + ตัวแทน nginx (รายละเอียดท้ายหัวข้อ 2.15 ของ test plan) และเจอบั๊กเวลาความคิดเห็นช้าไป 7 ชั่วโมงจากรอบนั้น · ไม่แตะโค้ดของ service ใด |
 | 2026-10-05, branch `feature/issue-85-profile` | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | Issue #85 ส่วนที่สอง: หน้าโปรไฟล์ `web/profile.html` + `profile.js` (การ์ดสรุป, โน้ตของฉันพร้อมแก้ใน `<dialog>`/ลบแบบถามยืนยัน, รายการโปรด) และ pure function `profile-utils.js` พร้อมเทสต์ 9 ตัว · แถบความคืบหน้าในหน้าอัปโหลด (`XMLHttpRequest`, `uploadProgress`) · แยก `validateMetadata` ออกจาก `validateUpload` ให้ฟอร์มแก้ไขใช้ร่วม · ตัวเลือก "คะแนนสูงสุด" (`sort=rating`, Issue #83) ในหน้าค้นหา · ลิงก์ "โปรไฟล์" ในแถบเมนู, `/profile.html` ใน `NEXT_PAGES` · `style.css`, `Dockerfile`, step DK-08, `web/README.md` และหัวข้อ 2.16 + แถว DK-08 ใน test plan | อติชาติเลือกจากเมนู: ทำ PR B ต่อเลยโดยแตก branch จาก `main` (ไม่ซ้อนบน #88) และรวมตัวเลือกเรียงตามคะแนนไว้ด้วย · `node --test` ใน `web/` 53/53, ruff ผ่าน · mutation 11 แบบถูกจับครบ · ตรวจบน Chrome กับ service จริงบน SQLite + ตัวแทน nginx (รายละเอียดท้ายหัวข้อ 2.16 ของ test plan) · ไม่แตะโค้ดของ service ใด · ชนกับ #88 ที่ `AI_USAGE.md`, `README` ของ web, test plan และ `NEXT_PAGES` ต้องแก้ตอน merge ทีหลัง |
+| 2026-10-06, branch `feature/web-admin-reports` | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | หน้าตรวจรายงานของผู้ดูแล (Issues #17, #18 ซึ่งเดิมมีแค่ API): `web/admin.html` + `admin.js` (รายงานรวมตามโน้ต, ยกเลิกรายงาน, ลบโน้ตพร้อมกล่องยืนยัน) และ pure function `admin-utils.js` พร้อมเทสต์ 8 ตัวใน `admin-utils.test.js` · ลิงก์ในหน้าโปรไฟล์ที่ขึ้นเฉพาะเมื่อ `GET /reports` ได้ `200` (`profile.html`, `profile.js`) · `/admin.html` ใน `NEXT_PAGES` ของ `session-utils.js` + assert ใน `session-utils.test.js` และในรายการหน้าที่ต้อง login ของ `site.js` · `location /reports` ใน `web/nginx.conf` · สไตล์ `.report-list` ใน `style.css` · `web/Dockerfile`, step DK-08 ใน `ci.yml`, `web/README.md` และหัวข้อ 2.17 + แถว DK-08 ใน test plan | อติชาติเลือกจากเมนู: ทำครบ 3 หน้าที่ยังไม่มี UI แยก 1 PR ต่อหน้า, ทางเข้าหน้าผู้ดูแลเป็นลิงก์ในโปรไฟล์ที่ขึ้นเฉพาะผู้ดูแล และให้ commit ในเครื่องแล้วหยุดรอตรวจ · `node --test` ใน `web/` 75/75 · mutation 10 แบบถูกจับครบ · ตรวจบน Microsoft Edge แบบ headless กับ service จริงบน SQLite + ตัวแทน nginx (รายละเอียดท้ายหัวข้อ 2.17 ของ test plan) · บรรทัดใหม่ใน DK-08 รันผ่านกับตัวแทน nginx ส่วน `nginx.conf` จริงรอผลจาก CI · ไม่แตะโค้ดของ service ใด |
 
 > **TODO:** วชิรวิทย์และกฤตเมธ — ช่วยกรอกแถวของตัวเองให้ละเอียดขึ้น (prompt ที่ใช้จริง, ช่วง session, และรายละเอียดของสิ่งที่ตรวจ/แก้) เพราะมีแค่เจ้าของงานที่รู้ข้อมูลนี้แน่ชัด — แถวของวชิรวิทย์ที่ยังค้างคือ "สร้าง prototype หน้าค้นหาโน้ต" (2026-07-10); แถว preview-note (2026-09-26 ~ 2026-09-28) ด้านบนเติมรายละเอียดแล้ว
 
@@ -698,6 +699,44 @@ Wireframe and requirements document.zip แล้วตัวชิ้นงา�
 - event `close` ของ `<dialog>` อาจมาช้าเมื่อ browser มองว่าหน้าซ่อนอยู่ การคืน focus ตอนปิดเองจึงไม่พึ่ง event นั้น
 - เปิด PR สองตัวที่แตก branch จาก `main` พร้อมกันทำให้ชนกันในไฟล์ที่ทั้งคู่ต่อท้าย (AI_USAGE, README, test plan) · ใส่ CSS ที่ใช้ร่วมให้เหมือนกันทุกตัวอักษรในตำแหน่งเดียวกัน git จึงรวมส่วนนั้นได้เอง
 
+### งาน Sprint 2 — หน้าเว็บส่วนที่ยังไม่มี UI (ไม่ผูกกับ Lab)
+
+หลังโค้ดของทุก Issue ครบแล้ว ยังมี API 3 กลุ่มที่ไม่มีหน้าเว็บ: การตรวจรายงานของผู้ดูแล (#17, #18), สถิติจาก stats-service (#16, US-28 AC3) และการแก้/ลบด้วยรหัสแก้ไข (US-19, US-20)
+
+#### Prompt 25 — ตรวจสถานะหลัง PR #90 และทำหน้าเว็บที่ยังขาด 3 หน้า (อติชาติ, Claude Code, 2026-10-06)
+
+- **เครื่องมือที่ใช้:** Claude Code
+- **ที่มาของ prompt:** แบบเดียวกับ Prompt 22–24 คือพิมพ์คำสั้น ๆ แล้วเลือกขั้นถัดไปจากเมนู ข้อความที่พิมพ์เอง (คำต่อคำ ตามลำดับ):
+
+```
+เช็คงานล่าสุดให้หน่อย
+```
+
+```
+approve 90 เป็นงานสุดท้ายแล้วมั้ย
+```
+
+```
+หมายถึงเอาแค่ส่วนของชิ้นงานน่ะ
+```
+
+```
+จัดการต่อให้ทีได้มั้ย
+```
+
+- **การตัดสินใจที่เลือกจากเมนู:** ทำครบทั้ง 3 หน้า (ผู้ดูแล, สถิติ, แก้/ลบด้วยรหัสแก้ไข) · 1 issue + 1 PR ต่อหน้า · commit ในเครื่องแล้วหยุด (ยังไม่เปิด issue, ไม่ push, ไม่เปิด PR)
+  · หน้าสถิติใช้ stats-service ผ่าน gateway · ทางเข้าหน้าผู้ดูแลเป็นลิงก์ในโปรไฟล์ที่ขึ้นเฉพาะผู้ดูแล · แก้/ลบด้วยรหัสเป็นหน้าใหม่ `edit.html?id=`
+- **ผลลัพธ์:** ดูแถว `2026-10-06, branch feature/web-admin-reports` ในตาราง Log (หน้าสถิติและหน้าแก้ด้วยรหัสอยู่ใน branch ของตัวเอง แต่ละ branch มีแถว Log ของตัวเอง)
+- **ตรวจสอบแล้วว่าเข้าใจทุกบรรทัดที่ส่ง:** [ ] ← ทีมติ๊กเองหลังอ่านครบ
+
+เทียบกับ Five S's: "จัดการต่อให้ทีได้มั้ย" ไม่ได้บอกว่าต้องการอะไร **Specific** มาจากเมนูสองรอบ (ขอบเขต/การแบ่ง PR/จุดหยุด แล้วจึงดีไซน์ของแต่ละหน้า)
+· **Scope** ล็อกไว้ว่าเป็นหน้าเว็บที่เรียก API ที่มีอยู่ ไม่แตะโค้ดของ service
+
+**บทเรียนจริงจากรอบนี้:**
+- หน้าเว็บรู้ไม่ได้ว่าใครเป็นผู้ดูแล เพราะ role อยู่ใน env ของ notes-service (ADR-007) วิธีที่ไม่ต้องแก้ backend คือถาม `GET /reports` ครั้งเดียวแล้วดูว่าได้ `200` ไหม แลกกับ `403` หนึ่งบรรทัดใน DevTools ของสมาชิกทั่วไป
+- path ที่ไม่ได้ขึ้นต้นด้วย `/notes` (เช่น `/reports`) ต้องเพิ่ม `location` ใน `nginx.conf` เอง ไม่อย่างนั้น nginx จะหาเป็นไฟล์ static แล้วตอบ `404`
+- extension ของ browser ต่อไม่ได้ก็ยังตรวจบน browser จริงได้ด้วย Edge แบบ headless ผ่าน DevTools Protocol โดยใช้ profile ชั่วคราว ไม่แตะ profile ของผู้ใช้
+
 ### รายการที่ยังไม่ระบุ Lab
 
 รายการต่อไปนี้ไม่ได้ระบุ Lab ไว้ในข้อมูลเดิม จึงแยกมาไว้ท้ายหัวข้อนี้
@@ -842,5 +881,6 @@ user story ระดับ Must ของ Sprint 1 ที่ปิดไปแ�
 | ข้อความ comment ตอบคำถามรีวิวที่โพสต์ใน PR #86 ผ่าน `gh`, การแก้ conflict ของ PR #87 (`90dc532`) และ PR #81 (`54ebb7c`) พร้อมข้อความ merge commit | Claude Code (2026-10-05) | AI ร่างข้อความและทำการแก้ conflict ทั้งหมด อติชาติอ่านข้อความ comment ฉบับเต็มในเมนูก่อนเลือก และเลือกให้ push/merge ทีละขั้น ไม่ได้แก้ถ้อยคำ · ผลการแก้ conflict ตรวจด้วยเทสต์และ CI (ดูแถว Log `2026-10-05, ตรวจสถานะ/ตอบคำถามรีวิว #86 …`) |
 | `web/note.html`, `note.js`, `note-utils.js`, `note-utils.test.js` ทั้งไฟล์, ส่วนที่แก้ใน `web/index.html`/`app.js`/`search-utils.js`/`search-utils.test.js`/`session-utils.js`/`session-utils.test.js`/`style.css`/`Dockerfile`/`README.md`, step DK-08 ใน `.github/workflows/ci.yml`, หัวข้อ 2.15 และแถว DK-08 ใน `docs/testing/readme.md` (Issue #85, branch `feature/issue-85-note-detail`) | Claude Code (2026-10-05) | generate ทั้งหมดโดยยึด layout หน้า 1d จาก mockup ของอติชาติ ไม่มีคนแก้บรรทัดใด · ทางเลือก (แบ่ง PR, ไม่แก้ backend) อติชาติเป็นคนเลือก · ตรวจด้วยเทสต์, mutation และบน Chrome (ดูแถว Log `2026-10-05, branch feature/issue-85-note-detail`) · ยังไม่ผ่านการรีวิวโค้ดจากเพื่อนในทีม |
 | `web/profile.html`, `profile.js`, `profile-utils.js`, `profile-utils.test.js` ทั้งไฟล์, ส่วนที่แก้ใน `web/upload.html`/`upload.js`/`upload-utils.js`/`upload-utils.test.js`/`index.html`/`search-utils.js`/`search-utils.test.js`/`session-utils.js`/`session-utils.test.js`/`site.js`/`style.css`/`Dockerfile`/`README.md`, step DK-08 ใน `.github/workflows/ci.yml`, หัวข้อ 2.16 และแถว DK-08 ใน `docs/testing/readme.md` (Issue #85 + #83, branch `feature/issue-85-profile`) | Claude Code (2026-10-05) | generate ทั้งหมดโดยยึด layout หน้า 1e จาก mockup ของอติชาติ ไม่มีคนแก้บรรทัดใด · ทางเลือก (แก้ใน `<dialog>`, ฐาน branch, รวมตัวเลือกเรียงตามคะแนน) อติชาติเป็นคนเลือก · ตรวจด้วยเทสต์, mutation และบน Chrome (ดูแถว Log `2026-10-05, branch feature/issue-85-profile`) · ยังไม่ผ่านการรีวิวโค้ดจากเพื่อนในทีม |
+| `web/admin.html`, `admin.js`, `admin-utils.js`, `admin-utils.test.js` ทั้งไฟล์, ส่วนที่แก้ใน `web/profile.html`/`profile.js`/`session-utils.js`/`session-utils.test.js`/`site.js`/`style.css`/`nginx.conf`/`Dockerfile`/`README.md`, step DK-08 ใน `.github/workflows/ci.yml`, หัวข้อ 2.17 และแถว DK-08 ใน `docs/testing/readme.md` (Issues #17, #18, branch `feature/web-admin-reports`) | Claude Code (2026-10-06) | generate ทั้งหมดโดยใช้สไตล์เดิมของหน้าโปรไฟล์ ไม่มีคนแก้บรรทัดใด · ทางเลือก (แยก PR, ทางเข้าหน้าผู้ดูแล) อติชาติเป็นคนเลือก · ตรวจด้วยเทสต์, mutation และบน browser จริง (ดูแถว Log `2026-10-06, branch feature/web-admin-reports`) · ยังไม่ผ่านการรีวิวโค้ดจากเพื่อนในทีม |
 
 ส่วนที่เป็นงานที่คนแก้เองบางส่วน ไม่ใช่รับจาก AI ตรง ๆ: ฟังก์ชัน `esc()` กัน XSS และการ clamp ค่าใน `stars()` ของหน้าค้นหา ก่อน Lab 7 (เข้ามาในรอบที่ PR #37 ถูก CHANGES_REQUESTED โดยทีมรีวิวพบช่องโหว่ XSS แล้ววชิรวิทย์ใช้ Gemini ช่วยหาจุดและเสนอวิธีแก้ตาม Prompt 5 ก่อนนำไปแก้ใน commit `0ea55bd` จึงเป็นงานที่ AI ช่วย ไม่ใช่เขียนเองล้วน) แต่ใน Lab 7 ฟังก์ชันสองตัวนี้ถูกย้าย/เขียนใหม่เป็น `escapeHtml`/`formatStars` ใน `note-utils.js` โดย Claude Code แล้ว (แถวด้านบน) จึงไม่ใช่ "ไม่แก้จาก AI" อีกต่อไปสำหรับตำแหน่งใหม่นี้ ส่วนที่ยังเป็นของคนเขียนเองเหมือนเดิม: การตัดสินใจเรื่อง Tracer vs Prototype และเนื้อหา reflection รายบุคคลทั้งสามไฟล์
