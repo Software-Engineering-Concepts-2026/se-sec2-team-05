@@ -114,6 +114,8 @@ test('safeNextPath allows only this site\'s own pages and keeps their query stri
   assert.equal(safeNextPath('/index.html'), '/index.html');
   assert.equal(safeNextPath('/note.html?id=7'), '/note.html?id=7');
   assert.equal(safeNextPath('/profile.html'), '/profile.html');
+  assert.equal(safeNextPath('/admin.html'), '/admin.html');
+  assert.equal(safeNextPath('/stats.html?id=7'), '/stats.html?id=7');
 });
 
 test('safeNextPath sends anything else to the search page (no open redirect)', () => {

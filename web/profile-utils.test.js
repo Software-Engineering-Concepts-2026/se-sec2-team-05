@@ -55,6 +55,7 @@ test('summaryCards handles a user with no notes or no ratings', () => {
 test('renderMyNoteRow links to the note page and offers edit and delete', () => {
   const html = renderMyNoteRow(myNote);
   assert.match(html, /<a class="note-link" href="\/note\.html\?id=7">Linked List สรุป<\/a>/);
+  assert.match(html, /<a class="secondary-btn" href="\/stats\.html\?id=7">สถิติ<\/a>/);
   assert.match(html, /data-edit-note="7"/);
   assert.match(html, /data-delete-note="7"/);
   assert.match(html, /CS201 · Data Structures · Linked List/);

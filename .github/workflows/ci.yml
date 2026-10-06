@@ -321,10 +321,40 @@ jobs:
           curl -fsS -o /dev/null "$gw/profile.js"
           curl -fsS -o /dev/null "$gw/profile-utils.js"
           test "$(curl -s -o /dev/null -w '%{http_code}' "$gw/profile-utils.test.js")" = "404"
+          # หน้าตรวจรายงานของผู้ดูแล (Issues #17, #18) และ /reports ต้องผ่าน gateway ไปถึง notes-service
+          # compose ไม่ได้ตั้ง ADMIN_USER_IDS จึงเช็คได้แค่ว่าไม่ login ได้ 401 และสมาชิกทั่วไปได้ 403 แบบ JSON
+          curl -fsS "$gw/admin.html" -o /tmp/admin.html
+          grep -q 'id="reportsList"' /tmp/admin.html
+          curl -fsS -o /dev/null "$gw/admin.js"
+          curl -fsS -o /dev/null "$gw/admin-utils.js"
+          test "$(curl -s -o /dev/null -w '%{http_code}' "$gw/admin-utils.test.js")" = "404"
+          test "$(curl -s -o /dev/null -w '%{http_code}' "$gw/reports")" = "401"
+          test "$(curl -s "$gw/reports" -H "Authorization: Bearer $UPLOAD_TOKEN" | jq -r '.error')" = "forbidden"
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "$gw/reports/1" -H "Authorization: Bearer $UPLOAD_TOKEN")" = "403"
+          # หน้าสถิติ (Issue #16, US-28 AC3) และ GET /stats ที่ gateway ต้องส่งไป stats-service
+          curl -fsS "$gw/stats.html" -o /tmp/stats.html
+          grep -q 'id="overviewCards"' /tmp/stats.html
+          curl -fsS -o /dev/null "$gw/stats.js"
+          curl -fsS -o /dev/null "$gw/stats-utils.js"
+          test "$(curl -s -o /dev/null -w '%{http_code}' "$gw/stats-utils.test.js")" = "404"
+          test "$(curl -fsS "$gw/stats" | jq -r '.total_notes | type')" = "number"
+          # หน้าแก้/ลบด้วยรหัสแก้ไข (US-19, US-20)
+          curl -fsS "$gw/edit.html?id=1" -o /tmp/edit.html
+          grep -q 'id="tokenForm"' /tmp/edit.html
+          curl -fsS -o /dev/null "$gw/edit.js"
+          curl -fsS -o /dev/null "$gw/edit-utils.js"
+          test "$(curl -s -o /dev/null -w '%{http_code}' "$gw/edit-utils.test.js")" = "404"
 
           # query string ต้องไปถึง notes-service ครบ (โน้ต CS201 สร้างไว้ใน step end-to-end ด้านบน)
           test "$(curl -fsS "$gw/notes?subject_code=CS201&year_level=2" | jq '.count')" -eq 1
           test "$(curl -s -o /dev/null -w '%{http_code}' "$gw/notes?year_level=abc")" = "400"
+
+          # /notes/<id>/stats ต้องไปถึง stats-service (ตอบ 401 ถ้าไม่ login, เจ้าของเห็นยอดดาวน์โหลดจาก step end-to-end)
+          # ส่วน /notes/<id> ธรรมดายังต้องไป notes-service เหมือนเดิม
+          cs201=$(curl -fsS "$gw/notes?subject_code=CS201" | jq -r '.items[0].id')
+          test "$(curl -s -o /dev/null -w '%{http_code}' "$gw/notes/$cs201/stats")" = "401"
+          test "$(curl -fsS "$gw/notes/$cs201/stats" -H "Authorization: Bearer $UPLOAD_TOKEN" | jq -r '.downloads')" -ge 1
+          test "$(curl -fsS "$gw/notes/$cs201" | jq -r '.subject_code')" = "CS201"
 
           # header Authorization ต้องผ่าน gateway ไปถึง auth-service
           test "$(curl -s -o /dev/null -w '%{http_code}' "$gw/auth/me")" = "401"
@@ -341,6 +371,15 @@ jobs:
           status=$(curl -s -D /tmp/gateway-headers.txt -o /dev/null -w '%{http_code}' "$gw$preview_url")
           test "$status" = "200"
           grep -qi '^content-type: image/png' /tmp/gateway-headers.txt
+
+          # หน้าแก้ด้วยรหัสตรวจรหัสด้วย PATCH ที่ไม่มีฟิลด์: header X-Note-Token ต้องผ่าน nginx ไปถึง notes-service
+          # รหัสถูกได้ 400 no_fields_to_update (ไม่มีอะไรถูกแก้) รหัสผิดได้ 403
+          gw_note=$(echo "$created" | jq -r '.id')
+          gw_token=$(echo "$created" | jq -r '.edit_token')
+          echo "::add-mask::$gw_token"
+          test "$(curl -s -X PATCH "$gw/notes/$gw_note" -H "X-Note-Token: $gw_token" | jq -r '.error')" = "no_fields_to_update"
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X PATCH "$gw/notes/$gw_note" -H 'X-Note-Token: wrong-token')" = "403"
+          test "$(curl -fsS "$gw/notes/$gw_note" | jq -r '.updated_at')" = "null"
 
           # login ผ่าน gateway แบบที่ login.html ทำ (JSON) แล้ว logout ต้องทำให้ token นั้นใช้ไม่ได้ทันที
           web_token=$(curl -fsS -X POST "$gw/auth/login" -H 'Content-Type: application/json' \
