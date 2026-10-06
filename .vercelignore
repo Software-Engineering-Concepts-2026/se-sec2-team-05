@@ -7,3 +7,10 @@ venv/
 .coverage
 node_modules/
 .env*
+
+# web/ บน Vercel เป็นไฟล์ static ล้วน ไฟล์พวกนี้ใช้กับ docker compose และ node --test เท่านั้น
+# (ถ้ามี web/Dockerfile ขึ้นไปด้วย Vercel จะมองว่า service web เป็น container)
+web/Dockerfile
+web/nginx.conf
+web/README.md
+web/*.test.js

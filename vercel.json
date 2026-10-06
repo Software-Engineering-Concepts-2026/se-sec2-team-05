@@ -2,9 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "services": {
     "web": {
-      "root": "web/",
-      "buildCommand": "mkdir -p dist && cp *.html *.css *.js dist/ && rm -f dist/*.test.js",
-      "outputDirectory": "dist"
+      "root": "web/"
     },
     "notes": {
       "root": "services/notes-service/",
