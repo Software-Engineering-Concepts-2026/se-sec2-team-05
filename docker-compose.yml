@@ -68,7 +68,7 @@ services:
       auth-service:
         condition: service_started
 
-  # หน้าเว็บ + gateway (ADR-006): เปิด http://localhost:8080 แล้ว browser จะเรียก /notes และ /auth
+  # หน้าเว็บ + gateway (ADR-006): เปิด http://localhost:8080 แล้ว browser จะเรียก /notes, /auth และ /stats
   # ผ่าน origin เดียวกันนี้ · port 5001/5002 ของ service ยังเปิดไว้ให้ curl และ smoke test เดิมใช้ต่อ
   web:
     build: ./web
@@ -78,6 +78,9 @@ services:
       notes-service:
         condition: service_started
       auth-service:
+        condition: service_started
+      # nginx resolve ชื่อ upstream ตอนสตาร์ต (ADR-006) ต้องมี stats-service ก่อน เพราะหน้าสถิติเรียกผ่าน gateway
+      stats-service:
         condition: service_started
 
 volumes:

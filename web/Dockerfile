@@ -11,4 +11,6 @@ COPY index.html login.html upload.html note.html style.css \
 COPY profile.html profile.js profile-utils.js /usr/share/nginx/html/
 # หน้าตรวจรายงานของผู้ดูแล (Issues #17, #18)
 COPY admin.html admin.js admin-utils.js /usr/share/nginx/html/
+# หน้าสถิติจาก stats-service (Issue #16, US-28 AC3)
+COPY stats.html stats.js stats-utils.js /usr/share/nginx/html/
 EXPOSE 8080
