@@ -63,12 +63,24 @@ class AuthSession(Base):
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+def sqlalchemy_url(url: str) -> str:
+    """ให้ URL แบบ `postgres://` / `postgresql://` (ที่ Neon บน Vercel ให้มา) ใช้ driver psycopg 3
+
+    ถ้าไม่ระบุ driver SQLAlchemy จะหา psycopg2 ซึ่งไม่ได้ติดตั้ง (ADR-009)
+    """
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg://" + url[len(prefix):]
+    return url
+
+
 def build_session_factory(database_url: str):
     """สร้าง engine + session factory และ create ตารางถ้ายังไม่มี
 
     ยังไม่มี migration tool เหมือน notes-service (ADR-003) — ตารางของ service นี้
     ชื่อไม่ชนกับ `notes` จึงอยู่ในฐานข้อมูล Postgres ก้อนเดียวกันได้
     """
-    engine = create_engine(database_url, future=True)
+    # pool_pre_ping: Neon ปิด connection ที่ว่างนาน ต้องเช็คก่อนหยิบจาก pool มาใช้
+    engine = create_engine(sqlalchemy_url(database_url), future=True, pool_pre_ping=True)
     Base.metadata.create_all(engine)
     return sessionmaker(bind=engine, expire_on_commit=False)
