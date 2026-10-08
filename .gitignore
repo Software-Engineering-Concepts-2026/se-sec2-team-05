@@ -25,3 +25,6 @@ Thumbs.db
 
 # Vercel CLI (vercel link) — project id ของเครื่องนี้
 .vercel/
+
+# Playwright trace ของเทสต์ E2E ที่ล้ม (pytest src/e2e --output e2e-results)
+e2e-results/
