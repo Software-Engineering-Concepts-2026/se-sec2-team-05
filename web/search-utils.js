@@ -160,10 +160,19 @@
     return `เกิดข้อผิดพลาดจากเซิร์ฟเวอร์ (HTTP ${status}) ลองใหม่อีกครั้ง`;
   }
 
-  // GET /notes returns `count` for the current page only, not a total. A full page
-  // means there may be more, so the page shows "load more" until a short page comes back.
-  function hasMore(pageCount, limit = PAGE_SIZE) {
+  // GET /notes returns `count` for the current page and `total` for every match. With a
+  // total the page knows exactly when everything is shown. Lists without a total (my notes,
+  // favorites) fall back to: a full page means there may be more, so "load more" stays until
+  // a short page comes back.
+  function hasMore(pageCount, { shown, total, limit = PAGE_SIZE } = {}) {
+    if (Number.isInteger(total) && Number.isInteger(shown)) return shown < total;
     return pageCount >= limit;
+  }
+
+  // "แสดง 20 จาก 57 รายการ" when there is more than one page, else just the number shown.
+  function resultsSummary(shown, total) {
+    if (Number.isInteger(total) && total > shown) return `แสดง ${shown} จาก ${total} รายการ`;
+    return `แสดง ${shown} รายการ`;
   }
 
   const SearchUtils = {
@@ -182,6 +191,7 @@
     renderNoteCard,
     errorMessage,
     hasMore,
+    resultsSummary,
   };
 
   if (typeof module !== 'undefined' && module.exports) {

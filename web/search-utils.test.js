@@ -12,6 +12,7 @@ const {
   renderNoteCard,
   errorMessage,
   hasMore,
+  resultsSummary,
   PAGE_SIZE,
 } = require('./search-utils.js');
 
@@ -167,4 +168,22 @@ test('hasMore is true only for a full page', () => {
   assert.equal(hasMore(PAGE_SIZE), true);
   assert.equal(hasMore(PAGE_SIZE - 1), false);
   assert.equal(hasMore(0), false);
+});
+
+test('hasMore uses the total from GET /notes when there is one', () => {
+  // A full last page: without a total this would show "load more" for an empty next page.
+  assert.equal(hasMore(PAGE_SIZE, { shown: 40, total: 40 }), false);
+  assert.equal(hasMore(PAGE_SIZE, { shown: 40, total: 41 }), true);
+  assert.equal(hasMore(3, { shown: 3, total: 3 }), false);
+  assert.equal(hasMore(0, { shown: 0, total: 0 }), false);
+  // No total (an older API, or a list that has none): back to the full-page rule.
+  assert.equal(hasMore(PAGE_SIZE, { shown: 20 }), true);
+  assert.equal(hasMore(PAGE_SIZE, { shown: 20, total: null }), true);
+});
+
+test('resultsSummary shows the total only when not everything is shown', () => {
+  assert.equal(resultsSummary(20, 57), 'แสดง 20 จาก 57 รายการ');
+  assert.equal(resultsSummary(57, 57), 'แสดง 57 รายการ');
+  assert.equal(resultsSummary(0, 0), 'แสดง 0 รายการ');
+  assert.equal(resultsSummary(20, undefined), 'แสดง 20 รายการ');
 });
