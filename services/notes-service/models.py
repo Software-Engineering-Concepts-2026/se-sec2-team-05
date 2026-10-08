@@ -289,13 +289,25 @@ Index("ix_notes_faculty_year", Note.faculty, Note.year_level)
 Index("ix_notes_class_date", Note.class_date)
 
 
+def sqlalchemy_url(url: str) -> str:
+    """ให้ URL แบบ `postgres://` / `postgresql://` (ที่ Neon บน Vercel ให้มา) ใช้ driver psycopg 3
+
+    ถ้าไม่ระบุ driver SQLAlchemy จะหา psycopg2 ซึ่งไม่ได้ติดตั้ง (ADR-009)
+    """
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg://" + url[len(prefix):]
+    return url
+
+
 def build_session_factory(database_url: str):
     """สร้าง engine + session factory และ create ตารางถ้ายังไม่มี
 
     ยังไม่ใช้ migration tool (Alembic) ในรอบ tracer bullet นี้ — schema ยังเปลี่ยนบ่อย
     และยังไม่มีข้อมูลจริงที่ต้องรักษา ถ้า schema เริ่มนิ่งค่อยเพิ่มทีหลัง
     """
-    engine = create_engine(database_url, future=True)
+    # pool_pre_ping: Neon ปิด connection ที่ว่างนาน ต้องเช็คก่อนหยิบจาก pool มาใช้
+    engine = create_engine(sqlalchemy_url(database_url), future=True, pool_pre_ping=True)
     if engine.dialect.name == "sqlite":
         # SQLite ไม่บังคับ foreign key ถ้าไม่เปิดเอง — เปิดให้ตรงกับ Postgres ใน compose
         @event.listens_for(engine, "connect")

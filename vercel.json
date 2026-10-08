@@ -1,0 +1,39 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "web": {
+      "root": "web/"
+    },
+    "notes": {
+      "root": "services/notes-service/",
+      "framework": "flask",
+      "entrypoint": "app:app",
+      "bindings": [
+        { "type": "service", "service": "auth", "format": "url", "env": "AUTH_SERVICE_URL" }
+      ]
+    },
+    "auth": {
+      "root": "services/auth-service/",
+      "framework": "flask",
+      "entrypoint": "app:app"
+    },
+    "stats": {
+      "root": "services/stats-service/",
+      "framework": "flask",
+      "entrypoint": "app:app",
+      "bindings": [
+        { "type": "service", "service": "auth", "format": "url", "env": "AUTH_SERVICE_URL" }
+      ]
+    }
+  },
+  "rewrites": [
+    { "source": "/notes/:id(\\d+)/stats", "destination": { "service": "stats" } },
+    { "source": "/stats", "destination": { "service": "stats" } },
+    { "source": "/notes", "destination": { "service": "notes" } },
+    { "source": "/notes/(.*)", "destination": { "service": "notes" } },
+    { "source": "/reports", "destination": { "service": "notes" } },
+    { "source": "/reports/(.*)", "destination": { "service": "notes" } },
+    { "source": "/auth/(.*)", "destination": { "service": "auth" } },
+    { "source": "/(.*)", "destination": { "service": "web" } }
+  ]
+}

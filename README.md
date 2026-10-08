@@ -44,6 +44,8 @@ This section explains how to get a local copy of the project up and running for 
     > [ADR-003](./docs/architecture/adr/0003-tracer-bullet-scope.th.md), [ADR-004](./docs/architecture/adr/0004-per-note-edit-token.th.md)
     > และ [ADR-005](./docs/architecture/adr/0005-auth-jwt-with-server-side-sessions.th.md)
 
+3.  **Deploy บน Vercel (ไม่บังคับ):** ทำตาม [docs/deploy/vercel.md](./docs/deploy/vercel.md) — หน้าเว็บและ 3 service เป็น Vercel Services, ฐานข้อมูล Neon, ไฟล์ใน Vercel Blob ([ADR-009](./docs/architecture/adr/0009-deploy-on-vercel-services.th.md)) · ไฟล์อัปโหลดไม่เกิน 4 MB
+
 ---
 
 ## 🤝 Ways of Working (Project Charter)

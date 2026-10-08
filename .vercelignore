@@ -1,0 +1,16 @@
+# ไฟล์ที่ไม่ต้องส่งขึ้น Vercel ตอน `vercel deploy` จากเครื่อง (ADR-009)
+.venv/
+venv/
+**/__pycache__/
+*.db
+.pytest_cache/
+.coverage
+node_modules/
+.env*
+
+# web/ บน Vercel เป็นไฟล์ static ล้วน ไฟล์พวกนี้ใช้กับ docker compose และ node --test เท่านั้น
+# (ถ้ามี web/Dockerfile ขึ้นไปด้วย Vercel จะมองว่า service web เป็น container)
+web/Dockerfile
+web/nginx.conf
+web/README.md
+web/*.test.js

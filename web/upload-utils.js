@@ -1,6 +1,6 @@
 // Pure helpers for the upload page (web/upload.html).
 // validateUpload repeats the rules of services/notes-service/validation.py, so the form can
-// point at every wrong field before a 20 MB file goes over the network. The service still
+// point at every wrong field before a 4 MB file goes over the network. The service still
 // checks everything again; when the two disagree, the service's answer is the one shown.
 // Same loading pattern as search-utils.js: window.UploadUtils in the browser, module.exports
 // under Node.
@@ -20,7 +20,7 @@
   const MIN_YEAR_LEVEL = 1;
   const MAX_YEAR_LEVEL = 8;
   const ALLOWED_CONTENT_TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
-  const MAX_FILE_BYTES = 20 * 1024 * 1024;
+  const MAX_FILE_BYTES = 4 * 1024 * 1024;
   const MAX_FILE_MB = MAX_FILE_BYTES / (1024 * 1024);
 
   function isIsoDate(value) {

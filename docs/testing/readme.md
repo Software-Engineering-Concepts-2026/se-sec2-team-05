@@ -62,7 +62,7 @@
 | NV-10 | ไม่แนบไฟล์ | `None` | `"ต้องแนบไฟล์โน้ต"` |
 | NV-11 | ชนิดไฟล์ที่ไม่รองรับ | `.exe` | ถูกปฏิเสธ |
 | NV-12 | ไฟล์ว่าง | 0 byte | `"ไฟล์ว่าง"` |
-| NV-13 | ไฟล์ใหญ่เกิน 20 MB | 20 MB + 1 byte | ถูกปฏิเสธ |
+| NV-13 | ไฟล์ใหญ่เกิน 4 MB (ADR-009) | 4 MB + 1 byte | ถูกปฏิเสธ |
 | NV-14 | หลัง validate แล้ว stream ต้องถูก rewind | อ่าน stream ซ้ำ | ได้เนื้อไฟล์เดิม (ถ้าลืม `seek(0)` ไฟล์ที่เซฟจะว่าง) |
 | NV-15 | `uploader_name` ในฟอร์มไม่ถูกใช้ (US-31) | ฟอร์มครบ + `uploader_name=คนอื่น` | ไม่มี error และไม่มี `uploader_name` ในผลลัพธ์ — ชื่อมาจากบัญชีที่ `app.py` |
 
@@ -464,7 +464,7 @@ pure function ของหน้าเข้าสู่ระบบและห
 | WEB-32 | `validateUpload` รับชั้นปี 1–8 เท่านั้น | `0`, `9`, `two`, `8` | `ต้องอยู่ระหว่าง 1-8` ×2, `ต้องเป็นตัวเลข`, ผ่าน |
 | WEB-33 | `validateUpload` ตรวจวันที่เรียนเป็นวันจริงแบบ `YYYY-MM-DD` | `2026-08-20`, `20/08/2026`, `2026-02-30`, `2026-13-01` | ผ่าน, ที่เหลือได้ `ต้องเป็นรูปแบบ YYYY-MM-DD` |
 | WEB-34 | `validateUpload` รับ PDF/PNG/JPG เท่านั้น | `image/png`, `image/jpeg` · `application/msword`, `image/gif`, type ว่าง | ผ่าน · `รองรับเฉพาะไฟล์ PDF, PNG และ JPG` |
-| WEB-35 | `validateUpload` ไม่รับไฟล์ว่างและไฟล์เกิน 20 MB | 0 byte, 20 MB + 1 byte, 20 MB พอดี | `ไฟล์ว่าง`, `ไฟล์ใหญ่เกิน 20 MB`, ผ่าน |
+| WEB-35 | `validateUpload` ไม่รับไฟล์ว่างและไฟล์เกิน 4 MB (ADR-009) | 0 byte, 4 MB + 1 byte, 4 MB พอดี | `ไฟล์ว่าง`, `ไฟล์ใหญ่เกิน 4 MB`, ผ่าน |
 | WEB-36 | `uploadFields` trim ค่าและไม่ส่งช่องไม่บังคับที่ว่าง | `title = '  Calc  '`, `topic` มีค่า, `class_date`/`description` ว่าง, มี `uploader_name` ปนมา | ได้เฉพาะ 6 ช่องบังคับ + `topic` ที่ trim แล้ว ไม่มี `uploader_name` (US-31) |
 | WEB-37 | `uploadErrorMessage` ครอบ error ของ notes-service และเพดานของ gateway | `400 validation_failed`, `401 unauthorized`, `503 auth_unavailable`, `413` ไม่มี body, status `0`, `500` | ข้อความเฉพาะของแต่ละกรณี · `413` = `ไฟล์ใหญ่เกิน 20 MB` |
 | WEB-38 | `searchUrlFor` เปิดหน้าค้นหาที่โน้ตที่เพิ่งอัปโหลด | `title = 'Linked List & Stack'` | `/?q=Linked+List+%26+Stack` |
@@ -643,6 +643,37 @@ mutation 10 แบบถูกจับครบ: ไม่ trim รหัส, �
 `GET /notes/1` ได้ `404` · เปิดหน้าแก้ของโน้ตที่ลบแล้วได้ "ไม่พบโน้ตนี้แล้ว…" · อัปโหลด PDF ผ่านหน้าอัปโหลดแล้วลิงก์ใต้รหัสเป็น `/edit.html?id=4` กดแล้วใช้รหัสนั้นเปิดฟอร์มได้
 · หน้าแก้ด้วยรหัส หน้ารายละเอียด และหน้าอัปโหลดกว้าง 375 px ไม่มี scroll แนวนอน · console ไม่มี JavaScript error มีแค่บรรทัด network ของ `403`/`400`/`404`
 ที่ตั้งใจให้เกิด (`400` คือการตรวจรหัสที่ถูก)
+
+### 2.20 Deploy บน Vercel — Blob storage, URL ของ Neon และ `vercel.json` (`pytest`, ADR-009)
+
+ไฟล์ [`src/tests/test_vercel_deploy.py`](../../src/tests/test_vercel_deploy.py) · ใช้ Blob client ปลอมที่จดทุก call ไว้ จึงไม่ต้องต่อเน็ตหรือมี token จริง
+
+| # | Test case | Input | ผลที่คาดหวัง |
+| --- | --- | --- | --- |
+| VC-01 | `BlobFileStorage.build_key` ตั้งชื่อแบบเดียวกับ `LocalFileStorage` | `application/pdf` สองครั้ง | ลงท้าย `.pdf`, ยาวเท่ากัน, ไม่ซ้ำกัน |
+| VC-02 | บันทึกแล้วอ่านกลับได้ และเก็บแบบ private | ไฟล์ PDF | `put` ด้วย `access="private"`, content type เดิม, `overwrite=False` · `exists` จริง · อ่านได้ไบต์เดิม |
+| VC-03 | ไฟล์ที่ไม่มีใน Blob ทำตัวเหมือนไฟล์ที่หายจากดิสก์ | key ที่ไม่มี | `exists` เป็นเท็จ, `open` โยน `FileNotFoundError`, `delete` ไม่ error |
+| VC-04 | รูปตัวอย่างเขียนซ้ำได้ | `save_bytes` key เดิมสองครั้ง | ได้ค่าล่าสุด และทุกครั้งส่ง `overwrite=True` |
+| VC-05 | อัปโหลด → ดาวน์โหลด → ภาพตัวอย่าง → ลบด้วยรหัส ผ่าน API เมื่อใช้ Blob | PNG ผ่าน `POST /notes` | ดาวน์โหลดได้ไบต์เดิม, ภาพตัวอย่างเป็น PNG, มี 2 blob · ลบแล้วไม่เหลือ blob |
+| VC-06 | ดาวน์โหลดโน้ตที่ blob หายไปแล้ว | ลบ blob ทิ้งก่อนดาวน์โหลด | `404` ไม่ใช่ `500` |
+| VC-07 | ค่าเริ่มต้นยังเก็บบนดิสก์ | ไม่ตั้ง `NOTES_STORAGE_BACKEND` | `LocalFileStorage` |
+| VC-08 | `NOTES_STORAGE_BACKEND=blob` เลือก Blob | ตั้งเป็น `blob` | `BlobFileStorage` (ข้ามถ้าเครื่องไม่มี `vercel` SDK · CI ติดตั้งจาก requirements จึงรัน) |
+| VC-09 | URL ของ Neon ใช้ psycopg 3 ทั้ง notes, auth และ stats | `postgres://…`, `postgresql://…`, `postgresql+psycopg://…`, `sqlite:///…` | สองตัวแรกกลายเป็น `postgresql+psycopg://…` · สองตัวหลังไม่เปลี่ยน |
+| VC-10 | request ที่ใหญ่ที่สุดที่ notes-service รับต้องไม่เกินเพดาน body ของ Vercel | `MAX_CONTENT_LENGTH` | น้อยกว่า 4,500,000 ไบต์ (4 MB + 256 KB) |
+| VC-11 | `vercel.json` ส่ง path ไปที่ service เดียวกับ `web/nginx.conf` | `/notes/12/stats`, `/stats`, `/notes`, `/notes/12/download`, `/reports/3`, `/auth/login`, `/edit.html` ฯลฯ | stats, stats, notes, notes, notes, auth, web ตามลำดับ rewrite |
+| VC-12 | ทุก service ใน `vercel.json` มีอยู่จริง และ notes/stats เรียก auth ผ่าน binding | `vercel.json` | ทุก rewrite ชี้ service ที่มี, catch-all อยู่ท้ายสุด, binding ใส่ `AUTH_SERVICE_URL`, `root` มีโฟลเดอร์จริง |
+
+mutation 11 แบบถูกจับครบ: เก็บแบบ public, ไม่แปลง error เป็น `FileNotFoundError`, เขียนทับไฟล์ที่อัปโหลด, `delete` โยน error, รูปตัวอย่างไม่ยอมเขียนทับ,
+อ่าน `NOTES_STORAGE_BACKEND` ผิด, ไม่แปลง `postgres://` (stats), แปลงผิด driver (auth), เผื่อ request 1 MB จนเกิน 4.5 MB, ลบ rewrite ของ `/notes/<id>/stats`
+และตั้งชื่อ binding ผิด
+
+ตรวจด้วยมือบน `docker compose` (nginx + Postgres จริง, 2026-10-06): ไฟล์ 3.9 MB และ 4 MB พอดีอัปโหลดได้ (`201`) · 4 MB + 1 byte ได้ `400`
+"ไฟล์ใหญ่เกิน 4 MB" · 6 MB โดน nginx ตัดที่ `5m` ได้ `413` ซึ่งหน้าเว็บแปลงเป็นข้อความเดียวกัน
+
+deploy preview บน Vercel จริง (2026-10-06, Neon + Blob แบบ private, ทดสอบผ่าน `vercel curl`): `/`, `/notes`, `/stats` ได้ `200` · `/auth/me` และ `/notes/1/stats`
+ไม่มี token ได้ `401` (แปลว่าไปถึง auth และ stats ถูกตัว) · `Dockerfile`, `nginx.conf` และไฟล์เทสต์ใน `web/` ได้ `404` · สมัคร `201` → login → `auth/me` `200`
+→ อัปโหลด PNG `201` (Blob + เรียก auth ผ่าน binding) → ดาวน์โหลดได้ไบต์เดิม → ภาพตัวอย่าง `200 image/png` → สถิติรายโน้ตและภาพรวมนับดาวน์โหลด 1 → ค้นหาเจอ
+→ ลบด้วยรหัส `204` แล้ว `GET` ได้ `404` · ลบบัญชีทดสอบออกจาก Neon และ Blob ไม่เหลือไฟล์ค้าง
 
 ## 3. Test Report
 

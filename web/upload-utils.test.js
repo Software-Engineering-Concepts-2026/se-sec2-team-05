@@ -68,9 +68,9 @@ test('validateUpload takes PDF, PNG and JPG only', () => {
   }
 });
 
-test('validateUpload rejects an empty file and one over 20 MB', () => {
+test('validateUpload rejects an empty file and one over 4 MB', () => {
   assert.equal(validateUpload(goodFields, { ...pdf, size: 0 }).file, 'ไฟล์ว่าง');
-  assert.equal(validateUpload(goodFields, { ...pdf, size: MAX_FILE_BYTES + 1 }).file, 'ไฟล์ใหญ่เกิน 20 MB');
+  assert.equal(validateUpload(goodFields, { ...pdf, size: MAX_FILE_BYTES + 1 }).file, 'ไฟล์ใหญ่เกิน 4 MB');
   assert.deepEqual(validateUpload(goodFields, { ...pdf, size: MAX_FILE_BYTES }), {});
 });
 
@@ -90,7 +90,7 @@ test('uploadErrorMessage covers notes-service errors and the gateway size limit'
   assert.match(uploadErrorMessage(400, { error: 'validation_failed', fields: { file: 'x' } }), /ช่องที่มีข้อความสีแดง/);
   assert.match(uploadErrorMessage(401, { error: 'unauthorized' }), /เข้าสู่ระบบใหม่/);
   assert.match(uploadErrorMessage(503, { error: 'auth_unavailable' }), /ไม่พร้อมใช้งาน/);
-  assert.equal(uploadErrorMessage(413, null), 'ไฟล์ใหญ่เกิน 20 MB');
+  assert.equal(uploadErrorMessage(413, null), 'ไฟล์ใหญ่เกิน 4 MB');
   assert.match(uploadErrorMessage(0, null), /เชื่อมต่อเซิร์ฟเวอร์ไม่ได้/);
   assert.match(uploadErrorMessage(500, null), /HTTP 500/);
 });

@@ -19,7 +19,8 @@ ALLOWED_CONTENT_TYPES = {
     "image/jpeg": ".jpg",
 }
 
-MAX_FILE_BYTES = 20 * 1024 * 1024  # 20 MB
+# 4 MB เพราะ Vercel รับ body ของ function ได้ไม่เกิน 4.5 MB ทั้งก้อน (ADR-009)
+MAX_FILE_BYTES = 4 * 1024 * 1024
 
 MAX_LENGTHS = {
     "title": 200,
