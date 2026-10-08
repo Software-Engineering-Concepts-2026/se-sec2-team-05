@@ -195,6 +195,17 @@ def test_search_by_keyword_matches_subject_and_lesson(client):
     assert hits["items"][0]["subject_code"] == "MA101"
 
 
+def test_search_by_keyword_ignores_letter_case(client):
+    """ผู้ใช้พิมพ์ตัวเล็กหมดต้องเจอโน้ตที่เขียนตัวใหญ่ · LIKE ของ SQLite ไม่สนตัวพิมพ์อยู่แล้ว
+    แต่ของ Postgres สนใจ เทสต์นี้จึงจับได้เฉพาะตอนรันบน Postgres ถ้ามีคนเปลี่ยน ilike เป็น like
+    """
+    upload(client, title="Data Structures", subject_name="Algorithms", subject_code="CS201",
+           lesson="Linked List", topic="Big-O")
+
+    for keyword in ("data structures", "algorithms", "cs201", "linked list", "big-o"):
+        assert client.get(f"/notes?q={keyword}").get_json()["count"] == 1, keyword
+
+
 def test_filter_by_faculty_and_year_level(client):
     upload(client)
     upload(client, faculty="Engineering", year_level="4", subject_code="EN401")
