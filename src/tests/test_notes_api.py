@@ -48,9 +48,9 @@ def identity():
 
 
 @pytest.fixture
-def client(tmp_path, notes_create_app, identity):
+def client(tmp_path, make_db_url, notes_create_app, identity):
     app = notes_create_app(
-        database_url=f"sqlite:///{tmp_path / 'test.db'}",
+        database_url=make_db_url("test.db"),
         storage=LocalFileStorage(str(tmp_path / "storage")),
         identity=identity,
     )
@@ -657,12 +657,12 @@ def test_uploader_name_comes_from_the_account_not_the_form(client):
     assert client.get("/notes").get_json()["items"][0]["uploader_name"] == MEMBER["display_name"]
 
 
-def test_uploader_id_is_stored_but_not_exposed(client, tmp_path):
+def test_uploader_id_is_stored_but_not_exposed(client, make_db_url):
     from sqlalchemy import create_engine, text
 
     body = upload(client).get_json()
 
-    engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+    engine = create_engine(make_db_url("test.db"))
     with engine.connect() as conn:
         stored = conn.execute(text("SELECT uploader_id FROM notes WHERE id = :id"), {"id": body["id"]})
         assert stored.scalar_one() == MEMBER["id"]

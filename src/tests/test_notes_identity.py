@@ -48,9 +48,9 @@ def serve(app):
 
 
 @pytest.fixture
-def auth_url(tmp_path, auth_create_app):
+def auth_url(make_db_url, auth_create_app):
     app = auth_create_app(
-        database_url=f"sqlite:///{tmp_path / 'auth.db'}", secret=SECRET, password_hash_method=FAST_HASH
+        database_url=make_db_url("auth.db"), secret=SECRET, password_hash_method=FAST_HASH
     )
     url, stop = serve(app)
     yield url
@@ -160,9 +160,9 @@ def test_identity_from_env_reads_auth_service_url(monkeypatch):
 # --- ต่อครบทั้งสอง service: สมัคร → login → อัปโหลด → logout → อัปโหลดไม่ได้ ------------------
 
 
-def test_upload_flow_against_the_real_auth_service(tmp_path, auth_url, notes_create_app):
+def test_upload_flow_against_the_real_auth_service(tmp_path, make_db_url, auth_url, notes_create_app):
     notes = notes_create_app(
-        database_url=f"sqlite:///{tmp_path / 'notes.db'}",
+        database_url=make_db_url("notes.db"),
         storage=LocalFileStorage(str(tmp_path / "storage")),
         identity=HttpIdentity(auth_url),
     ).test_client()

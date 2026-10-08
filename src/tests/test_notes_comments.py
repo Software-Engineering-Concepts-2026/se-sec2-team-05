@@ -7,8 +7,8 @@ from tokens import issue_token
 
 
 @pytest.fixture()
-def test_context(tmp_path, notes_create_app):
-    database_url = f"sqlite:///{tmp_path / 'test.db'}"
+def test_context(make_db_url, notes_create_app):
+    database_url = make_db_url("test.db")
 
     users = {
         "Bearer valid-user-1": {
