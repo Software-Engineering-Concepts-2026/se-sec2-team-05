@@ -481,6 +481,51 @@ def test_invalid_file_type_mixed_with_valid_still_rejects_whole_request(client):
     assert response.status_code == 400
 
 
+def test_file_type_accepts_jpeg_and_any_letter_case(client):
+    """ไฟล์ JPEG มักลงท้าย .jpeg และ MIME type ก็เป็น image/jpeg จึงรับ jpeg เป็นชื่อเดียวกับ jpg"""
+    upload(client, subject_code="PDF1")
+    upload(client, subject_code="JPG1", file=(io.BytesIO(b"fake-jpeg-bytes"), "note.jpeg", "image/jpeg"))
+
+    for value in ("jpg", "jpeg", "JPEG", "Jpg"):
+        hits = client.get(f"/notes?file_type={value}").get_json()
+        assert [n["subject_code"] for n in hits["items"]] == ["JPG1"], value
+
+    assert client.get("/notes?file_type=PDF").get_json()["items"][0]["subject_code"] == "PDF1"
+    # ชื่อเรียกอื่นที่ไม่ได้ตั้งไว้ยังได้ 400 เหมือนเดิม
+    assert client.get("/notes?file_type=jfif").status_code == 400
+
+
+def test_total_counts_every_match_not_just_the_page(client):
+    for code in ("CS101", "CS102", "CS103", "MA101", "MA102"):
+        upload(client, subject_code=code, subject_name="Math" if code.startswith("MA") else "Computing")
+
+    page = client.get("/notes?limit=2").get_json()
+    assert page["count"] == 2
+    assert page["total"] == 5
+
+    last = client.get("/notes?limit=2&offset=4").get_json()
+    assert last["count"] == 1
+    assert last["total"] == 5
+
+    # total นับตามตัวกรอง ไม่ใช่ทั้งตาราง
+    filtered = client.get("/notes?q=Math&limit=1").get_json()
+    assert filtered["count"] == 1
+    assert filtered["total"] == 2
+
+    # เลยหน้าสุดท้ายไปแล้วยังบอก total ได้
+    beyond = client.get("/notes?offset=50").get_json()
+    assert beyond["count"] == 0
+    assert beyond["total"] == 5
+
+
+def test_total_is_zero_when_nothing_matches(client):
+    upload(client)
+
+    body = client.get("/notes?q=nothing-like-this").get_json()
+
+    assert body == {"items": [], "count": 0, "total": 0}
+
+
 # --- US-19 (#19) แก้ไขโน้ต / US-20 (#20) ลบโน้ต -----------------------------------
 # ความเป็นเจ้าของพิสูจน์ด้วย edit token ต่อโน้ต (ADR-004) ระหว่างที่ยังไม่มี Auth Service
 

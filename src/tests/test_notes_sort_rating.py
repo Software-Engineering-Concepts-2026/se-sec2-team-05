@@ -134,6 +134,18 @@ def test_sort_by_rating_works_with_filters_and_paging(client):
     assert titles(client, "sort=rating&subject_code=CS301&limit=1&offset=1") == ["CS สาม"]
 
 
+def test_total_with_sort_rating_counts_each_note_once(client):
+    """sort=rating join กับตารางคะแนน — total ต้องนับโน้ต ไม่ใช่นับแถวคะแนน"""
+    rate(client, new_note(client, "สามคะแนน"), 5, 4, 3)
+    rate(client, new_note(client, "หนึ่งคะแนน"), 2)
+    new_note(client, "ไม่มีคะแนน")
+
+    body = client.get("/notes?sort=rating&limit=1").get_json()
+
+    assert body["count"] == 1
+    assert body["total"] == 3
+
+
 def test_unknown_sort_is_still_400(client):
     response = client.get("/notes?sort=popular")
 
