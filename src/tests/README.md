@@ -5,7 +5,7 @@
 
 | ไฟล์ | ทดสอบอะไร | ผู้เขียน |
 | --- | --- | --- |
-| `conftest.py` | ทำให้ pytest มองเห็นโค้ดของทุก service (ยังไม่ได้ทำเป็น package) | อติชาติ |
+| `conftest.py` | ทำให้ pytest มองเห็นโค้ดของทุก service (ยังไม่ได้ทำเป็น package) และเลือก DB ของเทสต์ (SQLite หรือ Postgres ผ่าน `TEST_DATABASE_URL`) | อติชาติ |
 | `test_stats_service.py` | Stats Service: `/health`, `/stats` และสถิติต่อโน้ต `GET /notes/<id>/stats` (US-16, US-28 AC3) | อติชาติ, กฤตเมธ |
 | `test_auth_credentials.py` | ตรวจข้อมูลสมัครสมาชิกและ hash รหัสผ่านของ User & Auth Service (US-05) | อติชาติ |
 | `test_auth_tokens.py` | ออก/ตรวจ JWT ของ User & Auth Service (US-06) | อติชาติ |
@@ -44,6 +44,21 @@ pip install -r services/auth-service/requirements.txt
 pip install -r src/tests/requirements-dev.txt
 pytest src/tests -v
 ```
+
+**รันชุดเดียวกันบน PostgreSQL** — ปกติเทสต์ใช้ SQLite ในไฟล์ชั่วคราว ถ้าตั้ง `TEST_DATABASE_URL`
+`conftest.py` จะใช้ Postgres ตัวนั้นแทนและ **ล้าง schema ทิ้งทุกเทสต์** ห้ามชี้ไปที่ DB ที่มีข้อมูลจริง
+(รวมถึง DB ของ compose ที่ใช้ทำงานอยู่) CI รันแบบนี้ใน job `Unit tests (PostgreSQL)`
+
+```bash
+docker run -d --name noteshare-pytest-pg -p 55432:5432 \
+  -e POSTGRES_USER=noteshare -e POSTGRES_PASSWORD=noteshare_test -e POSTGRES_DB=noteshare_test \
+  postgres:16-alpine
+TEST_DATABASE_URL=postgresql+psycopg://noteshare:noteshare_test@localhost:55432/noteshare_test pytest src/tests -v
+docker rm -f noteshare-pytest-pg
+```
+
+เทสต์ใหม่ที่ต้องใช้ฐานข้อมูลให้ขอ URL จาก fixture `make_db_url("ชื่อ.db")` อย่าเขียน `sqlite:///...` เอง
+ไม่อย่างนั้นเทสต์นั้นจะไม่ถูกรันบน Postgres
 
 **เทสต์ JavaScript (prototypes และ web)** — ใช้ test runner ที่มากับ Node 18+ ไม่ต้อง npm install
 

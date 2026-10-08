@@ -12,6 +12,7 @@
 | Unit (JS) | pure function ที่แยกออกมาตอน Lab 7 | `node --test` (built-in) | ไม่ต้องเพิ่ม dependency หรือ `package.json` ให้โปรเจกต์ |
 | Unit / API (Python) | HTTP contract ของ Stats Service ผ่าน Flask test client | `pytest` + Flask test client | ทดสอบ endpoint ได้โดยไม่ต้องสตาร์ต server จริง |
 | Integration (API) | Notes Service ทั้งเส้น — อัปโหลด → กรอง → ดาวน์โหลด ผ่าน Flask test client + SQLite ชั่วคราว | `pytest` | ทดสอบพฤติกรรมจริงของ endpoint ได้โดยไม่ต้องยก Postgres |
+| Integration (API) บน PostgreSQL | เทสต์ Python ชุดเดียวกันทั้งหมด แต่ต่อ PostgreSQL 16 จริงแทน SQLite (ตั้ง `TEST_DATABASE_URL`) | `pytest` + service container ของ GitHub Actions | จับความต่างของ dialect ที่ SQLite ซ่อนไว้ เช่น `LIKE` สนตัวพิมพ์, foreign key, ชนิดวันที่ — ก่อนหน้านี้จับได้แค่ตอน smoke test หรือตรวจด้วยมือ |
 | Smoke (container) | ทั้ง stack (`docker compose up`) ตอบ health และวิ่งครบเส้น upload → filter → download | `docker compose` + `curl` ใน CI | จับปัญหาที่ unit test มองไม่เห็น เช่น gunicorn/CMD พัง, service ต่อ Postgres ไม่ติด, volume ไม่ mount |
 
 **ยังไม่ทำในรอบนี้:** E2E ผ่านเบราว์เซอร์, load/performance test, security scan — จะทำเมื่อมี service จริงและฐานข้อมูล
@@ -206,6 +207,7 @@
 | NA-132 | ไม่มีคะแนนทั้งหมด ใหม่สุดก่อน | สองโน้ตไม่มีคะแนน | ใบที่อัปโหลดทีหลังก่อน |
 | NA-133 | `sort=rating` ใช้กับตัวกรองและ paging ได้ | `subject_code=CS301` + `limit=1&offset=1` | เฉพาะโน้ต CS301 ตามลำดับคะแนน · หน้า 2 ได้ใบที่สอง |
 | NA-134 | `sort` ที่ไม่รู้จักยังได้ 400 | `?sort=popular` | `400 {"error": "invalid_filter", "field": "sort"}` |
+| NA-135 | คำค้นไม่สนตัวพิมพ์ใหญ่เล็ก ทั้ง 5 ฟิลด์ที่ `q` ค้น | โน้ต `Data Structures` / `Algorithms` / `CS201` / `Linked List` / `Big-O` แล้วค้นด้วยตัวเล็กหมดทีละคำ | เจอ 1 รายการทุกคำ · ผ่านบน SQLite แม้เปลี่ยน `ilike` เป็น `like` เพราะ `LIKE` ของ SQLite ไม่สนตัวพิมพ์อยู่แล้ว จึงจับได้เฉพาะ job บน PostgreSQL (ดูหัวข้อ 4) |
 
 ### 2.5 Notes Service — แก้ไข/ลบโน้ต (`pytest`, US-19 #19 + US-20 #20)
 
@@ -700,22 +702,31 @@ CI จับของจริงไปแล้ว 2 ครั้งตั้�
 ## 4. CI
 
 [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) รันทุก push เข้า `main` และทุก PR ที่ยิงเข้า `main`
-โดยแบ่งเป็น 3 job เพื่อให้อ่านผลได้ว่าอะไรพัง
+โดยแบ่ง job เพื่อให้อ่านผลได้ว่าอะไรพัง (`lint` รันแยกอิสระ ไม่มี job ไหนรอ)
 
 ```
-js-tests ──┐
-           ├──> docker-build (รันต่อเมื่อสองอันแรกผ่าน)
-python-tests ─┘
+js-tests ──────────────┐
+python-tests ──────────┼──> docker-build (รันต่อเมื่อสามอันแรกผ่าน)
+python-tests-postgres ─┘
 ```
 
-`docker-build` ตั้ง `needs: [js-tests, python-tests]` ไว้ เพราะไม่มีประโยชน์ที่จะเสียเวลา build image
+`docker-build` ตั้ง `needs: [js-tests, python-tests, python-tests-postgres]` ไว้ เพราะไม่มีประโยชน์ที่จะเสียเวลา build image
 ถ้าเทสต์ยังแดงอยู่
+
+`python-tests-postgres` (ชื่อใน GitHub: **Unit tests (PostgreSQL)**) รันเทสต์ Python ชุดเดียวกับ `python-tests`
+แต่ต่อ `postgres:16-alpine` (image เดียวกับ compose) ที่ GitHub Actions ยกขึ้นเป็น service container
+`conftest.py` เห็น `TEST_DATABASE_URL` แล้วล้าง schema และสร้างตารางของทุก service ใหม่ก่อนทุกเทสต์ ให้แต่ละเทสต์เริ่มจาก DB ว่างเหมือนไฟล์ SQLite ใหม่
+เทสต์ที่ต้องใช้ DB ขอ URL จาก fixture `make_db_url()` จึงรันได้ทั้งสองแบบโดยไม่ต้องแก้ตัวเทสต์
+
+ตรวจว่า job นี้จับของที่ SQLite ปล่อยผ่านได้จริง (2026-10-08, เครื่อง local + Postgres 16 ใน Docker): เปลี่ยน `ilike` เป็น `like` ทีละฟิลด์ใน `GET /notes?q=`
+ครบ 5 ฟิลด์ (title, subject_name, subject_code, lesson, topic) — NA-135 ผ่านบน SQLite ทั้ง 5 แบบ และล้มบน Postgres ทั้ง 5 แบบ · ก่อนเพิ่ม NA-135
+ทั้งชุดผ่านทั้งสองฐานข้อมูลแม้มี mutation นี้ แปลว่าการค้นแบบไม่สนตัวพิมพ์ไม่เคยถูกทดสอบเลย
 
 ## 5. งานที่ยังค้าง
 
 - [x] **วชิรวิทย์** — เขียน unit test ของตัวเอง (เสนอ: logic filter คณะ/ปี/ประเภทไฟล์ และประวัติการค้นหาใน `wachirawit_search_note_prototype.html` ต้องแยก pure function ออกมาก่อนแบบเดียวกับ Lab 7) · ทำแล้วเป็นเทสต์ของ Notes Service แทน prototype: `test_notes_preview.py`, `test_notes_favorites.py`, `test_notes_thanks.py` และเทสต์ download/topic/date ใน `test_notes_api.py`
 - [x] **กฤตเมธ** — เขียน unit test ของตัวเอง (เสนอ: การคำนวณคะแนนเฉลี่ยหลังส่ง rating ใน `kittamet_note_rating_prototype.html`) · ทำแล้วเป็นเทสต์ของ service แทน prototype: `test_notes_comments.py`, `test_notes_reports.py`, `test_notes_ratings.py` (รวมค่าเฉลี่ย rating) และเทสต์ stats ใน `test_stats_service.py`
 - [x] เขียนเทสต์ของ `POST /notes` ที่ commit ไม่ผ่าน แล้วต้องไม่ทิ้งไฟล์กำพร้าไว้ใน storage — NA-12
-- [ ] เทสต์ที่รันกับ PostgreSQL จริง — ตอนนี้เทสต์ Python ใช้ SQLite ส่วน compose ใช้ Postgres จึงมีช่องว่างเรื่องความต่างของ dialect (`ilike`, การเทียบวันที่) ที่จับได้แค่ตอน smoke test · 2026-10-06 ตรวจด้วยมือบน Postgres 16 ของ compose แล้ว (`?topic=` กับ `%`/`_`, การลบแถวลูก, ข้อมูลหลัง restart — ดูหัวข้อ 3) แต่ยังไม่มีเทสต์อัตโนมัติ
+- [x] เทสต์ที่รันกับ PostgreSQL จริง — ตอนนี้เทสต์ Python ใช้ SQLite ส่วน compose ใช้ Postgres จึงมีช่องว่างเรื่องความต่างของ dialect (`ilike`, การเทียบวันที่) ที่จับได้แค่ตอน smoke test · 2026-10-06 ตรวจด้วยมือบน Postgres 16 ของ compose แล้ว (`?topic=` กับ `%`/`_`, การลบแถวลูก, ข้อมูลหลัง restart — ดูหัวข้อ 3) แต่ยังไม่มีเทสต์อัตโนมัติ · **2026-10-08 ทำแล้ว:** job `Unit tests (PostgreSQL)` ใน CI รันเทสต์ Python ทั้งชุดบน Postgres 16 (หัวข้อ 4) และเพิ่ม NA-135 ที่จับได้เฉพาะบน Postgres
 - [ ] เพิ่ม branch protection ให้ `main` ต้องผ่าน CI ก่อน merge (ตั้งใน GitHub Settings ไม่ใช่ในโค้ด)
 - [ ] E2E test อัตโนมัติผ่าน browser — มีหน้าเว็บจริงแล้ว (`web/`) แต่ยังตรวจด้วยมือ (ดูท้าย 2.13) ยังไม่มีเครื่องมืออย่าง Playwright ใน CI · 2026-10-06 กดครบทุกหน้าบน compose จริงแล้ว (ดูหัวข้อ 3) แต่ยังเป็นการตรวจด้วยมือ
