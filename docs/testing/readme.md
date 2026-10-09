@@ -13,9 +13,10 @@
 | Unit / API (Python) | HTTP contract ของ Stats Service ผ่าน Flask test client | `pytest` + Flask test client | ทดสอบ endpoint ได้โดยไม่ต้องสตาร์ต server จริง |
 | Integration (API) | Notes Service ทั้งเส้น — อัปโหลด → กรอง → ดาวน์โหลด ผ่าน Flask test client + SQLite ชั่วคราว | `pytest` | ทดสอบพฤติกรรมจริงของ endpoint ได้โดยไม่ต้องยก Postgres |
 | Integration (API) บน PostgreSQL | เทสต์ Python ชุดเดียวกันทั้งหมด แต่ต่อ PostgreSQL 16 จริงแทน SQLite (ตั้ง `TEST_DATABASE_URL`) | `pytest` + service container ของ GitHub Actions | จับความต่างของ dialect ที่ SQLite ซ่อนไว้ เช่น `LIKE` สนตัวพิมพ์, foreign key, ชนิดวันที่ — ก่อนหน้านี้จับได้แค่ตอน smoke test หรือตรวจด้วยมือ |
+| E2E (browser) | เส้นทางหลักของผู้ใช้ผ่านหน้าเว็บจริงบน stack ของ compose: สมัคร → อัปโหลด → ค้นหา → อีกบัญชีใช้โน้ต → แก้/ลบด้วยรหัส + ความกว้างมือถือ | Playwright (Python) + `pytest` บน Chromium | กดหน้าเว็บแบบเดียวกับผู้ใช้ จับปัญหาที่ unit test ของ `*-utils.js` มองไม่เห็น เช่นปุ่มไม่ขึ้น ลิงก์ผิด หรือ CSS ล้นจอ · ใช้ Python เหมือนเทสต์ฝั่ง service ไม่ต้องเพิ่ม `package.json` |
 | Smoke (container) | ทั้ง stack (`docker compose up`) ตอบ health และวิ่งครบเส้น upload → filter → download | `docker compose` + `curl` ใน CI | จับปัญหาที่ unit test มองไม่เห็น เช่น gunicorn/CMD พัง, service ต่อ Postgres ไม่ติด, volume ไม่ mount |
 
-**ยังไม่ทำในรอบนี้:** E2E ผ่านเบราว์เซอร์, load/performance test, security scan — จะทำเมื่อมี service จริงและฐานข้อมูล
+**ยังไม่ทำในรอบนี้:** load/performance test, security scan · E2E ผ่านเบราว์เซอร์เพิ่มแล้ว 2026-10-08 (หัวข้อ 2.21)
 
 ## 2. Test Cases
 
@@ -686,6 +687,24 @@ deploy preview บน Vercel จริง (2026-10-06, Neon + Blob แบบ pri
 → อัปโหลด PNG `201` (Blob + เรียก auth ผ่าน binding) → ดาวน์โหลดได้ไบต์เดิม → ภาพตัวอย่าง `200 image/png` → สถิติรายโน้ตและภาพรวมนับดาวน์โหลด 1 → ค้นหาเจอ
 → ลบด้วยรหัส `204` แล้ว `GET` ได้ `404` · ลบบัญชีทดสอบออกจาก Neon และ Blob ไม่เหลือไฟล์ค้าง
 
+### 2.21 E2E ผ่าน browser — เส้นทางหลักของผู้ใช้ (`pytest` + Playwright)
+
+ไฟล์ [`src/e2e/test_web_flows.py`](../../src/e2e/test_web_flows.py) · รันกับ stack ที่ยกไว้แล้ว (`docker compose up`) ผ่าน gateway `:8080`
+ทุกเทสต์สมัครบัญชีใหม่และใช้รหัสวิชาสุ่ม จึงรันซ้ำบน DB เดิมได้ · ขั้นที่ไม่ใช่สิ่งที่เทสต์นั้นตรวจ (เช่นอัปโหลดโน้ตให้อีกบัญชีมาเปิด) ทำผ่าน API ตรง ๆ
+
+| # | Test case | ขั้นตอน | ผลที่คาดหวัง |
+| --- | --- | --- | --- |
+| E2E-01 | สมัครแล้วเข้าสู่ระบบให้เอง (US-05, US-06) | กรอกแท็บสมัครสมาชิกใน `login.html#register` | กลับหน้าแรก · หน้าอัปโหลดเปิดฟอร์มและขึ้นชื่อที่สมัคร |
+| E2E-02 | อัปโหลดผ่านฟอร์ม แล้วค้นหาเจอ (US-07, US-08, US-09, US-31) | login → เลือกไฟล์ PDF + กรอก metadata → อัปโหลด → กดลิงก์ไปหน้าค้นหา | ขึ้นกล่องสำเร็จพร้อมรหัสแก้ไข · ผลค้นหา `แสดง 1 รายการ` มีชื่อโน้ตและชื่อผู้อัปโหลด |
+| E2E-03 | อีกบัญชีใช้ทุกปุ่มบนหน้าโน้ต (US-12, US-13, US-14, US-15, US-28) | ดาวน์โหลด → ให้ 4 ดาว → ขอบคุณ → บันทึกรายการโปรด → แสดงความคิดเห็น → reload | ได้ไฟล์ `note.pdf` · `บันทึกคะแนนแล้ว` เฉลี่ย 4.0 · ปุ่มขอบคุณขึ้นหลังดาวน์โหลด · หลัง reload คะแนน รายการโปรด ความคิดเห็น และ `ดาวน์โหลด 1` ยังอยู่ (ไปถึง API จริง) |
+| E2E-04 | แก้และลบด้วยรหัสแก้ไขโดยไม่ login (US-19, US-20) | `edit.html?id=` → รหัสผิด → รหัสถูก → แก้ชื่อ → ลบผ่านกล่องยืนยัน | รหัสผิดขึ้นข้อความใต้ช่องและไม่เปิดฟอร์มแก้ · `บันทึกการแก้ไขแล้ว` และหน้าโน้ตขึ้นชื่อใหม่ · ลบแล้ว `GET /notes/<id>` ได้ `404` |
+| E2E-05 | ผลค้นหาเกินหน้าแรกบอกยอดรวม (NA-137, WEB-95, WEB-96) | 21 โน้ตรหัสวิชาเดียวกัน แล้วค้นด้วยรหัสนั้น → โหลดเพิ่ม | `แสดง 20 จาก 21 รายการ` และมีปุ่มโหลดเพิ่ม → `แสดง 21 รายการ` และปุ่มหาย |
+| E2E-06 | หน้าจอมือถือกว้าง 375 px (NFR-008, NFR-009) | เปิด `/`, `login.html`, `upload.html`, `stats.html` | ไม่มี scroll แนวนอนทุกหน้า · ช่องค้นหาและปุ่มค้นหาอยู่ในจอแรกโดยไม่ต้อง scroll |
+
+รันบนเครื่อง local (2026-10-08, compose stack ใหม่, Edge ผ่าน `--browser-channel msedge`): ผ่าน 6/6 สองรอบติดกันบน DB เดิม ~15 วินาที
+mutation 5 แบบถูกจับครบ (แก้ไฟล์ใน container `web` ตรง ๆ แล้วคืนค่า): หน้าค้นหาไม่ใช้ `total`, ปุ่มขอบคุณไม่ขึ้นเลย, รหัสผิดไม่ถูกปฏิเสธ,
+`body` กว้างเกินจอมือถือ, ลิงก์หลังอัปโหลดไม่พาไปผลค้นหา · รอบแรกเจอว่าลิงก์หลังอัปโหลดค้นด้วยชื่อโน้ต ชื่อซ้ำจากรอบก่อนทำให้นับผิด จึงใส่รหัสสุ่มในชื่อ
+
 ## 3. Test Report
 
 **รันล่าสุด:** 2026-10-06 (เครื่อง local, Windows 11, `main` ที่ `65bd2bc` หลัง merge #90 #94 #95 #96) · ผล Python เท่ากับรอบ `3cbc4f2` เพราะรอบนี้ไม่ได้แก้โค้ดของ service · แถว smoke แบบไม่ใช้ Docker ยังเป็นผลวันที่ 2026-09-27
@@ -714,13 +733,14 @@ CI จับของจริงไปแล้ว 2 ครั้งตั้�
 โดยแบ่ง job เพื่อให้อ่านผลได้ว่าอะไรพัง (`lint` รันแยกอิสระ ไม่มี job ไหนรอ)
 
 ```
-js-tests ──────────────┐
-python-tests ──────────┼──> docker-build (รันต่อเมื่อสามอันแรกผ่าน)
-python-tests-postgres ─┘
+js-tests ──────────────┐    ┌──> docker-build (build image + smoke ด้วย curl)
+python-tests ──────────┼────┤
+python-tests-postgres ─┘    └──> e2e-tests (build image + E2E ผ่าน Chromium)
 ```
 
 `docker-build` ตั้ง `needs: [js-tests, python-tests, python-tests-postgres]` ไว้ เพราะไม่มีประโยชน์ที่จะเสียเวลา build image
-ถ้าเทสต์ยังแดงอยู่
+ถ้าเทสต์ยังแดงอยู่ · `e2e-tests` (ชื่อใน GitHub: **E2E tests (browser)**) รอสามอันแรกเหมือนกัน แล้วยก stack ของตัวเองแยกจาก `docker-build`
+เทสต์ที่ล้มจะเก็บ trace ของ Playwright เป็น artifact `e2e-traces` (7 วัน) เปิดดูทีละขั้นได้ด้วย `playwright show-trace`
 
 `python-tests-postgres` (ชื่อใน GitHub: **Unit tests (PostgreSQL)**) รันเทสต์ Python ชุดเดียวกับ `python-tests`
 แต่ต่อ `postgres:16-alpine` (image เดียวกับ compose) ที่ GitHub Actions ยกขึ้นเป็น service container
@@ -738,4 +758,4 @@ python-tests-postgres ─┘
 - [x] เขียนเทสต์ของ `POST /notes` ที่ commit ไม่ผ่าน แล้วต้องไม่ทิ้งไฟล์กำพร้าไว้ใน storage — NA-12
 - [x] เทสต์ที่รันกับ PostgreSQL จริง — ตอนนี้เทสต์ Python ใช้ SQLite ส่วน compose ใช้ Postgres จึงมีช่องว่างเรื่องความต่างของ dialect (`ilike`, การเทียบวันที่) ที่จับได้แค่ตอน smoke test · 2026-10-06 ตรวจด้วยมือบน Postgres 16 ของ compose แล้ว (`?topic=` กับ `%`/`_`, การลบแถวลูก, ข้อมูลหลัง restart — ดูหัวข้อ 3) แต่ยังไม่มีเทสต์อัตโนมัติ · **2026-10-08 ทำแล้ว:** job `Unit tests (PostgreSQL)` ใน CI รันเทสต์ Python ทั้งชุดบน Postgres 16 (หัวข้อ 4) และเพิ่ม NA-135 ที่จับได้เฉพาะบน Postgres
 - [ ] เพิ่ม branch protection ให้ `main` ต้องผ่าน CI ก่อน merge (ตั้งใน GitHub Settings ไม่ใช่ในโค้ด)
-- [ ] E2E test อัตโนมัติผ่าน browser — มีหน้าเว็บจริงแล้ว (`web/`) แต่ยังตรวจด้วยมือ (ดูท้าย 2.13) ยังไม่มีเครื่องมืออย่าง Playwright ใน CI · 2026-10-06 กดครบทุกหน้าบน compose จริงแล้ว (ดูหัวข้อ 3) แต่ยังเป็นการตรวจด้วยมือ
+- [x] E2E test อัตโนมัติผ่าน browser — มีหน้าเว็บจริงแล้ว (`web/`) แต่ยังตรวจด้วยมือ (ดูท้าย 2.13) ยังไม่มีเครื่องมืออย่าง Playwright ใน CI · 2026-10-06 กดครบทุกหน้าบน compose จริงแล้ว (ดูหัวข้อ 3) แต่ยังเป็นการตรวจด้วยมือ · **2026-10-08 ทำแล้ว:** job `E2E tests (browser)` ใน CI รัน Playwright 6 เส้นทาง (หัวข้อ 2.21)

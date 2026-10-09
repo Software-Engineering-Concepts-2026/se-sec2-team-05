@@ -26,6 +26,7 @@
 | `test_notes_owner.py` | โน้ตของฉัน `GET /notes/mine` และการแก้/ลบด้วยบัญชีเจ้าของ (Issue #82, ADR-008) | อติชาติ |
 | `test_notes_sort_rating.py` | `GET /notes?sort=rating` เรียงตามคะแนนเฉลี่ย (Issue #83) | อติชาติ |
 | `test_vercel_deploy.py` | deploy บน Vercel: `BlobFileStorage`, URL ของ Neon ทั้ง 3 service, เพดาน body 4.5 MB และ route ใน `vercel.json` (ADR-009) | อติชาติ |
+| `../e2e/test_web_flows.py` | E2E ผ่าน browser: สมัคร อัปโหลด ค้นหา ใช้โน้ตจากอีกบัญชี แก้/ลบด้วยรหัส และความกว้างมือถือ (test plan 2.21) | อติชาติ |
 | `../../prototypes/sprint1/note-utils.test.js` | `escapeHtml`, `formatStars`, `compareNotes` | อติชาติ (Lab 7) |
 | `../../web/*.test.js` | pure function ของหน้าเว็บ: `search-utils`, `session-utils`, `upload-utils`, `note-utils`, `profile-utils`, `admin-utils`, `stats-utils`, `edit-utils` | อติชาติ |
 
@@ -59,6 +60,20 @@ docker rm -f noteshare-pytest-pg
 
 เทสต์ใหม่ที่ต้องใช้ฐานข้อมูลให้ขอ URL จาก fixture `make_db_url("ชื่อ.db")` อย่าเขียน `sqlite:///...` เอง
 ไม่อย่างนั้นเทสต์นั้นจะไม่ถูกรันบน Postgres
+
+**E2E ผ่าน browser** — อยู่ที่ [`src/e2e/`](../e2e/) แยกจากโฟลเดอร์นี้ เพราะต้องมี stack ที่รันอยู่และ browser
+(`pytest src/tests` จึงไม่ต้องติดตั้ง Playwright) · ใช้ Playwright ของ Python กับ `pytest` · CI รันใน job `E2E tests (browser)`
+
+```bash
+docker compose up -d --build
+pip install -r src/e2e/requirements.txt
+python -m playwright install chromium        # หรือใช้ Edge/Chrome ที่มีอยู่: --browser-channel msedge
+pytest src/e2e -v --base-url http://localhost:8080
+# ดูหน้าจอระหว่างรัน: --headed --slowmo 300 · เก็บ trace ของเทสต์ที่ล้ม: --tracing retain-on-failure
+```
+
+ทุกเทสต์สมัครบัญชีใหม่และสุ่มรหัสวิชาเอง จึงรันซ้ำบน DB เดิมได้ แต่จะทิ้งบัญชีและโน้ตทดสอบไว้ใน DB นั้น
+ใช้กับ stack ทดสอบเท่านั้น (ล้างด้วย `docker compose down -v`) ห้ามชี้ `--base-url` ไปที่เว็บจริงบน Vercel
 
 **เทสต์ JavaScript (prototypes และ web)** — ใช้ test runner ที่มากับ Node 18+ ไม่ต้อง npm install
 
