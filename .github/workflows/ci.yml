@@ -79,6 +79,8 @@ jobs:
   python-tests-postgres:
     name: Unit tests (PostgreSQL)
     runs-on: ubuntu-latest
+    # ปกติรันจบใน ~4 นาที ถ้าเทสต์ค้าง (เช่น migration แย่ง lock กัน) ให้ job ล้มแทนที่จะรอ 6 ชั่วโมง
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:16-alpine

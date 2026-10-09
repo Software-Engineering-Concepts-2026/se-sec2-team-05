@@ -14,6 +14,8 @@ from datetime import datetime, timezone
 from sqlalchemy import DateTime, ForeignKey, Integer, String, create_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
+from auth_migrate import upgrade_to_head
+
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
@@ -75,12 +77,12 @@ def sqlalchemy_url(url: str) -> str:
 
 
 def build_session_factory(database_url: str):
-    """สร้าง engine + session factory และ create ตารางถ้ายังไม่มี
+    """สร้าง engine + session factory และอัปเกรด schema เป็นเวอร์ชันล่าสุดด้วย Alembic (ADR-010)
 
-    ยังไม่มี migration tool เหมือน notes-service (ADR-003) — ตารางของ service นี้
-    ชื่อไม่ชนกับ `notes` จึงอยู่ในฐานข้อมูล Postgres ก้อนเดียวกันได้
+    ตารางของ service นี้ชื่อไม่ชนกับ `notes` จึงอยู่ในฐานข้อมูล Postgres ก้อนเดียวกันได้ (ADR-003)
+    และมีตาราง version ของตัวเอง (`alembic_version_auth`) แยกจาก notes-service — ดู auth_migrate.py
     """
     # pool_pre_ping: Neon ปิด connection ที่ว่างนาน ต้องเช็คก่อนหยิบจาก pool มาใช้
     engine = create_engine(sqlalchemy_url(database_url), future=True, pool_pre_ping=True)
-    Base.metadata.create_all(engine)
+    upgrade_to_head(engine)
     return sessionmaker(bind=engine, expire_on_commit=False)

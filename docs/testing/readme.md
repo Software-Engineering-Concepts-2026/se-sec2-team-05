@@ -705,6 +705,25 @@ deploy preview บน Vercel จริง (2026-10-06, Neon + Blob แบบ pri
 mutation 5 แบบถูกจับครบ (แก้ไฟล์ใน container `web` ตรง ๆ แล้วคืนค่า): หน้าค้นหาไม่ใช้ `total`, ปุ่มขอบคุณไม่ขึ้นเลย, รหัสผิดไม่ถูกปฏิเสธ,
 `body` กว้างเกินจอมือถือ, ลิงก์หลังอัปโหลดไม่พาไปผลค้นหา · รอบแรกเจอว่าลิงก์หลังอัปโหลดค้นด้วยชื่อโน้ต ชื่อซ้ำจากรอบก่อนทำให้นับผิด จึงใส่รหัสสุ่มในชื่อ
 
+### 2.22 Migration ด้วย Alembic — notes-service และ auth-service (`pytest`, ADR-010)
+
+ไฟล์ [`src/tests/test_migrations.py`](../../src/tests/test_migrations.py) · รันได้ทั้ง SQLite และ Postgres (`TEST_DATABASE_URL`) · ข้อที่มี 2 แบบ (notes, auth) รันแยกต่อ service
+
+| # | Test case | Input | ผลที่คาดหวัง |
+| --- | --- | --- | --- |
+| MG-01 | upgrade จาก DB ว่างได้ schema ตรงกับ models | สตาร์ตทั้งสอง service บน DB เดียวกัน แล้วรัน `alembic check` ผ่าน `env.py` ตัวจริง | ไม่มีความต่างทั้งคอลัมน์ index และ constraint · ตาราง version อยู่ที่ head · ไม่เสนอให้ลบตารางของอีก service |
+| MG-02 | DB เดิมที่สร้างด้วย `create_all` ถูก stamp แล้วข้อมูลไม่หาย | `create_all` + ใส่ 1 แถว (`notes` / `users`) แล้วสตาร์ต service | ตาราง version อยู่ที่ head · แถวเดิมยังอยู่ 1 แถว |
+| MG-03 | สตาร์ตซ้ำไม่เปลี่ยนอะไร | สตาร์ต service สองครั้ง | ไม่ error · ตาราง version มีแถวเดียวที่ head |
+| MG-04 | สอง service ใช้ DB เดียวกันโดยนับเวอร์ชันแยกกัน | สตาร์ต notes และ auth บน DB เดียวกัน | มี `alembic_version_notes` และ `alembic_version_auth` · ไม่มี `alembic_version` · ทั้งคู่อยู่ที่ head ของตัวเอง |
+| MG-05 | downgrade ของ baseline ลบเฉพาะตารางของ service นั้น | `alembic downgrade base` ของ service หนึ่ง แล้วสตาร์ตใหม่ | ตารางของ service นั้นหายหมด ของอีก service ยังอยู่ครบ · สตาร์ตใหม่แล้วตารางกลับมา |
+| MG-06 | 4 instance สตาร์ตพร้อมกันบน DB ว่าง | 4 thread รอที่ `Barrier` แล้วสตาร์ตพร้อมกัน (ข้ามบน SQLite) | ไม่มี thread ไหน error หรือค้างเกิน 30 วินาที · ตาราง version มีแถวเดียวที่ head |
+| MG-07 | revision ต่อกันเป็นเส้นเดียวจาก baseline | `ScriptDirectory` ของแต่ละ service | มี head เดียว · base คือ `0001` ตัวเดียวกับที่ `upgrade_to_head()` ใช้ stamp |
+
+mutation ที่ลองแล้ว (2026-10-09, เครื่อง local + Postgres 16 ใน Docker) ถูกจับครบ: เพิ่มคอลัมน์ใน `models.py` โดยไม่เขียน revision (MG-01 เจอ `add_column`)
+· ให้ `env.py` เทียบทุกตารางใน DB (MG-01 เจอ `remove_table` ของ `users`/`auth_sessions`) · เอา advisory lock ออกทีละ service (MG-06 ล้ม 12/12 รอบ
+บางรอบเป็น `DuplicateTable`/`UndefinedTable` บางรอบ thread ค้างอยู่ใน `CREATE TABLE` จนครบ 30 วินาที) · รอบแรกที่ยังไม่มีเส้นตาย เทสต์ค้างไม่จบเอง
+จึงให้ thread เป็น daemon และรอรวมกันแค่ 30 วินาที
+
 ## 3. Test Report
 
 **รันล่าสุด:** 2026-10-06 (เครื่อง local, Windows 11, `main` ที่ `65bd2bc` หลัง merge #90 #94 #95 #96) · ผล Python เท่ากับรอบ `3cbc4f2` เพราะรอบนี้ไม่ได้แก้โค้ดของ service · แถว smoke แบบไม่ใช้ Docker ยังเป็นผลวันที่ 2026-09-27
@@ -746,6 +765,8 @@ python-tests-postgres ─┘    └──> e2e-tests (build image + E2E ผ่�
 แต่ต่อ `postgres:16-alpine` (image เดียวกับ compose) ที่ GitHub Actions ยกขึ้นเป็น service container
 `conftest.py` เห็น `TEST_DATABASE_URL` แล้วล้าง schema และสร้างตารางของทุก service ใหม่ก่อนทุกเทสต์ ให้แต่ละเทสต์เริ่มจาก DB ว่างเหมือนไฟล์ SQLite ใหม่
 เทสต์ที่ต้องใช้ DB ขอ URL จาก fixture `make_db_url()` จึงรันได้ทั้งสองแบบโดยไม่ต้องแก้ตัวเทสต์
+ตั้งแต่ ADR-010 ตารางเหล่านี้สร้างผ่าน migration ของ Alembic ตัวเดียวกับที่ service ใช้ตอนสตาร์ต ไม่ใช่ `create_all`
+job นี้ตั้ง `timeout-minutes: 15` ไว้ (ปกติจบใน ~4 นาที) ถ้าเทสต์ค้างจะได้ล้มแทนที่จะรอ 6 ชั่วโมงตามค่าเริ่มต้นของ GitHub Actions
 
 ตรวจว่า job นี้จับของที่ SQLite ปล่อยผ่านได้จริง (2026-10-08, เครื่อง local + Postgres 16 ใน Docker): เปลี่ยน `ilike` เป็น `like` ทีละฟิลด์ใน `GET /notes?q=`
 ครบ 5 ฟิลด์ (title, subject_name, subject_code, lesson, topic) — NA-135 ผ่านบน SQLite ทั้ง 5 แบบ และล้มบน Postgres ทั้ง 5 แบบ · ก่อนเพิ่ม NA-135

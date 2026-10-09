@@ -38,7 +38,7 @@ import pytest  # noqa: E402  (ต้องเติม sys.path ให้เส�
 # แค่โหลดโมดูลก็จะสร้างไฟล์ DB และโฟลเดอร์ storage ตามค่า default ทันที ชี้ทั้งสองอย่าง
 # ไปที่ temp dir ก่อนโหลด เทสต์จะได้ไม่ทิ้งขยะไว้ในรีโปหรือที่ /data บนเครื่องคนรัน
 _SANDBOX = Path(tempfile.mkdtemp(prefix="noteshare-tests-"))
-# TEST_DATABASE_URL ชี้ไปที่ Postgres จริง (CI job "Unit tests on PostgreSQL") — ถ้าไม่ตั้ง
+# TEST_DATABASE_URL ชี้ไปที่ Postgres จริง (CI job "Unit tests (PostgreSQL)") — ถ้าไม่ตั้ง
 # ทุกเทสต์ใช้ SQLite ในไฟล์ชั่วคราวเหมือนเดิม · ฐานข้อมูลนี้ถูกล้างทิ้งทุกเทสต์ ห้ามชี้ไปที่ DB ที่มีข้อมูลจริง
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL or f"sqlite:///{_SANDBOX / 'import-time.db'}"
@@ -70,8 +70,9 @@ def _reset_postgres(url):
     from sqlalchemy import create_engine, text
     from sqlalchemy.pool import NullPool
 
-    from auth_models import Base as AuthBase
-    from models import Base as NotesBase, sqlalchemy_url
+    from auth_migrate import upgrade_to_head as upgrade_auth
+    from migrate import upgrade_to_head as upgrade_notes
+    from models import sqlalchemy_url
 
     engine = create_engine(sqlalchemy_url(url), poolclass=NullPool)
     try:
@@ -83,9 +84,10 @@ def _reset_postgres(url):
             conn.execute(text("DROP SCHEMA public CASCADE"))
             conn.execute(text("CREATE SCHEMA public"))
         # stats-service อ่านตารางของ notes-service และสร้าง engine ไว้ตั้งแต่ตอน import
-        # จึงต้องมีตารางให้ครบเหมือนใน compose ก่อนเทสต์เริ่ม
-        NotesBase.metadata.create_all(engine)
-        AuthBase.metadata.create_all(engine)
+        # จึงต้องมีตารางให้ครบเหมือนใน compose ก่อนเทสต์เริ่ม · สร้างด้วย migration ตัวเดียวกับที่
+        # service ใช้ตอนสตาร์ต (ADR-010) ไม่ใช่ create_all
+        upgrade_notes(engine)
+        upgrade_auth(engine)
     finally:
         engine.dispose()
 
