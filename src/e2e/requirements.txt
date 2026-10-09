@@ -1,7 +1,7 @@
 # E2E browser tests (src/e2e). Kept ASCII: pip reads requirements files with the OS
 # locale encoding, so non-ASCII comments break `pip install` on Windows.
 # Browsers are installed separately: `playwright install chromium`.
-pytest==8.3.3
+pytest==9.0.3
 playwright==1.58.0
 pytest-playwright==0.7.2
-requests==2.32.5
+requests==2.33.0
