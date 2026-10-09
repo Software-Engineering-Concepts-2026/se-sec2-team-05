@@ -64,7 +64,7 @@
 | NV-10 | ไม่แนบไฟล์ | `None` | `"ต้องแนบไฟล์โน้ต"` |
 | NV-11 | ชนิดไฟล์ที่ไม่รองรับ | `.exe` | ถูกปฏิเสธ |
 | NV-12 | ไฟล์ว่าง | 0 byte | `"ไฟล์ว่าง"` |
-| NV-13 | ไฟล์ใหญ่เกิน 4 MB (ADR-009) | 4 MB + 1 byte | ถูกปฏิเสธ |
+| NV-13 | ไฟล์ใหญ่เกิน 10 MB (NFR-006, ADR-012) | 10 MB + 1 byte | ถูกปฏิเสธ |
 | NV-14 | หลัง validate แล้ว stream ต้องถูก rewind | อ่าน stream ซ้ำ | ได้เนื้อไฟล์เดิม (ถ้าลืม `seek(0)` ไฟล์ที่เซฟจะว่าง) |
 | NV-15 | `uploader_name` ในฟอร์มไม่ถูกใช้ (US-31) | ฟอร์มครบ + `uploader_name=คนอื่น` | ไม่มี error และไม่มี `uploader_name` ในผลลัพธ์ — ชื่อมาจากบัญชีที่ `app.py` |
 
@@ -476,9 +476,9 @@ pure function ของหน้าเข้าสู่ระบบและห
 | WEB-32 | `validateUpload` รับชั้นปี 1–8 เท่านั้น | `0`, `9`, `two`, `8` | `ต้องอยู่ระหว่าง 1-8` ×2, `ต้องเป็นตัวเลข`, ผ่าน |
 | WEB-33 | `validateUpload` ตรวจวันที่เรียนเป็นวันจริงแบบ `YYYY-MM-DD` | `2026-08-20`, `20/08/2026`, `2026-02-30`, `2026-13-01` | ผ่าน, ที่เหลือได้ `ต้องเป็นรูปแบบ YYYY-MM-DD` |
 | WEB-34 | `validateUpload` รับ PDF/PNG/JPG เท่านั้น | `image/png`, `image/jpeg` · `application/msword`, `image/gif`, type ว่าง | ผ่าน · `รองรับเฉพาะไฟล์ PDF, PNG และ JPG` |
-| WEB-35 | `validateUpload` ไม่รับไฟล์ว่างและไฟล์เกิน 4 MB (ADR-009) | 0 byte, 4 MB + 1 byte, 4 MB พอดี | `ไฟล์ว่าง`, `ไฟล์ใหญ่เกิน 4 MB`, ผ่าน |
+| WEB-35 | `validateUpload` ไม่รับไฟล์ว่างและไฟล์เกิน 10 MB (NFR-006, ADR-012) | 0 byte, 10 MB + 1 byte, 10 MB พอดี | `ไฟล์ว่าง`, `ไฟล์ใหญ่เกิน 10 MB`, ผ่าน |
 | WEB-36 | `uploadFields` trim ค่าและไม่ส่งช่องไม่บังคับที่ว่าง | `title = '  Calc  '`, `topic` มีค่า, `class_date`/`description` ว่าง, มี `uploader_name` ปนมา | ได้เฉพาะ 6 ช่องบังคับ + `topic` ที่ trim แล้ว ไม่มี `uploader_name` (US-31) |
-| WEB-37 | `uploadErrorMessage` ครอบ error ของ notes-service และเพดานของ gateway | `400 validation_failed`, `401 unauthorized`, `503 auth_unavailable`, `413` ไม่มี body, status `0`, `500` | ข้อความเฉพาะของแต่ละกรณี · `413` = `ไฟล์ใหญ่เกิน 20 MB` |
+| WEB-37 | `uploadErrorMessage` ครอบ error ของ notes-service และเพดานของ gateway | `400 validation_failed`, `401 unauthorized`, `503 auth_unavailable`, `413` ไม่มี body, status `0`, `500` | ข้อความเฉพาะของแต่ละกรณี · `413` = `ไฟล์ใหญ่เกิน 10 MB` · `409 upload_already_used` (ADR-012) บอกให้อัปโหลดใหม่ |
 | WEB-38 | `searchUrlFor` เปิดหน้าค้นหาที่โน้ตที่เพิ่งอัปโหลด | `title = 'Linked List & Stack'` | `/?q=Linked+List+%26+Stack` |
 
 **ตรวจบน browser จริง (2026-10-02, ด้วยมือ ยังไม่ใช่ E2E อัตโนมัติ):** Docker ไม่ได้เปิด จึงรัน `auth-service` กับ `notes-service`
@@ -671,7 +671,7 @@ mutation 10 แบบถูกจับครบ: ไม่ trim รหัส, �
 | VC-07 | ค่าเริ่มต้นยังเก็บบนดิสก์ | ไม่ตั้ง `NOTES_STORAGE_BACKEND` | `LocalFileStorage` |
 | VC-08 | `NOTES_STORAGE_BACKEND=blob` เลือก Blob | ตั้งเป็น `blob` | `BlobFileStorage` (ข้ามถ้าเครื่องไม่มี `vercel` SDK · CI ติดตั้งจาก requirements จึงรัน) |
 | VC-09 | URL ของ Neon ใช้ psycopg 3 ทั้ง notes, auth และ stats | `postgres://…`, `postgresql://…`, `postgresql+psycopg://…`, `sqlite:///…` | สองตัวแรกกลายเป็น `postgresql+psycopg://…` · สองตัวหลังไม่เปลี่ยน |
-| VC-10 | request ที่ใหญ่ที่สุดที่ notes-service รับต้องไม่เกินเพดาน body ของ Vercel | `MAX_CONTENT_LENGTH` | น้อยกว่า 4,500,000 ไบต์ (4 MB + 256 KB) |
+| VC-10 | request ที่ใหญ่ที่สุดที่ notes-service รับต้องไม่เกินเพดาน body ของ Vercel | `MAX_CONTENT_LENGTH` เมื่อเก็บใน Blob · และเมื่อเก็บบนดิสก์ (compose) | Blob: น้อยกว่า 4,500,000 ไบต์ (ฟอร์ม 4 MB + 256 KB ไฟล์ใหญ่กว่านั้นอัปโหลดตรง ADR-012) · ดิสก์: มากกว่า 10 MB |
 | VC-11 | `vercel.json` ส่ง path ไปที่ service เดียวกับ `web/nginx.conf` | `/notes/12/stats`, `/stats`, `/notes`, `/notes/12/download`, `/reports/3`, `/auth/login`, `/edit.html` ฯลฯ | stats, stats, notes, notes, notes, auth, web ตามลำดับ rewrite |
 | VC-12 | ทุก service ใน `vercel.json` มีอยู่จริง และ notes/stats เรียก auth ผ่าน binding | `vercel.json` | ทุก rewrite ชี้ service ที่มี, catch-all อยู่ท้ายสุด, binding ใส่ `AUTH_SERVICE_URL`, `root` มีโฟลเดอร์จริง |
 
@@ -700,6 +700,7 @@ deploy preview บน Vercel จริง (2026-10-06, Neon + Blob แบบ pri
 | E2E-04 | แก้และลบด้วยรหัสแก้ไขโดยไม่ login (US-19, US-20) | `edit.html?id=` → รหัสผิด → รหัสถูก → แก้ชื่อ → ลบผ่านกล่องยืนยัน | รหัสผิดขึ้นข้อความใต้ช่องและไม่เปิดฟอร์มแก้ · `บันทึกการแก้ไขแล้ว` และหน้าโน้ตขึ้นชื่อใหม่ · ลบแล้ว `GET /notes/<id>` ได้ `404` |
 | E2E-05 | ผลค้นหาเกินหน้าแรกบอกยอดรวม (NA-137, WEB-95, WEB-96) | 21 โน้ตรหัสวิชาเดียวกัน แล้วค้นด้วยรหัสนั้น → โหลดเพิ่ม | `แสดง 20 จาก 21 รายการ` และมีปุ่มโหลดเพิ่ม → `แสดง 21 รายการ` และปุ่มหาย |
 | E2E-06 | หน้าจอมือถือกว้าง 375 px (NFR-008, NFR-009) | เปิด `/`, `login.html`, `upload.html`, `stats.html` | ไม่มี scroll แนวนอนทุกหน้า · ช่องค้นหาและปุ่มค้นหาอยู่ในจอแรกโดยไม่ต้อง scroll |
+| E2E-07 | ไฟล์ 6 MB อัปโหลดผ่านหน้าเว็บ (NFR-006, ADR-012) | เลือก PDF 6 MB แล้วอัปโหลด → ค้นด้วยรหัสวิชา → ดาวน์โหลดผ่าน API | ขึ้นกล่องสำเร็จ · `size_bytes` ตรง · ดาวน์โหลดได้ไบต์เดิมครบ · บน compose ไปทางฟอร์ม (nginx `11m`) กับ stack ที่เก็บใน Blob ไปทางอัปโหลดตรง |
 
 รันบนเครื่อง local (2026-10-08, compose stack ใหม่, Edge ผ่าน `--browser-channel msedge`): ผ่าน 6/6 สองรอบติดกันบน DB เดิม ~15 วินาที
 mutation 5 แบบถูกจับครบ (แก้ไฟล์ใน container `web` ตรง ๆ แล้วคืนค่า): หน้าค้นหาไม่ใช้ `total`, ปุ่มขอบคุณไม่ขึ้นเลย, รหัสผิดไม่ถูกปฏิเสธ,
@@ -723,6 +724,45 @@ mutation ที่ลองแล้ว (2026-10-09, เครื่อง local
 · ให้ `env.py` เทียบทุกตารางใน DB (MG-01 เจอ `remove_table` ของ `users`/`auth_sessions`) · เอา advisory lock ออกทีละ service (MG-06 ล้ม 12/12 รอบ
 บางรอบเป็น `DuplicateTable`/`UndefinedTable` บางรอบ thread ค้างอยู่ใน `CREATE TABLE` จนครบ 30 วินาที) · รอบแรกที่ยังไม่มีเส้นตาย เทสต์ค้างไม่จบเอง
 จึงให้ thread เป็น daemon และรอรวมกันแค่ 30 วินาที
+
+### 2.25 อัปโหลดตรงเข้า Vercel Blob — ไฟล์ถึง 10 MB บน Vercel (`pytest` + `node --test`, ADR-012)
+
+ไฟล์ [`src/tests/test_notes_direct_upload.py`](../../src/tests/test_notes_direct_upload.py) ใช้ Blob client ปลอมจาก `test_vercel_deploy.py`
+ไฟล์ที่ "browser อัปโหลด" จำลองด้วยการ `put` ลง client ปลอมตรง ๆ · WEB-97 ถึง WEB-100 อยู่ใน [`web/upload-utils.test.js`](../../web/upload-utils.test.js)
+
+| # | Test case | Input | ผลที่คาดหวัง |
+| --- | --- | --- | --- |
+| BU-01 | client token รูปแบบเดียวกับ `@vercel/blob` | read-write token ปลอม, pathname, 10 MB, PDF, `validUntil` | `vercel_blob_client_<storeId>_…` · ลายเซ็น = HMAC-SHA256 ของ payload · payload ครบ 6 ช่อง ห้ามเขียนทับ · ไม่มีส่วนลับของ read-write token |
+| BU-02 | read-write token ผิดรูปแบบ | `""`, `vercel_blob_rw`, `vercel_blob_rw__x`, `abc` | `ValueError` |
+| BU-03 | ขอ token ต้อง login | ไม่มี `Authorization` | `401` |
+| BU-04 | token ใช้ได้ไฟล์เดียวของผู้ใช้คนนี้ 10 นาที | PDF 9 MB | `mode = direct` · pathname `uploads/7/<32 hex>.pdf` · `upload_url` = `https://vercel.com/api/blob/?pathname=…` · payload ผูก pathname, PDF, 10 MB, หมดอายุ +600 วินาที |
+| BU-05 | ขอสองครั้งได้คนละไฟล์ | ขอ token ซ้ำ | pathname ไม่ซ้ำกัน |
+| BU-06 | ไฟล์ที่ประกาศมาไม่ผ่าน → ไม่ออก token | 10 MB + 1, 0 byte, ขนาดเป็นข้อความ, GIF | `400 validation_failed` พร้อมเหตุผลของ `file` |
+| BU-07 | compose ไม่มี Blob | `LocalFileStorage` | `{"mode": "form", "max_file_bytes": 10485760}` |
+| BU-08 | สร้างโน้ตจากไฟล์ที่อัปโหลดตรง | PUT 5,009 byte แล้ว `POST /notes` JSON ที่อ้าง `size_bytes = 1` และ `year_level` เป็นตัวเลข | `201` · ขนาดจาก Blob (5,009) · มี `edit_token` · ดาวน์โหลดได้ไบต์เดิม |
+| BU-09 | metadata ผิดใน JSON | `title` ว่าง, `year_level = true` | `400` ระบุทั้งสองช่อง · ไฟล์ใน Blob ยังอยู่ |
+| BU-10 | อ้างไฟล์ที่ไม่ได้ออกให้ผู้เรียก | ของผู้ใช้ 8, key ของโน้ตแบบฟอร์ม, key ของรูปตัวอย่าง, `..`, ค่าว่าง | `400 ไม่พบไฟล์ที่อัปโหลด` · ไม่มีไฟล์ไหนถูกลบ |
+| BU-11 | ได้ token แต่ PUT ไม่สำเร็จ | ไม่มีไฟล์ใน Blob | `400 ไม่พบไฟล์ที่อัปโหลด` |
+| BU-12 | ไฟล์ใน Blob ผิดกติกา (token ควรกันไว้แล้ว) | 10 MB + 1, GIF, PNG ใต้ชื่อ `.pdf` | `400` เหตุผลตามกรณี · ไฟล์ถูกลบ |
+| BU-13 | ส่ง JSON เดิมซ้ำ | `POST /notes` สองครั้ง | ครั้งแรก `201` ครั้งที่สอง `409 upload_already_used` · ไฟล์ของโน้ตแรกยังอยู่ · `total = 1` |
+| BU-14 | compose รับ JSON ที่อ้าง pathname ไม่ได้ | `LocalFileStorage` | `400` |
+| BU-15 | ขอ token ใหม่ลบไฟล์ที่ค้าง | ไฟล์ไม่มีโน้ตอายุ 11 นาที, ไฟล์ใหม่, ไฟล์ของโน้ตจริง, ไฟล์ของผู้ใช้อื่น | ลบเฉพาะไฟล์ค้างของผู้ใช้คนนี้ ที่เหลืออยู่ครบ |
+| BU-16 | list ของ Blob ล่ม | `iter_objects` โยน error | ยังได้ token `200` |
+| WEB-97 | `uploadTicketRequest` | PDF 9 MB ชนิดตัวใหญ่ | `{file_name, content_type: "application/pdf", size_bytes}` |
+| WEB-98 | `blobUploadHeaders` เหมือน `put` ของ `@vercel/blob/client` | ticket + ไฟล์ | 6 header: `authorization`, `x-api-version`, `x-vercel-blob-access: private`, store id, content type, content length |
+| WEB-99 | `directNoteBody` | ฟอร์ม + ticket + ไฟล์ | ฟิลด์ฟอร์ม + `file_name` + `upload_pathname` · ไม่มี client token |
+| WEB-100 | `blobUploadErrorMessage` | `0`, `403`, `500` | ข้อความเรื่องเน็ต, สิทธิ์หมดอายุ, HTTP 500 |
+
+VC-10 เปลี่ยนเป็นตรวจเพดานเมื่อเก็บใน Blob (ยังต่ำกว่า 4.5 MB) และเพิ่มข้อที่ compose รับฟอร์มได้เกิน 10 MB · NV-13 และ WEB-35 เปลี่ยนเป็น 10 MB
+
+ตรวจว่า token ตรงกับของจริง (2026-10-09): สร้าง token ด้วย `generateClientTokenFromReadWriteToken` ของ `@vercel/blob` 2.8.0 ใน Node
+และด้วย `generate_client_token` ด้วยค่าเดียวกัน ได้สตริงเดียวกันทุกไบต์
+
+ทดสอบกับ Blob และ browser จริง (2026-10-09, เครื่อง local): ยก compose โดยให้ notes-service ใช้ `NOTES_STORAGE_BACKEND=blob` กับ Blob store จริงของ project
+(ฐานข้อมูลยังเป็น Postgres ในเครื่อง ไม่แตะ Neon) แล้วรัน E2E ทั้งชุดด้วย Edge: ผ่าน 7/7 · โน้ตของ E2E-02 และไฟล์ 6 MB ของ E2E-07 อยู่ใต้ `uploads/<id>/`
+แปลว่าไปทางอัปโหลดตรงจริง และ browser ส่ง PUT ข้าม origin ไป `vercel.com/api/blob` ได้ (CORS ผ่าน) · หลังทดสอบลบไฟล์ทั้ง 24 ไฟล์ที่เทสต์สร้างออกจาก Blob
+mutation 7 แบบถูกจับครบ: ยอมรับ pathname ของผู้ใช้อื่น, เชื่อขนาดจาก client, เก็บไฟล์ผิดกติกาไว้, ลบไฟล์ของโน้ตเดิมตอนส่งซ้ำ, ล้างไฟล์โดยไม่ดูว่ามีโน้ต,
+token ยอมให้เขียนทับ, เซ็นด้วยกุญแจผิด
 
 ## 3. Test Report
 
