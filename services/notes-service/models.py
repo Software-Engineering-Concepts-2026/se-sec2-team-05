@@ -24,6 +24,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 
+from migrate import upgrade_to_head
+
 
 class Base(DeclarativeBase):
     pass
@@ -301,10 +303,9 @@ def sqlalchemy_url(url: str) -> str:
 
 
 def build_session_factory(database_url: str):
-    """สร้าง engine + session factory และ create ตารางถ้ายังไม่มี
+    """สร้าง engine + session factory และอัปเกรด schema เป็นเวอร์ชันล่าสุดด้วย Alembic (ADR-010)
 
-    ยังไม่ใช้ migration tool (Alembic) ในรอบ tracer bullet นี้ — schema ยังเปลี่ยนบ่อย
-    และยังไม่มีข้อมูลจริงที่ต้องรักษา ถ้า schema เริ่มนิ่งค่อยเพิ่มทีหลัง
+    เดิมใช้ create_all ซึ่งเพิ่มคอลัมน์ให้ตารางที่มีอยู่แล้วไม่ได้ — ดู migrate.py
     """
     # pool_pre_ping: Neon ปิด connection ที่ว่างนาน ต้องเช็คก่อนหยิบจาก pool มาใช้
     engine = create_engine(sqlalchemy_url(database_url), future=True, pool_pre_ping=True)
@@ -314,5 +315,5 @@ def build_session_factory(database_url: str):
         def _enable_foreign_keys(dbapi_connection, _record):
             dbapi_connection.execute("PRAGMA foreign_keys=ON")
 
-    Base.metadata.create_all(engine)
+    upgrade_to_head(engine)
     return sessionmaker(bind=engine, expire_on_commit=False)
