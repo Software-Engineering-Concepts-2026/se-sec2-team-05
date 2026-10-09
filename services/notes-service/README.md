@@ -40,7 +40,7 @@ NOTES_STORAGE_DIR=./data python services/notes-service/app.py
 | --- | --- | --- |
 | `GET` | `/health` | health check |
 | `POST` | `/notes` | อัปโหลดไฟล์ + metadata (`multipart/form-data`) → `201` พร้อม object ของโน้ต — **ต้อง login** (US-31) |
-| `GET` | `/notes` | ค้นหา/กรอง → `{ items: [...], count: n }` |
+| `GET` | `/notes` | ค้นหา/กรอง → `{ items: [...], count: n, total: t }` — `count` คือจำนวนในหน้านี้ `total` คือจำนวนที่ตรงตัวกรองทั้งหมด |
 | `GET` | `/notes/favorites` | รายการโปรดของตัวเอง เรียงที่เพิ่งบันทึกก่อน — **ต้อง login** (US-15) |
 | `GET` | `/notes/mine` | โน้ตที่ตัวเองอัปโหลด ใหม่สุดก่อน พร้อม `summary` ยอดรวม — **ต้อง login** (Issue #82) |
 | `GET` | `/notes/<id>` | รายละเอียดโน้ตหนึ่งรายการ |
@@ -126,12 +126,17 @@ request ที่ใหญ่เกิน 4 MB + 256 KB (ไฟล์ 4 MB + ท
 ### `GET /notes` — query parameters
 
 `q` (ค้นในชื่อ/วิชา/รหัส/บทเรียน/หัวข้อ), `faculty`, `subject_code`, `year_level`,
-`file_type` (`pdf` | `png` | `jpg`), `topic`, `date_from`, `date_to`,
+`file_type` (`pdf` | `png` | `jpg` — ไม่สนตัวพิมพ์ และรับ `jpeg` เป็นค่าเดียวกับ `jpg`), `topic`, `date_from`, `date_to`,
 `sort` (`new` | `old` | `class_date` | `title` | `rating`), `limit` (สูงสุด 100), `offset`
 
 `file_type` ส่งซ้ำได้หลายค่าเพื่อกรองแบบ OR เช่น `?file_type=pdf&file_type=png` (US-10)
 ค่าที่รับมาจาก client เป็นนามสกุลสั้น แล้วแปลงเป็น content type ผ่าน allowlist ของ `validation.py`
 ถ้ามีค่าใดไม่อยู่ใน allowlist จะปฏิเสธทั้งชุดด้วย `400` ไม่ใช่กรองเฉพาะค่าที่ถูก
+
+`total` นับโน้ตทุกใบที่ตรงตัวกรองโดยไม่สน `limit`/`offset` (ส่ง `offset` เลยหน้าสุดท้ายก็ยังได้ `total`)
+ใช้บอกผู้ใช้ว่ามีทั้งหมดกี่รายการ และรู้ว่าโหลดครบแล้วโดยไม่ต้องขอหน้าถัดไปที่ว่าง · `count` ยังเป็นจำนวนในหน้านี้เหมือนเดิม
+client เดิมที่อ่านแค่ `count` จึงไม่ต้องแก้ · `/notes/favorites` และ `/notes/mine` ยังไม่มี `total`
+(`/notes/mine` มี `summary.note_count` แทน)
 
 `topic` กรองเฉพาะคอลัมน์ `topic` แบบ partial match ไม่สนตัวพิมพ์เล็ก/ใหญ่ (US-26) — ต่างจาก `q`
 ที่ค้นหลายคอลัมน์พร้อมกันรวมถึง `topic` ด้วย ใช้ `topic` เมื่อต้องการกรองเฉพาะหัวข้อเลกเชอร์เท่านั้น

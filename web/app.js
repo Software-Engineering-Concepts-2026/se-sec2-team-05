@@ -12,6 +12,7 @@
     renderNoteCard,
     errorMessage,
     hasMore,
+    resultsSummary,
     formatSize,
     fileTypeLabel,
     ratingSummary,
@@ -128,9 +129,10 @@
     resultsList.insertAdjacentHTML('beforeend', items.map(renderNoteCard).join(''));
     nextOffset = offset + items.length;
 
-    resultsCount.textContent = `แสดง ${notesById.size} รายการ`;
+    const total = result.body.total;
+    resultsCount.textContent = resultsSummary(notesById.size, total);
     noResults.hidden = notesById.size > 0;
-    loadMoreBtn.hidden = !hasMore(items.length);
+    loadMoreBtn.hidden = !hasMore(items.length, { shown: notesById.size, total });
   }
 
   // Keep the search in the page URL, so reload and the back button bring it back.

@@ -4,6 +4,7 @@ Endpoint:
     GET  /health              health check (รูปแบบเดียวกับ stats-service)
     POST /notes               อัปโหลดไฟล์ + metadata (multipart/form-data) ต้อง login (US-31)
     GET  /notes               ค้นหา/กรองด้วย metadata ที่กรอกไว้ (AC ข้อ 4) · sort=rating (Issue #83)
+                              total = จำนวนที่ตรงเงื่อนไขทั้งหมด ไม่ใช่แค่หน้านี้ (count)
                               ถ้า login จะมี is_favorited ต่อโน้ต ไม่ login เป็น null (US-15)
                               และ thank_status ต่อโน้ต ไม่ login เป็น null (US-28)
     GET  /notes/favorites     รายการโปรดของตัวเอง ต้อง login (US-15)
@@ -171,6 +172,8 @@ EXT_TO_CONTENT_TYPE = {
     ext.lstrip("."): content_type
     for content_type, ext in ALLOWED_CONTENT_TYPES.items()
 }
+# ชื่อเรียกอื่นของนามสกุลเดียวกัน — ไฟล์ JPEG มักลงท้าย .jpeg และ MIME type ก็คือ image/jpeg
+FILE_TYPE_ALIASES = {"jpeg": "jpg"}
 
 
 def order_by_rating(stmt):
@@ -354,7 +357,11 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
                 ), 400
 
         # US-10: กรองตามประเภทไฟล์ — รับหลายค่าพร้อมกันได้ (OR ภายในตัวกรองนี้)
-        file_types = args.getlist("file_type")
+        # ไม่สนตัวพิมพ์ และรับ jpeg เป็นชื่อเดียวกับ jpg
+        file_types = [
+            FILE_TYPE_ALIASES.get(ft.strip().lower(), ft.strip().lower())
+            for ft in args.getlist("file_type")
+        ]
 
         if file_types:
             invalid = [
@@ -424,13 +431,16 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
         user_id = optional_user_id()
         with session_factory() as session:
             rows = session.scalars(stmt.limit(limit).offset(offset)).all()
+            # count คือจำนวนในหน้านี้ ส่วน total นับทุกโน้ตที่ตรงตัวกรองโดยไม่สน limit/offset
+            # ให้หน้าเว็บบอกได้ว่ามีทั้งหมดกี่รายการและเหลืออีกเท่าไร · ตัด ORDER BY ทิ้งเพราะไม่มีผลกับจำนวน
+            total = session.scalar(select(func.count()).select_from(stmt.order_by(None).subquery()))
             flags = favorite_flags(session, user_id, rows)
             thanks = thank_statuses(session, user_id, rows)
             items = [
                 {**n.to_dict(), "is_favorited": flags.get(n.id), "thank_status": thanks.get(n.id)}
                 for n in rows
             ]
-            return jsonify(items=items, count=len(items))
+            return jsonify(items=items, count=len(items), total=total)
 
     def require_user():
         """ตรวจตัวตนสำหรับ route ของรายการโปรด คืน (user, None) หรือ (None, error response)
