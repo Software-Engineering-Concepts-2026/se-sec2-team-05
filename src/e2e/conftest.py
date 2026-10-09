@@ -76,6 +76,16 @@ class Api:
         assert response.status_code == 201, response.text
         return response.json()
 
+    def search(self, subject_code):
+        response = requests.get(self.url("/notes"), params={"subject_code": subject_code}, timeout=10)
+        assert response.status_code == 200, response.text
+        return response.json()["items"]
+
+    def download(self, note_id):
+        response = requests.get(self.url(f"/notes/{note_id}/download"), timeout=60)
+        assert response.status_code == 200, response.text
+        return response.content
+
     def note_status(self, note_id):
         return requests.get(self.url(f"/notes/{note_id}"), timeout=10).status_code
 
