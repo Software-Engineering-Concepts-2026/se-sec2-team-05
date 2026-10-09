@@ -65,6 +65,7 @@
 - [ADR-008 — ให้เจ้าของที่ login อยู่แก้และลบโน้ตของตัวเองได้ โดยยังใช้ edit token ควบคู่](./adr/0008-owner-login-for-note-changes.th.md)
 - [ADR-009 — Deploy บน Vercel ด้วย Services, Neon Postgres และ Vercel Blob แบบ private](./adr/0009-deploy-on-vercel-services.th.md)
 - [ADR-010 — รัน migration ด้วย Alembic ตอน service สตาร์ต](./adr/0010-alembic-migrations-at-startup.th.md)
+- [ADR-011 — จำกัดความถี่ของ login และสมัครสมาชิก โดยเก็บตัวนับใน Postgres](./adr/0011-rate-limit-login-and-register.th.md)
 
 > ⚠️ C4 Container diagram ด้านบนอธิบายสถาปัตยกรรม **เป้าหมาย** สิ่งที่ `docker compose up` ยกขึ้นมาจริงตอนนี้แคบกว่านั้น — มี `notes-service`, `auth-service` และ `stats-service` กับ container `web` (nginx, port 8080) ที่เสิร์ฟหน้าค้นหาและส่งต่อ `/notes`, `/auth` (ADR-006) ซึ่งยังไม่ตรวจ token จึงยังไม่ใช่ API Gateway ตาม diagram และ `notes-service` เรียก `auth-service` (`GET /auth/me`) เฉพาะตอนตรวจตัวตนผู้อัปโหลด การอ่านยังเปิดหมด ส่วนการแก้/ลบยังใช้ edit token ของ ADR-004 ดูรายละเอียดใน ADR-003, ADR-004, ADR-005 และ ADR-006
 

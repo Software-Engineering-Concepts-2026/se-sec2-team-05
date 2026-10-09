@@ -29,6 +29,13 @@ AUTH_JWT_SECRET=$(python -c "import secrets; print(secrets.token_urlsafe(48))") 
 | `DATABASE_URL` | `sqlite:///auth.db` | SQLAlchemy URL — compose ตั้งเป็น Postgres ก้อนเดียวกับ notes-service |
 | `ALLOWED_EMAIL_DOMAINS` | `up.ac.th` | โดเมนอีเมลที่สมัครได้ คั่นหลายโดเมนด้วย comma · ต้องตรงตัว ไม่นับ subdomain |
 | `AUTH_TOKEN_TTL_HOURS` | `8` | อายุของ access token (ชั่วโมง) ไม่มี refresh token |
+| `AUTH_LOGIN_MAX_FAILS_PER_EMAIL` | `5` | login ผิดได้กี่ครั้งต่ออีเมลภายใน `AUTH_LOGIN_WINDOW_MINUTES` ก่อนได้ `429` ([ADR-011](../../docs/architecture/adr/0011-rate-limit-login-and-register.th.md)) |
+| `AUTH_LOGIN_MAX_FAILS_PER_IP` | `30` | login ผิดได้กี่ครั้งต่อ IP (รวมทุกอีเมล) ภายในหน้าต่างเดียวกัน |
+| `AUTH_LOGIN_WINDOW_MINUTES` | `15` | หน้าต่างเวลาของตัวนับ login |
+| `AUTH_REGISTER_MAX_PER_IP` | `20` | สมัครได้กี่ครั้งต่อ IP ภายใน `AUTH_REGISTER_WINDOW_MINUTES` |
+| `AUTH_REGISTER_WINDOW_MINUTES` | `60` | หน้าต่างเวลาของตัวนับการสมัคร |
+
+ค่าเพดานทุกตัวต้องเป็นจำนวนเต็มตั้งแต่ 1 ขึ้นไป ค่าผิดรูปทำให้ service ไม่ยอมสตาร์ต (ไม่ปิด limit เงียบ ๆ)
 
 ## API
 
@@ -57,6 +64,7 @@ body รับได้ทั้ง JSON และ form (`curl -d`) · endpoint 
 | ข้อมูลผิด (รายงานครบทุกช่องในครั้งเดียว) | `400` `{"error": "validation_failed", "fields": {...}}` |
 | อีเมลนี้สมัครไว้แล้ว | `409` `{"error": "email_taken", "fields": {"email": ...}}` |
 | body ใหญ่เกิน 16 KB | `413` `{"error": "request_too_large"}` |
+| สมัครจาก IP นี้ครบ `AUTH_REGISTER_MAX_PER_IP` ครั้งแล้ว (นับทั้งที่สมัครได้และที่อีเมลซ้ำ ไม่นับ `400`) | `429` `{"error": "rate_limited", "message": "...ลองใหม่ในอีก N นาที", "retry_after": วินาที}` + header `Retry-After` |
 
 ### `POST /auth/login`
 
@@ -65,6 +73,7 @@ body รับได้ทั้ง JSON และ form (`curl -d`) · endpoint 
 | สำเร็จ | `200` `{access_token, token_type: "Bearer", expires_at, user}` |
 | ไม่ได้กรอกอีเมลหรือรหัสผ่าน | `400` `validation_failed` บอกว่าช่องไหนว่าง |
 | อีเมลไม่มีในระบบ **หรือ** รหัสผ่านผิด | `401` `{"error": "invalid_credentials", "message": "อีเมลหรือรหัสผ่านไม่ถูกต้อง"}` — เหมือนกันทุกไบต์ ไม่บอกว่าผิดช่องไหน |
+| ผิดครบเพดานต่ออีเมลหรือต่อ IP ในหน้าต่างเวลา | `429` `{"error": "rate_limited", "message": "...ลองใหม่ในอีก N นาที", "retry_after": วินาที}` + header `Retry-After` — ช่วงนี้ไม่ตรวจรหัสผ่านเลย แม้รหัสถูกก็ได้ `429` · อีเมลที่ไม่มีบัญชีก็ถูกล็อกเหมือนกัน · login สำเร็จแล้วล้างตัวนับของอีเมลนั้น |
 
 ### `POST /auth/logout` และ `GET /auth/me`
 
