@@ -1,6 +1,6 @@
 // Pure helpers for the upload page (web/upload.html).
 // validateUpload repeats the rules of services/notes-service/validation.py, so the form can
-// point at every wrong field before a 4 MB file goes over the network. The service still
+// point at every wrong field before a 10 MB file goes over the network. The service still
 // checks everything again; when the two disagree, the service's answer is the one shown.
 // Same loading pattern as search-utils.js: window.UploadUtils in the browser, module.exports
 // under Node.
@@ -20,7 +20,7 @@
   const MIN_YEAR_LEVEL = 1;
   const MAX_YEAR_LEVEL = 8;
   const ALLOWED_CONTENT_TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
-  const MAX_FILE_BYTES = 4 * 1024 * 1024;
+  const MAX_FILE_BYTES = 10 * 1024 * 1024;
   const MAX_FILE_MB = MAX_FILE_BYTES / (1024 * 1024);
 
   function isIsoDate(value) {
@@ -98,6 +98,7 @@
     if (code === 'validation_failed') return 'ข้อมูลยังไม่ถูกต้อง แก้ช่องที่มีข้อความสีแดงแล้วลองใหม่';
     if (code === 'unauthorized') return 'เซสชันหมดอายุหรือออกจากระบบไปแล้ว กรุณาเข้าสู่ระบบใหม่ก่อนอัปโหลด';
     if (code === 'auth_unavailable') return 'ระบบยืนยันตัวตนไม่พร้อมใช้งานตอนนี้ ลองใหม่อีกสักครู่';
+    if (code === 'upload_already_used') return 'ไฟล์นี้ถูกใช้สร้างโน้ตไปแล้ว เลือกไฟล์แล้วอัปโหลดใหม่อีกครั้ง';
     // A body over the gateway's limit is cut off by nginx with an HTML page, so there is no JSON
     if (status === 413) return `ไฟล์ใหญ่เกิน ${MAX_FILE_MB} MB`;
     if (status === 0) return 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจการเชื่อมต่อแล้วลองใหม่';
@@ -114,6 +115,37 @@
     return { percent, text: `กำลังส่งไฟล์ ${percent}% (${mb(loaded)} จาก ${mb(total)})` };
   }
 
+  // ADR-012: on Vercel the file goes straight to Vercel Blob, not through notes-service.
+  // POST /notes/uploads body: what the service checks before it signs an upload token.
+  function uploadTicketRequest(file) {
+    return { file_name: file.name, content_type: String(file.type).toLowerCase(), size_bytes: file.size };
+  }
+
+  // Headers for the PUT to ticket.upload_url, the same ones `put` from @vercel/blob/client
+  // (2.8.0) sends with a client token. The token only allows this pathname, type and size.
+  function blobUploadHeaders(ticket, file) {
+    return {
+      authorization: `Bearer ${ticket.client_token}`,
+      'x-api-version': ticket.api_version,
+      'x-vercel-blob-access': 'private',
+      'x-vercel-blob-store-id': ticket.store_id,
+      'x-content-type': String(file.type).toLowerCase(),
+      'x-content-length': String(file.size),
+    };
+  }
+
+  // POST /notes as JSON after the file is in Blob: the form fields plus where the file is.
+  function directNoteBody(fields, ticket, file) {
+    return { ...uploadFields(fields), file_name: file.name, upload_pathname: ticket.pathname };
+  }
+
+  // The PUT to Vercel Blob failed -> one line for the top of the form.
+  function blobUploadErrorMessage(status) {
+    if (status === 0) return 'ส่งไฟล์ไม่สำเร็จ ตรวจการเชื่อมต่อแล้วลองใหม่';
+    if (status === 403) return 'สิทธิ์อัปโหลดหมดอายุแล้ว กดอัปโหลดอีกครั้ง';
+    return `ส่งไฟล์ไปที่เก็บไฟล์ไม่สำเร็จ (HTTP ${status}) ลองใหม่อีกครั้ง`;
+  }
+
   // The search page with the new note's title as the search text.
   function searchUrlFor(note) {
     return `/?${new URLSearchParams({ q: note.title })}`;
@@ -128,6 +160,10 @@
     uploadFields,
     uploadErrorMessage,
     uploadProgress,
+    uploadTicketRequest,
+    blobUploadHeaders,
+    directNoteBody,
+    blobUploadErrorMessage,
     searchUrlFor,
   };
 

@@ -19,8 +19,12 @@ ALLOWED_CONTENT_TYPES = {
     "image/jpeg": ".jpg",
 }
 
-# 4 MB เพราะ Vercel รับ body ของ function ได้ไม่เกิน 4.5 MB ทั้งก้อน (ADR-009)
-MAX_FILE_BYTES = 4 * 1024 * 1024
+# 10 MB ตาม NFR-003/NFR-006 · บน Vercel ไฟล์ไม่ผ่าน function แต่ browser อัปโหลดตรงเข้า Blob
+# (ADR-012) จึงไม่ติดเพดาน body 4.5 MB ของ Vercel อีก
+MAX_FILE_BYTES = 10 * 1024 * 1024
+# เพดานของการอัปโหลดผ่านฟอร์ม (multipart) เมื่อเก็บไฟล์ใน Blob — request ทั้งก้อนต้องไม่เกิน
+# 4.5 MB ของ Vercel (ADR-009) · หน้าเว็บบน Vercel ใช้ทางอัปโหลดตรงเสมอ ทางนี้เหลือไว้ให้ client อื่น
+MAX_FORM_FILE_BYTES_ON_BLOB = 4 * 1024 * 1024
 
 MAX_LENGTHS = {
     "title": 200,
@@ -103,15 +107,10 @@ def validate_metadata(form, partial=False):
     return cleaned, errors
 
 
-def validate_file(file_storage):
+def validate_file(file_storage, max_bytes=MAX_FILE_BYTES):
     """ตรวจไฟล์แนบ คืน (content_type, size_bytes, error)"""
     if file_storage is None or not file_storage.filename:
         return None, None, "ต้องแนบไฟล์โน้ต"
-
-    content_type = (file_storage.mimetype or "").lower()
-    if content_type not in ALLOWED_CONTENT_TYPES:
-        allowed = ", ".join(sorted(ALLOWED_CONTENT_TYPES))
-        return None, None, f"รองรับเฉพาะ {allowed}"
 
     # หาขนาดไฟล์จาก stream โดยไม่อ่านทั้งก้อนเข้า memory
     stream = file_storage.stream
@@ -119,9 +118,22 @@ def validate_file(file_storage):
     size = stream.tell()
     stream.seek(0)
 
-    if size == 0:
-        return None, None, "ไฟล์ว่าง"
-    if size > MAX_FILE_BYTES:
-        return None, None, f"ไฟล์ใหญ่เกิน {MAX_FILE_BYTES // (1024 * 1024)} MB"
+    error = file_error(file_storage.mimetype, size, max_bytes)
+    if error:
+        return None, None, error
+    return file_storage.mimetype.lower(), size, None
 
-    return content_type, size, None
+
+def file_error(content_type, size, max_bytes=MAX_FILE_BYTES):
+    """ตรวจชนิดและขนาดของไฟล์ คืนเหตุผลถ้าไม่ผ่าน หรือ None ถ้าผ่าน
+
+    ใช้ทั้งกับไฟล์ที่ส่งมาในฟอร์ม และกับไฟล์ที่ browser อัปโหลดตรงเข้า Blob (ADR-012)
+    """
+    if (content_type or "").lower() not in ALLOWED_CONTENT_TYPES:
+        allowed = ", ".join(sorted(ALLOWED_CONTENT_TYPES))
+        return f"รองรับเฉพาะ {allowed}"
+    if isinstance(size, bool) or not isinstance(size, int) or size <= 0:
+        return "ไฟล์ว่าง"
+    if size > max_bytes:
+        return f"ไฟล์ใหญ่เกิน {max_bytes // (1024 * 1024)} MB"
+    return None
