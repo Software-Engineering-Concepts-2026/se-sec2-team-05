@@ -8,6 +8,7 @@ Endpoint:
     GET  /auth/me         ข้อมูลบัญชีของ token ที่ส่งมา — service อื่นใช้ตรวจ token ผ่านตัวนี้
 
 การออกแบบ token + session และเหตุผลที่เลือก scrypt อยู่ใน ADR-005
+register และ login จำกัดความถี่ไว้ ตอบ 429 + Retry-After เมื่อครบเพดาน (ADR-011, auth_rate_limit.py)
 service นี้ยังไม่ได้ถูกเรียกจาก notes-service — การบังคับ login ตอนอัปโหลดเป็นงานรอบถัดไป
 """
 
@@ -18,7 +19,9 @@ from flask import Flask, jsonify, request
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
+import auth_rate_limit
 from auth_models import AuthSession, User, build_session_factory, utcnow
+from auth_rate_limit import LOGIN_FAILED, REGISTER, RateLimits, client_ip, email_key, ip_key
 from auth_tokens import (
     DEFAULT_TTL,
     check_secret,
@@ -45,6 +48,10 @@ MAX_REQUEST_BYTES = 16 * 1024
 # ข้อความเดียวกันทุกกรณีที่ login ไม่ผ่าน ไม่บอกว่าผิดที่อีเมลหรือรหัสผ่าน (AC ข้อ 3 ของ #6)
 INVALID_CREDENTIALS_MESSAGE = "อีเมลหรือรหัสผ่านไม่ถูกต้อง"
 
+# คำตอบตอนครบเพดานของ rate limit (ADR-011) — {minutes} ปัดขึ้นจาก Retry-After
+LOGIN_RATE_LIMITED_MESSAGE = "เข้าสู่ระบบไม่สำเร็จหลายครั้งเกินไป กรุณาลองใหม่ในอีก {minutes} นาที"
+REGISTER_RATE_LIMITED_MESSAGE = "มีการสมัครสมาชิกจากเครือข่ายนี้บ่อยเกินไป กรุณาลองใหม่ในอีก {minutes} นาที"
+
 
 def _ttl_from_env() -> timedelta:
     raw = os.environ.get("AUTH_TOKEN_TTL_HOURS")
@@ -65,6 +72,8 @@ def create_app(
     allowed_domains: str | None = None,
     token_ttl: timedelta | None = None,
     password_hash_method: str = PASSWORD_HASH_METHOD,
+    rate_limits: RateLimits | None = None,
+    clock=utcnow,
 ) -> Flask:
     app = Flask(__name__)
     app.config["MAX_CONTENT_LENGTH"] = MAX_REQUEST_BYTES
@@ -77,6 +86,7 @@ def create_app(
         allowed_domains if allowed_domains is not None else os.environ.get("ALLOWED_EMAIL_DOMAINS")
     )
     ttl = token_ttl if token_ttl is not None else _ttl_from_env()
+    limits = rate_limits if rate_limits is not None else auth_rate_limit.limits_from_env()
 
     # login ด้วยอีเมลที่ไม่มีในระบบก็ต้องเสียเวลา hash เท่ากับอีเมลที่มีอยู่จริง
     # ไม่งั้นแค่จับเวลาตอบก็รู้แล้วว่าอีเมลไหนสมัครไว้ ซึ่งเท่ากับทำ AC ข้อ 3 ของ #6 หลุด
@@ -112,6 +122,20 @@ def create_app(
             return None
         return auth_session, user
 
+    def rate_limited(seconds, message):
+        minutes = -(-seconds // 60)
+        body = jsonify(error="rate_limited", message=message.format(minutes=minutes), retry_after=seconds)
+        return body, 429, {"Retry-After": str(seconds)}
+
+    def wait_for(session, kind, checks, now):
+        """วินาทีที่ต้องรอนานที่สุดจากทุก (key, limit) ที่ครบเพดานแล้ว หรือ None ถ้ายังไม่ครบสักตัว"""
+        waits = [auth_rate_limit.retry_after(session, kind, key, limit, now) for key, limit in checks]
+        waits = [wait for wait in waits if wait is not None]
+        return max(waits) if waits else None
+
+    def remember(session, kind, keys, now):
+        auth_rate_limit.record(session, kind, keys, now, prune_before=now - limits.longest_window())
+
     @app.get("/health")
     def health():
         return jsonify(status="ok", service="auth-service", time=utcnow().isoformat())
@@ -132,7 +156,16 @@ def create_app(
             jsonify(error="email_taken", fields={"email": "อีเมลนี้สมัครสมาชิกไว้แล้ว"}),
             409,
         )
+        now = clock()
+        ip = ip_key(client_ip(request))
         with session_factory() as session:
+            # นับทุกคำขอที่ผ่าน validation ทั้งที่สมัครได้และที่อีเมลซ้ำ เพราะ 409 เผยว่าอีเมลไหนมีบัญชี
+            wait = wait_for(session, REGISTER, [(ip, limits.register_per_ip)], now)
+            if wait is not None:
+                return rate_limited(wait, REGISTER_RATE_LIMITED_MESSAGE)
+            remember(session, REGISTER, [ip], now)
+            session.commit()
+
             if session.scalar(select(User.id).where(User.email == cleaned["email"])):
                 return email_taken
 
@@ -165,16 +198,30 @@ def create_app(
         if missing:
             return jsonify(error="validation_failed", fields=missing), 400
 
+        now = clock()
+        keys = [email_key(email), ip_key(client_ip(request))]
         invalid = jsonify(error="invalid_credentials", message=INVALID_CREDENTIALS_MESSAGE), 401
-        # รหัสผ่านที่ยาวกว่าเพดานไม่มีทางถูกอยู่แล้ว เพราะตอนสมัครไม่ยอมรับ
-        if len(password) > MAX_PASSWORD_LENGTH:
-            return invalid
 
         with session_factory() as session:
-            user = session.scalar(select(User).where(User.email == email))
-            password_ok = verify_password(user.password_hash if user else dummy_hash, password)
+            # ตรวจก่อนตรวจรหัสผ่าน ช่วงที่ล็อกอยู่จึงเดาไม่ได้เลย และไม่เสีย CPU ไปกับ scrypt
+            checks = [(keys[0], limits.login_per_email), (keys[1], limits.login_per_ip)]
+            wait = wait_for(session, LOGIN_FAILED, checks, now)
+            if wait is not None:
+                return rate_limited(wait, LOGIN_RATE_LIMITED_MESSAGE)
+
+            # รหัสผ่านที่ยาวกว่าเพดานไม่มีทางถูกอยู่แล้ว เพราะตอนสมัครไม่ยอมรับ
+            user = None
+            password_ok = False
+            if len(password) <= MAX_PASSWORD_LENGTH:
+                user = session.scalar(select(User).where(User.email == email))
+                password_ok = verify_password(user.password_hash if user else dummy_hash, password)
             if user is None or not password_ok:
+                remember(session, LOGIN_FAILED, keys, now)
+                session.commit()
                 return invalid
+
+            # login สำเร็จ ล้างตัวนับของบัญชีนี้ (ของ IP ไม่ล้าง ไม่งั้นแค่ login บัญชีตัวเองสลับก็เดาบัญชีอื่นต่อได้)
+            auth_rate_limit.clear(session, LOGIN_FAILED, keys[0])
 
             issued_at = utcnow()
             session_id = new_session_id()
