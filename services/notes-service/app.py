@@ -271,17 +271,6 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
             413,
         )
 
-    def login_required():
-        """คืน (user, None) หรือ (None, response ที่ต้องตอบกลับทันที)"""
-        try:
-            user = current_user(request.headers.get("Authorization"))
-        except IdentityUnavailable:
-            return None, (jsonify(error="auth_unavailable"), 503)
-
-        if user is None:
-            return None, (jsonify(error="unauthorized"), 401, {"WWW-Authenticate": "Bearer"})
-        return user, None
-
     @app.post("/notes/uploads")
     def start_upload():
         """ขอที่อัปโหลดไฟล์ก่อนสร้างโน้ต (ADR-012)
@@ -291,7 +280,7 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
         แล้วค่อยเรียก POST /notes แบบ JSON พร้อม `upload_pathname`
         เก็บบนดิสก์ (compose): ตอบ `mode: "form"` ให้ส่งไฟล์มาใน POST /notes แบบ multipart เหมือนเดิม
         """
-        user, denied = login_required()
+        user, denied = require_user()
         if denied:
             return denied
 
@@ -343,7 +332,7 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
     @app.post("/notes")
     def create_note():
         # ตรวจตัวตนก่อนแตะ body — ถ้าไม่ผ่านจะไม่มีการอ่านไฟล์หรือบันทึกอะไรลง storage เลย
-        user, denied = login_required()
+        user, denied = require_user()
         if denied:
             return denied
 
@@ -591,10 +580,7 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
             return jsonify(items=items, count=len(items), total=total)
 
     def require_user():
-        """ตรวจตัวตนสำหรับ route ของรายการโปรด คืน (user, None) หรือ (None, error response)
-
-        แยกจาก create_note ตั้งใจ — ไม่ refactor โค้ดของ US-31 ในงานนี้
-        """
+        """ตรวจตัวตนของ route ที่ต้อง login คืน (user, None) หรือ (None, error response)"""
         try:
             user = current_user(request.headers.get("Authorization"))
         except IdentityUnavailable:
