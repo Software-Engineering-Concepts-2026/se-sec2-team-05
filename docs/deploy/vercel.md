@@ -85,6 +85,8 @@ vercel deploy --prod             # production — URL สาธารณะ
 - [ ] เปิดหน้าโน้ต เห็นภาพตัวอย่าง ดาวน์โหลดได้
 - [ ] หน้าสถิติแสดงตัวเลข (ทดสอบ route `/stats` และ `/notes/<id>/stats`)
 - [ ] บัญชีผู้ดูแลเห็นปุ่ม "ตรวจรายงานโน้ต" ในโปรไฟล์
+- [ ] gateway ตรวจ login (ADR-014): `/notes/1/stats` ไม่มี token ได้ `{"error": "unauthorized"}` (ถ้าได้ `Authentication required`
+  แปลว่า middleware `gateway/proxy.ts` ไม่ได้ทำงาน และ request หลุดไปถึง stats-service)
 
 ถ้า preview เปิดไม่ได้เพราะ Deployment Protection ให้ทดสอบด้วย `vercel curl <url>/notes` ซึ่งผ่าน protection ให้เอง
 ถ้ามี error ดูที่หน้า deployment → **Logs** แยกตาม service
@@ -93,5 +95,8 @@ vercel deploy --prod             # production — URL สาธารณะ
 
 - ไฟล์อัปโหลดไม่เกิน **4 MB** เพราะ Vercel รับ body ได้ไม่เกิน 4.5 MB
 - request แรกหลังไม่มีคนใช้สักพักจะช้า (cold start)
+- route ที่ต้อง login ผ่าน Routing Middleware (`gateway/proxy.ts`, ADR-014) ซึ่งถาม `/auth/me` ของ deployment เดียวกันอีกรอบ
+  จึงช้ากว่า route ที่เปิดให้ทุกคนหนึ่ง request · ต้องตั้งผ่าน `"proxy"` ใน `vercel.json` เพราะไฟล์ `middleware.ts` ที่ root
+  ถูกเมินเมื่อ project ใช้ `services`
 - ยังไม่มี migration: ถ้าเพิ่มคอลัมน์ในโค้ด ต้องสร้างคอลัมน์เองใน Neon หรือล้างฐานข้อมูล
 - ข้อมูลเดิมในเครื่อง (`docker compose`) ไม่ได้ย้ายขึ้นไปด้วย

@@ -251,6 +251,7 @@ NA-136 ถึง NA-139 (`total` และ `file_type`, 2026-10-08) จับ mu
 | DK-07 | preview endpoint ทำงานจริงบน image ที่ build (US-11) — กัน regression ของบั๊ก Dockerfile ที่เคยลืม copy `preview.py` (commit `8f25b9b`) ซึ่ง unit test จับไม่ได้เพราะ import จาก source tree ตรง ๆ | อัปโหลด PNG จริงแล้ว `GET .../preview` โดยไม่ส่ง token, กับอัปโหลดไฟล์ที่ประกาศเป็น `image/png` แต่เนื้อไม่ใช่รูป | ไฟล์จริงได้ `200` + header `Content-Type: image/png` + ไบต์ 8 ตัวแรกตรง PNG signature · ไฟล์ปลอมได้ `422` ไม่ใช่ `500` |
 | DK-08 | web gateway เสิร์ฟหน้าเว็บและส่งต่อ API จาก origin เดียว (ADR-006, US-11/US-31) | `curl :8080/`, `/login.html`, `/upload.html`, `/note.html?id=1`, `/profile.html` (Issue #85), `/admin.html` (Issues #17, #18), `/stats.html` (Issue #16), `/edit.html?id=1` (US-19/US-20), ไฟล์ JS ทั้ง 17 ไฟล์และไฟล์เทสต์ทั้ง 8 ไฟล์ · `GET :8080/stats` · `GET :8080/notes?subject_code=CS201&year_level=2` และ `?year_level=abc` · `GET :8080/notes/<id ของ CS201>/stats` แบบไม่มี token และด้วยเจ้าของ, `GET :8080/notes/<id>` · `GET :8080/reports` แบบไม่มี token และด้วยสมาชิกทั่วไป, `DELETE :8080/reports/1` ด้วยสมาชิกทั่วไป · `GET :8080/auth/me` แบบไม่มี token และมี token · อัปโหลด PNG ผ่าน `:8080/notes` แล้วเปิด `preview_url` ผ่าน `:8080` · `PATCH :8080/notes/<id ของโน้ตนั้น>` แบบไม่มีฟิลด์ด้วย `X-Note-Token` ที่ถูกและผิด · `POST :8080/auth/login` (JSON) → `POST :8080/auth/logout` → `GET :8080/auth/me` ด้วย token เดิม | หน้าแรกมี `id="searchForm"`, หน้า login มี `id="loginForm"`, หน้าอัปโหลดมี `id="uploadForm"`, หน้ารายละเอียดมี `id="noteDetail"`, หน้าโปรไฟล์มี `id="profileStats"`, หน้าผู้ดูแลมี `id="reportsList"`, หน้าสถิติมี `id="overviewCards"`, หน้าแก้ด้วยรหัสมี `id="tokenForm"` · `/stats` ได้ `total_notes` เป็นตัวเลข · ไฟล์ JS ได้ `200` · ไฟล์เทสต์ได้ `404` (ไม่ถูก copy เข้า image) · query string ไปถึง service ครบ (`count = 1`, ค่าผิดได้ `400`) · `/notes/<id>/stats` ไปถึง stats-service (ไม่ login `401`, เจ้าของได้ `downloads` ≥ 1) และ `/notes/<id>` ยังไป notes-service · `/reports` ไม่มี token `401`, สมาชิกทั่วไปได้ `forbidden` และลบไม่ได้ `403` (nginx ส่ง `/reports` ไปถึง notes-service) · `me` ไม่มี token `401` มี token ได้ `CI Uploader` (header `Authorization` ผ่าน nginx) · upload ได้ `uploader_name = CI Uploader` และ preview ได้ `200` + `image/png` · รหัสถูกได้ `no_fields_to_update` รหัสผิดได้ `403` และ `updated_at` ยังเป็น `null` (header `X-Note-Token` ผ่าน nginx) · login ได้ token, logout ได้ `204` แล้ว token เดิมได้ `401` (US-05/US-06 ผ่าน gateway แบบที่หน้าเว็บเรียก) |
 | DK-09 | เจ้าของแก้/ลบด้วย login, `/notes/mine` และ `sort=rating` บน Postgres จริง (Issues #82, #83) | สมัคร + login บัญชี `CI Rater` · `CI Uploader` อัปโหลด 2 โน้ต (`CS501`) · Rater เปิดดูแล้วให้คะแนนใบแรก · `GET /notes?subject_code=CS501&sort=rating` · `GET /notes/mine` · Rater แล้วเจ้าของ `PATCH`/`DELETE` | ใบที่มีคะแนนมาก่อนใบใหม่กว่าที่ไม่มีคะแนน (Postgres วาง NULL ไว้หน้าสุดเมื่อ DESC ต่างจาก SQLite) · `/notes/mine` มีทั้งสองใบ, `rating_count = 1`, ไม่ login ได้ `401` · Rater ได้ `403` ทั้งคู่ · เจ้าของ `PATCH` ได้ค่าใหม่และ `DELETE` ได้ `204` |
+| DK-10 | gateway ตรวจ login ก่อนส่งต่อ (ADR-014) — step สุดท้ายของ smoke เพราะหยุด auth-service | ผ่าน `:8080`: `GET /notes/<id>/stats` ไม่มี token, token มั่ว, token เจ้าของ · `PATCH /notes/<id>` ไม่มีทั้ง token และรหัส · `GET /notes/mine` ไม่มี token (ดู header) · `GET /notes/<id>` ด้วย token มั่ว · หยุด auth-service แล้ว `GET /notes/mine` ด้วย token จริง และ `GET /notes?subject_code=CS201` | สองแบบแรกได้ `{"error": "unauthorized"}` จาก gateway (ถ้าหลุดไปถึง stats-service จะได้ `Authentication required`) · เจ้าของได้ `200` · `PATCH` ได้ `401` ไม่ใช่ `403` ของ service · มี `WWW-Authenticate: Bearer` และ `Content-Type: application/json` · route ที่เปิดไม่ถูกตรวจ ได้ `200` · auth-service ล่มได้ `503 auth_unavailable` ส่วนการค้นหายังได้ `count = 1` |
 
 ### 2.7 Auth Service — ตรวจข้อมูลสมัครและ hash รหัสผ่าน (`pytest`, US-05 #5)
 
@@ -724,6 +725,38 @@ mutation ที่ลองแล้ว (2026-10-09, เครื่อง local
 บางรอบเป็น `DuplicateTable`/`UndefinedTable` บางรอบ thread ค้างอยู่ใน `CREATE TABLE` จนครบ 30 วินาที) · รอบแรกที่ยังไม่มีเส้นตาย เทสต์ค้างไม่จบเอง
 จึงให้ thread เป็น daemon และรอรวมกันแค่ 30 วินาที
 
+### 2.26 Gateway ตรวจ token ก่อนส่งต่อ (`node --test` + `pytest`, ADR-014)
+
+ตารางตั้งต้นคือ [`gateway/cases.json`](../../gateway/cases.json): ทุก route สาธารณะพร้อมผลที่คาด (`login` / `edit` / `open` และถาม auth-service หรือไม่)
+GW-01 ถึง GW-06 อยู่ใน [`gateway/rules.test.js`](../../gateway/rules.test.js) ตรวจฝั่ง Vercel (`gateway/rules.js` ที่ `gateway/proxy.ts` เรียก) ด้วย fetch ปลอม
+GW-07 ถึง GW-10 อยู่ใน [`src/tests/test_gateway_rules.py`](../../src/tests/test_gateway_rules.py) ตรวจ `web/nginx.conf`, `vercel.json` และ route ของ Flask · บน stack จริงดู DK-10
+
+| # | Test case | Input | ผลที่คาดหวัง |
+| --- | --- | --- | --- |
+| GW-01 | `rules.js` ให้ rule และผลการตรวจตรงกับ cases.json ทุกแถว | 31 แถว รวมแก้/ลบโน้ตทั้งแบบมีและไม่มี `X-Note-Token` และ path ที่หน้าตาคล้าย (`/notes/`, `/notes/abc/stats`, `/notes/favorites/extra`) | ตรงทุกแถว · method ตัวเล็กก็ได้ผลเดียวกัน · `X-Note-Token` ว่างไม่นับเป็นรหัส |
+| GW-02 | route ที่เปิดและการแก้ด้วยรหัสไม่ถาม auth-service | ทุกแถวที่ `check = skip` | ผ่านไปที่ service (`undefined`) และ fetch ไม่ถูกเรียกเลย |
+| GW-03 | route ที่ต้อง login แต่ไม่มี `Authorization` | `GET /notes/mine` | `401 {"error": "unauthorized"}` + `WWW-Authenticate: Bearer` โดยไม่ถาม auth-service |
+| GW-04 | token ใช้ได้ | `POST /notes/12/comments?x=1` พร้อม `Authorization`, cookie, `x-vercel-protection-bypass`, `X-Note-Token` | ผ่าน · ถาม `/auth/me` ของ origin เดียวกันครั้งเดียว ส่งต่อสาม header แรก ไม่ส่ง `X-Note-Token` |
+| GW-05 | token ใช้ไม่ได้หรือ logout แล้ว | auth-service ตอบ `401` | `401 {"error": "unauthorized"}` |
+| GW-06 | auth-service ล่มหรือตอบแปลก | fetch โยน error, `500`, `502`, `403` | `503 {"error": "auth_unavailable"}` ทุกแบบ ไม่มีแบบไหนปล่อยผ่าน |
+| GW-07 | `map` สองชั้นใน `web/nginx.conf` ให้ผลตรงกับ cases.json | ทุกแถว (จำลองการเลือก regex ตามลำดับแบบ nginx) | rule และ `login`/`skip` ตรงทุกแถว |
+| GW-08 | ทุก location ของ API ตรวจจริง | location ที่ `proxy_pass` ไป notes/stats-service | 5 location มี `auth_request` และ `set $gateway_check_main` · `= /stats` (เปิด) ไม่มี · location ของ subrequest เป็น `internal`, ตอบ `204` เมื่อ `skip` และไม่ส่ง body ไป auth-service |
+| GW-09 | ทุก route ของทุก service อยู่ในตาราง | `url_map` ของ notes, stats, auth-service (ยกเว้น `/health`) | ทุก method + route มีแถวใน cases.json · route ใหม่ที่ลืมตัดสินว่าต้อง login ไหมทำให้ล้ม |
+| GW-10 | `proxy.matcher` ใน `vercel.json` ครอบพอดี | ทุกแถวที่ไม่ใช่ `open` · `/`, `/index.html`, `/upload.html`, `/app.js`, `/auth/login`, `/auth/me`, `/stats` | middleware รันกับทุก path ที่ต้องตรวจ และไม่รันกับหน้าเว็บ, `/auth` และ `/stats` · ไฟล์ entrypoint มีอยู่จริง |
+
+mutation 12 แบบถูกจับครบ (2026-10-09): nginx ลืม route ขอบคุณ, ไม่มีข้อยกเว้นของรหัส, ข้อยกเว้นรับรหัสว่าง, subrequest อ่าน map เอง,
+`/reports/` ลืม `auth_request` · cases.json ขาด route ขอบคุณ · matcher ขาด `/reports` · `rules.js` ลืม route ให้คะแนน, ไม่มีข้อยกเว้นของรหัส,
+auth-service ตอบ 5xx แล้วปล่อยผ่าน, ไม่ส่ง cookie ต่อ, ไม่มี `Authorization` ก็ยังถาม auth-service
+
+ตรวจบน stack จริง (2026-10-09):
+- **docker compose (nginx):** เส้นทางเดียวกับ DK-10 ผ่านครบ · อัปโหลด PDF 4 MB ผ่าน `auth_request` ได้ `201` · ลองลบ `set` ออกแล้วให้ subrequest อ่าน map เอง
+  `GET /notes/1/stats` ไม่มี token หลุดไปถึง stats-service (`Authentication required`) ตรงกับที่ comment ใน `nginx.conf` บอก · E2E-01 ถึง E2E-06 ผ่าน 6/6 บน stack นี้
+- **Vercel preview** (Neon ตัวเดียวกับ production ใช้บัญชีทดสอบบัญชีเดียวแล้วลบทิ้ง): `middleware.ts` ที่ root ถูกเมินเมื่อใช้ `services` ต้องประกาศผ่าน `"proxy"` ·
+  `.mjs` ล้มด้วย `ERR_REQUIRE_ESM` จึงเขียน `rules.js` เป็น CommonJS · หลังแก้: `/notes/1/stats`, `/reports`, `/notes/mine` ไม่มี token หรือ token มั่วได้
+  `401 {"error":"unauthorized"}` จาก middleware · `PATCH /notes/999999` ไม่มีอะไรได้ `401` ส่วนที่มี `X-Note-Token` ผ่านไปถึง service (`404`) · `GET /notes` เปิดได้ `200` ·
+  token จริง: `/notes/mine` `200`, อัปโหลด 2 KB / 3 MB / 3.9 MB / 4 MB ได้ `201` ทุกขนาด, สถิติของเจ้าของ `200`, ลบในฐานะเจ้าของ `204` · logout แล้ว token เดิมได้ `401` ·
+  หลังทดสอบไม่เหลือ user, โน้ต หรือไฟล์ใน Blob
+
 ## 3. Test Report
 
 **รันล่าสุด:** 2026-10-06 (เครื่อง local, Windows 11, `main` ที่ `65bd2bc` หลัง merge #90 #94 #95 #96) · ผล Python เท่ากับรอบ `3cbc4f2` เพราะรอบนี้ไม่ได้แก้โค้ดของ service · แถว smoke แบบไม่ใช้ Docker ยังเป็นผลวันที่ 2026-09-27
@@ -760,6 +793,9 @@ python-tests-postgres ─┘    └──> e2e-tests (build image + E2E ผ่�
 `docker-build` ตั้ง `needs: [js-tests, python-tests, python-tests-postgres]` ไว้ เพราะไม่มีประโยชน์ที่จะเสียเวลา build image
 ถ้าเทสต์ยังแดงอยู่ · `e2e-tests` (ชื่อใน GitHub: **E2E tests (browser)**) รอสามอันแรกเหมือนกัน แล้วยก stack ของตัวเองแยกจาก `docker-build`
 เทสต์ที่ล้มจะเก็บ trace ของ Playwright เป็น artifact `e2e-traces` (7 วัน) เปิดดูทีละขั้นได้ด้วย `playwright show-trace`
+
+`js-tests` รัน `node --test` ใน `gateway/` ด้วย (GW-01 ถึง GW-06, ADR-014) · step สุดท้ายของ `docker-build` (DK-10) หยุด auth-service
+เพื่อดูคำตอบ `503` ของ gateway จึงต้องอยู่ท้ายสุดเสมอ step ที่เพิ่มทีหลังให้วางไว้ก่อนหน้า
 
 `python-tests-postgres` (ชื่อใน GitHub: **Unit tests (PostgreSQL)**) รันเทสต์ Python ชุดเดียวกับ `python-tests`
 แต่ต่อ `postgres:16-alpine` (image เดียวกับ compose) ที่ GitHub Actions ยกขึ้นเป็น service container

@@ -65,8 +65,9 @@
 - [ADR-008 — ให้เจ้าของที่ login อยู่แก้และลบโน้ตของตัวเองได้ โดยยังใช้ edit token ควบคู่](./adr/0008-owner-login-for-note-changes.th.md)
 - [ADR-009 — Deploy บน Vercel ด้วย Services, Neon Postgres และ Vercel Blob แบบ private](./adr/0009-deploy-on-vercel-services.th.md)
 - [ADR-010 — รัน migration ด้วย Alembic ตอน service สตาร์ต](./adr/0010-alembic-migrations-at-startup.th.md)
+- [ADR-014 — Gateway ตรวจ login ก่อนส่งต่อ request](./adr/0014-gateway-checks-login.th.md)
 
-> ⚠️ C4 Container diagram ด้านบนอธิบายสถาปัตยกรรม **เป้าหมาย** สิ่งที่ `docker compose up` ยกขึ้นมาจริงตอนนี้แคบกว่านั้น — มี `notes-service`, `auth-service` และ `stats-service` กับ container `web` (nginx, port 8080) ที่เสิร์ฟหน้าค้นหาและส่งต่อ `/notes`, `/auth` (ADR-006) ซึ่งยังไม่ตรวจ token จึงยังไม่ใช่ API Gateway ตาม diagram และ `notes-service` เรียก `auth-service` (`GET /auth/me`) เฉพาะตอนตรวจตัวตนผู้อัปโหลด การอ่านยังเปิดหมด ส่วนการแก้/ลบยังใช้ edit token ของ ADR-004 ดูรายละเอียดใน ADR-003, ADR-004, ADR-005 และ ADR-006
+> ⚠️ C4 Container diagram ด้านบนอธิบายสถาปัตยกรรม **เป้าหมาย** สิ่งที่ `docker compose up` ยกขึ้นมาจริงตอนนี้แคบกว่านั้น — มี `notes-service`, `auth-service` และ `stats-service` กับ container `web` (nginx, port 8080) ที่เสิร์ฟหน้าเว็บและส่งต่อ `/notes`, `/reports`, `/stats`, `/auth` (ADR-006) · ตั้งแต่ ADR-014 container นี้ (และ Routing Middleware บน Vercel) ตรวจ login กับ `auth-service` (`GET /auth/me`) ก่อนส่งต่อ route ที่ต้อง login แต่ยังไม่จำกัด rate และไม่รวม response จึงเป็นแค่ส่วนหนึ่งของ API Gateway ตาม diagram · service ยังตรวจ login เองด้วย การอ่านยังเปิดหมด และการแก้โน้ตยังรับ edit token ของ ADR-004 ควบคู่กับการ login ของเจ้าของ (ADR-008) ดูรายละเอียดใน ADR-003 ถึง ADR-006, ADR-008 และ ADR-014
 
 ## แก้ไขแผนภาพ
 
