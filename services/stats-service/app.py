@@ -135,7 +135,9 @@ def get_note_stats(note_id):
 # ============================================================
 
 if __name__ == "__main__":
+    # ใช้แค่ตอนรันตรงเพื่อ dev ใน container ซึ่งต้องรับ request จากนอก container (bandit B104)
+    # ใน compose และ Docker image รันผ่าน gunicorn ส่วนบน Vercel ไม่ผ่านบรรทัดนี้
     app.run(
-        host="0.0.0.0",
+        host="0.0.0.0",  # nosec B104
         port=5000
     )

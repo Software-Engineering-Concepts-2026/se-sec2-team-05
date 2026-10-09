@@ -12,6 +12,7 @@ app.py คุยกับไฟล์นี้ผ่าน interface เดี�
 import json
 import os
 import urllib.error
+import urllib.parse
 import urllib.request
 
 DEFAULT_AUTH_SERVICE_URL = "http://localhost:5002"
@@ -24,6 +25,10 @@ class IdentityUnavailable(Exception):
 
 class HttpIdentity:
     def __init__(self, base_url: str, timeout: float = DEFAULT_TIMEOUT_SECONDS):
+        # urlopen เปิดได้ทุก scheme รวม file:// — ถ้า AUTH_SERVICE_URL ตั้งผิดจะไปอ่านไฟล์บนเครื่องแทน
+        # จึงยอมรับแค่ http/https ตั้งแต่ตอนสร้าง (bandit B310)
+        if urllib.parse.urlsplit(base_url).scheme not in ("http", "https"):
+            raise ValueError(f"AUTH_SERVICE_URL ต้องเป็น http:// หรือ https:// ไม่ใช่ {base_url!r}")
         self.me_url = base_url.rstrip("/") + "/auth/me"
         self.timeout = timeout
 
@@ -36,7 +41,8 @@ class HttpIdentity:
             return None
         request = urllib.request.Request(self.me_url, headers={"Authorization": authorization})
         try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+            # scheme ถูกจำกัดเป็น http/https ใน __init__ แล้ว
+            with urllib.request.urlopen(request, timeout=self.timeout) as response:  # nosec B310
                 body = json.load(response)
         except urllib.error.HTTPError as error:
             if error.code == 401:
