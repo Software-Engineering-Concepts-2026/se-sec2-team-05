@@ -28,8 +28,8 @@ class FakeIdentity:
 
 
 @pytest.fixture
-def rating_context(tmp_path, notes_create_app):
-    database_url = f"sqlite:///{tmp_path / 'ratings.db'}"
+def rating_context(tmp_path, make_db_url, notes_create_app):
+    database_url = make_db_url("ratings.db")
     storage = LocalFileStorage(str(tmp_path / "storage"))
     identity = FakeIdentity()
     app = notes_create_app(

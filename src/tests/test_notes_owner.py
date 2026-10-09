@@ -53,8 +53,8 @@ def identity():
 
 
 @pytest.fixture
-def database_url(tmp_path):
-    return f"sqlite:///{tmp_path / 'test.db'}"
+def database_url(make_db_url):
+    return make_db_url("test.db")
 
 
 @pytest.fixture

@@ -67,10 +67,10 @@ def blob():
 
 
 @pytest.fixture
-def blob_app(tmp_path, notes_create_app, blob):
+def blob_app(make_db_url, notes_create_app, blob):
     client, storage = blob
     app = notes_create_app(
-        database_url=f"sqlite:///{tmp_path / 'test.db'}",
+        database_url=make_db_url("test.db"),
         storage=storage,
         identity=FakeIdentity(),
     )
@@ -196,8 +196,8 @@ def test_neon_urls_use_psycopg3(module, given, expected):
 # --- 3. เพดาน body ---
 
 
-def test_largest_accepted_request_fits_the_vercel_body_limit(notes_create_app, tmp_path):
-    app = notes_create_app(database_url=f"sqlite:///{tmp_path / 'test.db'}", identity=FakeIdentity(),
+def test_largest_accepted_request_fits_the_vercel_body_limit(notes_create_app, tmp_path, make_db_url):
+    app = notes_create_app(database_url=make_db_url("test.db"), identity=FakeIdentity(),
                            storage=LocalFileStorage(str(tmp_path / "s")))
 
     assert app.config["MAX_CONTENT_LENGTH"] < VERCEL_BODY_LIMIT_BYTES

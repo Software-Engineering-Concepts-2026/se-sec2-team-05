@@ -38,7 +38,10 @@ import pytest  # noqa: E402  (ต้องเติม sys.path ให้เส�
 # แค่โหลดโมดูลก็จะสร้างไฟล์ DB และโฟลเดอร์ storage ตามค่า default ทันที ชี้ทั้งสองอย่าง
 # ไปที่ temp dir ก่อนโหลด เทสต์จะได้ไม่ทิ้งขยะไว้ในรีโปหรือที่ /data บนเครื่องคนรัน
 _SANDBOX = Path(tempfile.mkdtemp(prefix="noteshare-tests-"))
-os.environ["DATABASE_URL"] = f"sqlite:///{_SANDBOX / 'import-time.db'}"
+# TEST_DATABASE_URL ชี้ไปที่ Postgres จริง (CI job "Unit tests on PostgreSQL") — ถ้าไม่ตั้ง
+# ทุกเทสต์ใช้ SQLite ในไฟล์ชั่วคราวเหมือนเดิม · ฐานข้อมูลนี้ถูกล้างทิ้งทุกเทสต์ ห้ามชี้ไปที่ DB ที่มีข้อมูลจริง
+TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
+os.environ["DATABASE_URL"] = TEST_DATABASE_URL or f"sqlite:///{_SANDBOX / 'import-time.db'}"
 os.environ["NOTES_STORAGE_DIR"] = str(_SANDBOX / "storage")
 # auth-service ไม่ยอมสตาร์ตถ้าไม่มี secret (ไม่มีค่า default โดยตั้งใจ) — ค่านี้ใช้แค่ในเทสต์
 os.environ["AUTH_JWT_SECRET"] = "test-only-secret-that-is-at-least-32-bytes"
@@ -55,6 +58,59 @@ def _load_entrypoint(service: str, module_name: str):
 stats_app_module = _load_entrypoint("stats-service", "stats_service_app")
 notes_app_module = _load_entrypoint("notes-service", "notes_service_app")
 auth_app_module = _load_entrypoint("auth-service", "auth_service_app")
+
+
+def _reset_postgres(url):
+    """ล้าง schema ทั้งหมดแล้วสร้างตารางของทุก service ใหม่ ให้แต่ละเทสต์เริ่มจาก DB ว่างเหมือน SQLite
+
+    ตัด connection อื่นของ DB นี้ทิ้งก่อน — engine ของเทสต์ก่อนหน้ายังถือ connection ไว้ใน pool
+    ถ้าไม่ตัด DROP SCHEMA จะรอ lock และ connection จะสะสมจนเกิน max_connections
+    (engine ของทุก service ตั้ง pool_pre_ping ไว้ connection ที่ถูกตัดจึงถูกเปิดใหม่เอง)
+    """
+    from sqlalchemy import create_engine, text
+    from sqlalchemy.pool import NullPool
+
+    from auth_models import Base as AuthBase
+    from models import Base as NotesBase, sqlalchemy_url
+
+    engine = create_engine(sqlalchemy_url(url), poolclass=NullPool)
+    try:
+        with engine.begin() as conn:
+            conn.execute(text(
+                "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+                "WHERE datname = current_database() AND pid <> pg_backend_pid()"
+            ))
+            conn.execute(text("DROP SCHEMA public CASCADE"))
+            conn.execute(text("CREATE SCHEMA public"))
+        # stats-service อ่านตารางของ notes-service และสร้าง engine ไว้ตั้งแต่ตอน import
+        # จึงต้องมีตารางให้ครบเหมือนใน compose ก่อนเทสต์เริ่ม
+        NotesBase.metadata.create_all(engine)
+        AuthBase.metadata.create_all(engine)
+    finally:
+        engine.dispose()
+
+
+@pytest.fixture(autouse=True)
+def _fresh_postgres():
+    if TEST_DATABASE_URL:
+        _reset_postgres(TEST_DATABASE_URL)
+    yield
+
+
+@pytest.fixture
+def make_db_url(tmp_path):
+    """คืนฟังก์ชันสร้าง database URL ของเทสต์ — SQLite แยกไฟล์ตามชื่อ หรือ Postgres ตัวเดียวกัน
+
+    บน Postgres ทุกชื่อได้ DB เดียวกัน ซึ่งไม่ชนกันเพราะแต่ละ service ใช้ชื่อตารางไม่ซ้ำกัน
+    (users/auth_sessions ของ auth, notes/... ของ notes) เหมือนที่รันใน compose
+    """
+
+    def make(name="test.db"):
+        if TEST_DATABASE_URL:
+            return TEST_DATABASE_URL
+        return f"sqlite:///{tmp_path / name}"
+
+    return make
 
 
 @pytest.fixture

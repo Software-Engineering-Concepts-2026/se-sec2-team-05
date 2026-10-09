@@ -1,5 +1,5 @@
 # CI สำหรับ NoteShare — รันทุก push และทุก PR ที่ยิงเข้า main
-# ทั้งสาม job แยกกันเพื่อให้เห็นชัดว่าอะไรพัง: เทสต์ JS, เทสต์ Python, หรือ image build
+# job แยกกันเพื่อให้เห็นชัดว่าอะไรพัง: lint, เทสต์ JS, เทสต์ Python (SQLite / PostgreSQL), หรือ image build
 name: CI
 
 on:
@@ -73,11 +73,52 @@ jobs:
       - name: Run pytest
         run: pytest src/tests -v --cov=services/notes-service --cov=services/auth-service --cov=src --cov-report=term-missing
 
+  # เทสต์ชุดเดียวกับ job ข้างบน แต่รันบน PostgreSQL 16 ตัวเดียวกับใน compose แทน SQLite
+  # จับความต่างของ dialect ที่ SQLite ซ่อนไว้ เช่น LIKE ของ Postgres สนตัวพิมพ์ใหญ่เล็ก
+  # conftest.py อ่าน TEST_DATABASE_URL แล้วล้าง schema ให้ใหม่ทุกเทสต์
+  python-tests-postgres:
+    name: Unit tests (PostgreSQL)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: noteshare
+          POSTGRES_PASSWORD: noteshare_test
+          POSTGRES_DB: noteshare_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U noteshare -d noteshare_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://noteshare:noteshare_test@localhost:5432/noteshare_test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install -r services/stats-service/requirements.txt
+          pip install -r services/notes-service/requirements.txt
+          pip install -r services/auth-service/requirements.txt
+          pip install -r src/tests/requirements-dev.txt
+
+      - name: Run pytest on PostgreSQL
+        run: pytest src/tests -v
+
   docker-build:
     name: Build & smoke-test stack
     runs-on: ubuntu-latest
     # ไม่ต้องเสียเวลา build image ถ้าเทสต์ยังไม่ผ่าน
-    needs: [js-tests, python-tests]
+    needs: [js-tests, python-tests, python-tests-postgres]
     steps:
       - uses: actions/checkout@v4
 

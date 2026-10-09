@@ -35,10 +35,10 @@ def make_pdf(page_sizes):
 
 
 @pytest.fixture
-def env(tmp_path, notes_create_app):
+def env(tmp_path, make_db_url, notes_create_app):
     storage = LocalFileStorage(str(tmp_path / "storage"))
     app = notes_create_app(
-        database_url=f"sqlite:///{tmp_path / 'test.db'}",
+        database_url=make_db_url("test.db"),
         storage=storage,
         identity=FakeIdentity(),
     )

@@ -25,8 +25,8 @@ MEMBER = {
 
 
 @pytest.fixture
-def db_url(tmp_path):
-    return f"sqlite:///{tmp_path / 'auth.db'}"
+def db_url(make_db_url):
+    return make_db_url("auth.db")
 
 
 @pytest.fixture

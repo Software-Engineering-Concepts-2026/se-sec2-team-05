@@ -48,9 +48,9 @@ def identity():
 
 
 @pytest.fixture
-def client(tmp_path, notes_create_app, identity):
+def client(tmp_path, make_db_url, notes_create_app, identity):
     app = notes_create_app(
-        database_url=f"sqlite:///{tmp_path / 'test.db'}",
+        database_url=make_db_url("test.db"),
         storage=LocalFileStorage(str(tmp_path / "storage")),
         identity=identity,
     )
@@ -193,6 +193,17 @@ def test_search_by_keyword_matches_subject_and_lesson(client):
 
     assert hits["count"] == 1
     assert hits["items"][0]["subject_code"] == "MA101"
+
+
+def test_search_by_keyword_ignores_letter_case(client):
+    """ผู้ใช้พิมพ์ตัวเล็กหมดต้องเจอโน้ตที่เขียนตัวใหญ่ · LIKE ของ SQLite ไม่สนตัวพิมพ์อยู่แล้ว
+    แต่ของ Postgres สนใจ เทสต์นี้จึงจับได้เฉพาะตอนรันบน Postgres ถ้ามีคนเปลี่ยน ilike เป็น like
+    """
+    upload(client, title="Data Structures", subject_name="Algorithms", subject_code="CS201",
+           lesson="Linked List", topic="Big-O")
+
+    for keyword in ("data structures", "algorithms", "cs201", "linked list", "big-o"):
+        assert client.get(f"/notes?q={keyword}").get_json()["count"] == 1, keyword
 
 
 def test_filter_by_faculty_and_year_level(client):
@@ -657,12 +668,12 @@ def test_uploader_name_comes_from_the_account_not_the_form(client):
     assert client.get("/notes").get_json()["items"][0]["uploader_name"] == MEMBER["display_name"]
 
 
-def test_uploader_id_is_stored_but_not_exposed(client, tmp_path):
+def test_uploader_id_is_stored_but_not_exposed(client, make_db_url):
     from sqlalchemy import create_engine, text
 
     body = upload(client).get_json()
 
-    engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+    engine = create_engine(make_db_url("test.db"))
     with engine.connect() as conn:
         stored = conn.execute(text("SELECT uploader_id FROM notes WHERE id = :id"), {"id": body["id"]})
         assert stored.scalar_one() == MEMBER["id"]

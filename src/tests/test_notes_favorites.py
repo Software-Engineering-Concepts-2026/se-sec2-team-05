@@ -46,9 +46,9 @@ def identity():
 
 
 @pytest.fixture
-def client(tmp_path, notes_create_app, identity):
+def client(tmp_path, make_db_url, notes_create_app, identity):
     app = notes_create_app(
-        database_url=f"sqlite:///{tmp_path / 'test.db'}",
+        database_url=make_db_url("test.db"),
         storage=LocalFileStorage(str(tmp_path / "storage")),
         identity=identity,
     )

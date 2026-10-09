@@ -46,9 +46,9 @@ class FakeIdentity:
 
 
 @pytest.fixture
-def report_context(tmp_path, notes_create_app, monkeypatch):
+def report_context(tmp_path, make_db_url, notes_create_app, monkeypatch):
     monkeypatch.setenv("ADMIN_USER_IDS", "99")
-    database_url = f"sqlite:///{tmp_path / 'reports.db'}"
+    database_url = make_db_url("reports.db")
     identity = FakeIdentity()
     app = notes_create_app(
         database_url=database_url,
