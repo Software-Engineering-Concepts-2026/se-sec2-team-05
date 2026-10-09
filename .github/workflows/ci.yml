@@ -51,6 +51,11 @@ jobs:
         working-directory: web
         run: node --test
 
+      # ตาราง route ที่ gateway ต้องตรวจ login และ middleware ฝั่ง Vercel (ADR-014)
+      - name: Run gateway rule tests
+        working-directory: gateway
+        run: node --test
+
   python-tests:
     name: Unit tests (Stats Service)
     runs-on: ubuntu-latest
@@ -432,6 +437,34 @@ jobs:
           test "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$gw/auth/logout" -H "Authorization: Bearer $web_token")" = "204"
           test "$(curl -s -o /dev/null -w '%{http_code}' "$gw/auth/me" -H "Authorization: Bearer $web_token")" = "401"
           echo "gateway OK"
+
+      # ADR-014: gateway ตรวจ token กับ auth-service ก่อนส่งต่อ route ที่ต้อง login
+      # แยกคำตอบของ gateway ออกจากของ service ด้วย body: stats-service ตอบ "Authentication required"
+      # ส่วน gateway ตอบ {"error": "unauthorized"} · PATCH ที่ไม่มีอะไรเลย service ตอบ 403 แต่ gateway ตัดก่อนด้วย 401
+      - name: Gateway checks the login before forwarding (ADR-014)
+        run: |
+          set -euo pipefail
+          gw=http://localhost:8080
+          note=$(curl -fsS "$gw/notes?subject_code=CS201" | jq -r '.items[0].id')
+
+          test "$(curl -s "$gw/notes/$note/stats" | jq -r '.error')" = "unauthorized"
+          test "$(curl -s "$gw/notes/$note/stats" -H 'Authorization: Bearer not-a-real-token' | jq -r '.error')" = "unauthorized"
+          test "$(curl -s -o /dev/null -w '%{http_code}' "$gw/notes/$note/stats" -H "Authorization: Bearer $UPLOAD_TOKEN")" = "200"
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X PATCH "$gw/notes/$note" -d 'title=hijacked')" = "401"
+          curl -s -D /tmp/gw-401.txt -o /dev/null "$gw/notes/mine"
+          grep -qi '^www-authenticate: Bearer' /tmp/gw-401.txt
+          grep -qi '^content-type: application/json' /tmp/gw-401.txt
+          # route ที่เปิดให้ทุกคนไม่ถูกตรวจ แม้ token จะใช้ไม่ได้
+          test "$(curl -s -o /dev/null -w '%{http_code}' "$gw/notes/$note" -H 'Authorization: Bearer not-a-real-token')" = "200"
+
+          # auth-service ล่ม: route ที่ต้อง login ได้ 503 auth_unavailable ส่วนการอ่านยังใช้ได้
+          # step นี้ต้องอยู่ท้ายสุด ไม่เปิด auth-service กลับ เพราะ nginx resolve ชื่อ service ไว้ตอนสตาร์ตครั้งเดียว
+          # ถ้า container ได้ IP ใหม่ gateway จะยังชี้ IP เก่า
+          docker compose stop auth-service
+          test "$(curl -s "$gw/notes/mine" -H "Authorization: Bearer $UPLOAD_TOKEN" | jq -r '.error')" = "auth_unavailable"
+          test "$(curl -s -o /dev/null -w '%{http_code}' "$gw/notes/mine" -H "Authorization: Bearer $UPLOAD_TOKEN")" = "503"
+          test "$(curl -fsS "$gw/notes?subject_code=CS201" | jq '.count')" -eq 1
+          echo "gateway login check OK"
 
       - name: Dump logs on failure
         if: failure()
