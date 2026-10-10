@@ -23,14 +23,14 @@ Endpoint:
     POST   /notes/<id>/favorite  บันทึกเข้ารายการโปรด ต้อง login (US-15)
     DELETE /notes/<id>/favorite  เอาออกจากรายการโปรด ต้อง login (US-15)
     POST   /notes/<id>/thanks    ขอบคุณเจ้าของโน้ต ต้อง login กดได้ครั้งเดียวต่อโน้ต (US-28)
-    PATCH  /notes/<id>        แก้ metadata บางส่วน (US-19) ต้องมี X-Note-Token หรือ login เป็นเจ้าของ
-    DELETE /notes/<id>        ลบโน้ตพร้อมไฟล์ (US-20) ต้องมี X-Note-Token หรือ login เป็นเจ้าของ
+    PATCH  /notes/<id>        แก้ metadata บางส่วน (US-19) ต้อง login เป็นเจ้าของ (ADR-013)
+    DELETE /notes/<id>        ลบโน้ตพร้อมไฟล์ (US-20) ต้อง login เป็นเจ้าของ (ADR-013)
     GET  /notes/<id>/download ดาวน์โหลดไฟล์จริง
     GET  /notes/<id>/preview  รูปตัวอย่าง (PNG) ของโน้ต ไม่นับเป็นการดาวน์โหลด (US-11)
 
 การอัปโหลดต้องส่ง `Authorization: Bearer <token>` ที่ได้จาก auth-service ชื่อผู้อัปโหลด
 มาจากบัญชีนั้น ไม่รับจากฟอร์ม (ดู identity.py) — endpoint ที่อ่านอย่างเดียวยังเปิดหมด
-ส่วนการแก้/ลบใช้ edit token ต่อโน้ต (ADR-004, tokens.py) หรือบัญชีเจ้าของที่ login อยู่ (ADR-008)
+ส่วนการแก้/ลบต้อง login เป็นบัญชีที่อัปโหลด (ADR-008) — edit token ต่อโน้ตของ ADR-004 เลิกใช้แล้ว (ADR-013)
 """
 
 import io
@@ -55,7 +55,6 @@ from models import (
 )
 from preview import PreviewUnavailable, render_preview
 from storage import CLIENT_TOKEN_TTL_SECONDS, storage_from_env
-from tokens import HEADER_NAME, issue_token, token_matches
 from validation import (
     ALLOWED_CONTENT_TYPES,
     MAX_FILE_BYTES,
@@ -412,8 +411,6 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
 
     def save_note(user, cleaned, file_name, content_type, size_bytes, storage_key,
                   duplicate_key_possible=False):
-        token, token_hash = issue_token()
-
         note = Note(
             **cleaned,
             # US-31: เจ้าของโน้ตมาจากบัญชีที่ login เสมอ uploader_name ในฟอร์ม (ถ้ามี) ถูกเมิน
@@ -423,7 +420,6 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
             content_type=content_type,
             size_bytes=size_bytes,
             storage_key=storage_key,
-            edit_token_hash=token_hash,
         )
 
         with session_factory() as session:
@@ -444,8 +440,7 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
                 file_storage.delete(storage_key)
                 raise
 
-            # ครั้งเดียวที่ token ตัวจริงออกจาก service — ในฐานข้อมูลมีแค่ hash
-            return jsonify(**note.to_dict(), edit_token=token), 201
+            return jsonify(note.to_dict()), 201
 
     @app.get("/notes")
     def list_notes():
@@ -598,16 +593,11 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
         return user, None
 
     def change_denied(note):
-        """ตรวจสิทธิ์แก้/ลบโน้ต คืน None ถ้าผ่าน หรือ error response — ADR-004 + ADR-008
+        """ตรวจสิทธิ์แก้/ลบโน้ต คืน None ถ้าผ่าน หรือ error response — ADR-008 + ADR-013
 
-        ผ่านได้สองทาง: edit token ของโน้ตนั้น (ADR-004) หรือ login เป็นบัญชีที่อัปโหลด (Issue #82)
-        token ถูกตรวจก่อนจึงไม่ต้องถาม auth-service ถ้า token ใช้ได้ · ไม่มีทั้งสองอย่างได้ 403
-        เหมือนเดิม · ส่ง Bearer ที่ใช้ไม่ได้ได้ 401 ให้หน้าเว็บรู้ว่าต้อง login ใหม่
+        ต้อง login เป็นบัญชีที่อัปโหลดโน้ตนั้น · ไม่ได้ login หรือ token ใช้ไม่ได้ได้ 401 ให้หน้าเว็บ
+        พาไป login · login เป็นคนอื่นได้ 403 · edit token ต่อโน้ต (ADR-004) เลิกใช้แล้ว
         """
-        if token_matches(request.headers.get(HEADER_NAME), note.edit_token_hash):
-            return None
-        if not request.headers.get("Authorization"):
-            return jsonify(error="forbidden"), 403
         user, failure = require_user()
         if failure:
             return failure

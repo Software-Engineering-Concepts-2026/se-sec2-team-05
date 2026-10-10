@@ -608,19 +608,6 @@ textarea.text-input { min-height: 84px; resize: vertical; }
 .done-box[hidden] { display: none; }
 .done-title { margin: 0; font-family: var(--serif); font-size: 26px; font-weight: 600; color: var(--green); }
 .done-title:focus { outline: none; }
-.token-box {
-  background: var(--amber-soft);
-  border: 1.5px solid rgba(161, 92, 0, .25);
-  border-radius: 14px;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  font-size: 14px;
-}
-.token-warning { margin: 0; color: #5c3d00; }
-.token-row { display: flex; gap: 8px; }
-.token-input { flex: 1; min-width: 0; font-family: Consolas, 'Courier New', monospace; }
 
 /* Upload progress (Issue #85) */
 .upload-progress { display: flex; flex-direction: column; gap: 6px; }
@@ -700,6 +687,5 @@ textarea.text-input { min-height: 84px; resize: vertical; }
   .nav-links .nav-brand { font-size: 19px; }
   .search-bar { padding-left: 12px; }
   .search-icon { display: none; }
-  .token-row { flex-direction: column; }
   .comment-form { flex-direction: column; align-items: stretch; }
 }

@@ -112,21 +112,11 @@
     </div>
   </form>
 
-  <!-- POST /notes returns edit_token only once (US-19/US-20). It is shown here and nowhere else. -->
   <section id="uploadDone" class="done-box" aria-labelledby="doneTitle" hidden>
     <h2 id="doneTitle" class="done-title" tabindex="-1">อัปโหลดสำเร็จ</h2>
     <p class="note-sub">โน้ต <strong id="doneNoteTitle"></strong> แสดงในหน้าค้นหาแล้ว พร้อมชื่อ <strong id="doneUploader"></strong></p>
 
-    <div class="token-box">
-      <label for="editToken"><strong>รหัสแก้ไขโน้ต</strong></label>
-      <p class="token-warning">เก็บรหัสนี้ไว้ จะแสดงแค่ครั้งนี้ครั้งเดียว และต้องใช้ตอนแก้ไขหรือลบโน้ตนี้ ระบบเก็บไว้แค่ค่า hash จึงขอดูใหม่ไม่ได้</p>
-      <div class="token-row">
-        <input type="text" id="editToken" class="text-input token-input" readonly>
-        <button type="button" id="copyToken" class="secondary-btn">คัดลอก</button>
-      </div>
-      <span id="copyStatus" class="field-hint" role="status"></span>
-      <p class="field-hint">ใช้รหัสนี้ได้ที่ <a id="doneEditLink" href="/edit.html">หน้าแก้ไขด้วยรหัส</a> หรือแก้จากหน้าโปรไฟล์ขณะเข้าสู่ระบบ</p>
-    </div>
+    <p class="field-hint">แก้ไขหรือลบโน้ตนี้ได้จาก <a href="/profile.html">หน้าโปรไฟล์</a> ขณะเข้าสู่ระบบด้วยบัญชีนี้</p>
 
     <div class="form-actions">
       <a id="doneSearchLink" class="primary-btn" href="/">ดูในหน้าค้นหา</a>

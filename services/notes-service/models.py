@@ -65,11 +65,6 @@ class Note(Base):
     uploader_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
     uploader_name: Mapped[str] = mapped_column(String(120), nullable=False)
 
-    # hash ของ edit token ที่ใช้พิสูจน์ความเป็นเจ้าของตอนแก้/ลบ (US-19, US-20)
-    # เก็บเฉพาะ hash ตัว token จริงคืนให้ผู้สร้างครั้งเดียวตอน POST แล้วไม่เก็บไว้ที่ไหนอีก
-    # ดู ADR-004 — เป็นของชั่วคราว รื้อทิ้งเมื่อ #5/#6 เสร็จ
-    edit_token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
-
     # --- US-12: นับจำนวนดาวน์โหลด (ใช้เป็นสถิติให้เจ้าของโน้ตดูใน #16) ---
     view_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     download_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

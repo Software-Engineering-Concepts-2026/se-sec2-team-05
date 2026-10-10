@@ -14,5 +14,4 @@ COPY admin.html admin.js admin-utils.js /usr/share/nginx/html/
 # หน้าสถิติจาก stats-service (Issue #16, US-28 AC3)
 COPY stats.html stats.js stats-utils.js /usr/share/nginx/html/
 # หน้าแก้/ลบด้วยรหัสแก้ไข (US-19, US-20)
-COPY edit.html edit.js edit-utils.js /usr/share/nginx/html/
 EXPOSE 8080
