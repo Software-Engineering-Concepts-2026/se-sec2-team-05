@@ -5,11 +5,13 @@
 // CommonJS like web/*.js: Vercel builds the middleware as CommonJS and `node --test` loads it as is.
 //
 // The gateway only answers "is there a valid login?". Everything else (admin role, owner of
-// the note, edit token) is still decided by the service, so a route listed here is checked twice.
+// the note) is still decided by the service, so a route listed here is checked twice.
 
 // Routes that need a valid login. Paths are matched on the decoded path without the query.
 const LOGIN_RULES = [
   { methods: ['POST'], path: /^\/notes$/ },
+  // Ask for a direct-upload ticket to Vercel Blob (ADR-012).
+  { methods: ['POST'], path: /^\/notes\/uploads$/ },
   { methods: ['GET'], path: /^\/notes\/(favorites|mine)$/ },
   { methods: ['POST', 'DELETE'], path: /^\/notes\/\d+\/favorite$/ },
   { methods: ['POST'], path: /^\/notes\/\d+\/thanks$/ },
@@ -17,39 +19,28 @@ const LOGIN_RULES = [
   { methods: ['POST'], path: /^\/notes\/\d+\/(reports|comments)$/ },
   { methods: ['DELETE'], path: /^\/notes\/\d+\/comments\/\d+$/ },
   { methods: ['GET'], path: /^\/notes\/\d+\/stats$/ },
+  // Edit or delete a note: only the logged-in owner (ADR-013), notes-service checks the owner.
+  { methods: ['PATCH', 'DELETE'], path: /^\/notes\/\d+$/ },
   // Admin pages: the gateway checks the login only, notes-service checks ADMIN_USER_IDS.
   { methods: ['GET'], path: /^\/reports$/ },
   { methods: ['DELETE'], path: /^\/reports\/\d+(\/note)?$/ },
 ];
 
-// Edit or delete a note: the logged-in owner (ADR-008) or anyone with the note's edit token (ADR-004).
-const EDIT_RULE = { methods: ['PATCH', 'DELETE'], path: /^\/notes\/\d+$/ };
-
-const NOTE_TOKEN_HEADER = 'x-note-token';
-
 function matches(rule, method, path) {
   return rule.methods.includes(method) && rule.path.test(path);
 }
 
-// 'login' | 'edit' | 'open'
+// 'login' | 'open'
 function classify(method, path) {
   const verb = String(method).toUpperCase();
   if (LOGIN_RULES.some((rule) => matches(rule, verb, path))) return 'login';
-  if (matches(EDIT_RULE, verb, path)) return 'edit';
   return 'open';
 }
 
-// true = ask auth-service before forwarding. `headers` is a Headers object or a plain object.
-function needsLogin(method, path, headers) {
-  const rule = classify(method, path);
-  if (rule === 'login') return true;
-  if (rule !== 'edit') return false;
-  const token = headers && typeof headers.get === 'function'
-    ? headers.get(NOTE_TOKEN_HEADER)
-    : headers && headers[NOTE_TOKEN_HEADER];
-  // ยกเว้นชั่วคราว: แก้/ลบด้วยรหัสแก้ไข (X-Note-Token) ยังไม่ต้อง login ให้ notes-service ตรวจรหัสเอง
-  // ลบข้อยกเว้นนี้ออกเมื่อเลิกใช้ edit token
-  return !token;
+// true = ask auth-service before forwarding. Headers do not change the answer: the old
+// X-Note-Token exception went away with the edit token (ADR-013).
+function needsLogin(method, path) {
+  return classify(method, path) === 'login';
 }
 
 // Same JSON bodies as the services, so the web pages show the same messages.
@@ -78,7 +69,7 @@ const AUTH_TIMEOUT_MS = 5000;
 // this deployment's own public /auth/me route; `fetchImpl` is replaced in the tests.
 async function checkRequest(request, fetchImpl = fetch) {
   const url = new URL(request.url);
-  if (!needsLogin(request.method, url.pathname, request.headers)) return undefined;
+  if (!needsLogin(request.method, url.pathname)) return undefined;
   if (!request.headers.get('authorization')) return unauthorizedResponse();
 
   const headers = new Headers();
@@ -102,8 +93,6 @@ async function checkRequest(request, fetchImpl = fetch) {
 
 module.exports = {
   LOGIN_RULES,
-  EDIT_RULE,
-  NOTE_TOKEN_HEADER,
   classify,
   needsLogin,
   checkRequest,
