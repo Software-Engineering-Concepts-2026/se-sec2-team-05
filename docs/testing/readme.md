@@ -99,7 +99,7 @@
 | NA-23 | เก็บ `uploader_id` แต่ไม่ส่งออก | อ่านคอลัมน์ใน DB ตรง ๆ | `uploader_id` = id ของบัญชี · ไม่มี `uploader_id` ใน response |
 | NA-24 | auth-service ล่ม | identity โยน `IdentityUnavailable` | `503` `{"error": "auth_unavailable"}` · storage ว่าง |
 | NA-25 | endpoint อ่านอย่างเดียวยังเปิด (รวม `/preview`, US-11) | `GET /notes`, `/notes/<id>`, `/download`, `/preview` โดยไม่ login | `200` ทั้งหมด ยกเว้น `/preview` ที่ไม่ใช่ `401` (ไฟล์ default ของเทสต์เป็น PDF ปลอม จึงได้ `422` แทน) และไม่มีการเรียก auth-service เพิ่ม |
-| NA-26 | เจ้าของที่ login อยู่และ edit token ใช้ได้ทั้งคู่ (ADR-008 แก้จากเดิมที่ login อย่างเดียวไม่พอ) | `PATCH` ด้วย Bearer ของเจ้าของ, `PATCH` ด้วย edit token, `DELETE` ด้วย Bearer ของเจ้าของ | `200`, `200`, `204` |
+| NA-26 | เจ้าของที่ login อยู่แก้/ลบได้ — ทางเดียวที่เหลือ (ADR-008, ADR-013) | `PATCH` ด้วย Bearer ของเจ้าของ, `DELETE` ด้วย Bearer ของเจ้าของ | `200`, `204` |
 | NA-27 | กรองตามหัวข้อเลกเชอร์แบบ partial ไม่สนตัวพิมพ์ (US-26) | `?topic=search tree` | เจอเฉพาะโน้ตที่ `topic` มีคำนั้นเป็นส่วนหนึ่ง |
 | NA-28 | `topic` กรองแยกจาก `q` | `?topic=Tree` โดยชื่อวิชามีคำว่า Tree แต่ `topic` ไม่มี | `count = 0` |
 | NA-29 | `topic` escape wildcard ของ SQL | `?topic=50%` โดยมีโน้ต `topic` เป็น `50%` และ `Recursion` | เจอเฉพาะโน้ตที่ `topic` เป็น `50%` จริง ไม่ใช่ทุกโน้ต |
@@ -147,7 +147,7 @@
 | NA-71 | สมาชิกทั่วไปลบรายงานไม่ได้ | `DELETE /reports/<report_id>` ด้วย member | `403 forbidden` และ report ยังอยู่ |
 | NA-72 | ลบ report ที่ไม่มีอยู่ | admin `DELETE /reports/<id>` ด้วย id ที่ไม่มี | `404 not_found` |
 | NA-73 | admin IDs อ่านจาก env และข้ามค่าที่ไม่ใช่ตัวเลข | `ADMIN_USER_IDS` มี whitespace และค่าที่ไม่ใช่ตัวเลข | แปลงเฉพาะ numeric IDs; ไม่มีค่าแล้วไม่มี admin |
-| NA-74 | ลบ Note ยังคงทำงานเมื่อมี report ผูกอยู่ | ลบ Note ด้วย edit token หลังสร้าง report | Note และ report ที่ผูกผ่าน FK ถูกลบตาม cascade |
+| NA-74 | ลบ Note ยังคงทำงานเมื่อมี report ผูกอยู่ | ลบ Note ด้วยบัญชีเจ้าของหลังสร้าง report | Note และ report ที่ผูกผ่าน FK ถูกลบตาม cascade |
 | NA-75 | เปิดดู Note ขณะเข้าสู่ระบบแล้วมีสิทธิ์ให้คะแนน | authenticated `GET /notes/<id>` | บันทึก eligibility ของผู้ใช้สำหรับ Note นั้น |
 | NA-76 | ดาวน์โหลด Note ขณะเข้าสู่ระบบแล้วมีสิทธิ์ให้คะแนน | authenticated download | บันทึก eligibility ของผู้ใช้สำหรับ Note นั้น |
 | NA-77 | ผู้ใช้ที่ไม่ได้เข้าสู่ระบบเปิดดู Note | unauthenticated `GET /notes/<id>` | ไม่บันทึก user eligibility |
@@ -183,15 +183,15 @@
 | NA-107 | ไม่ login หรือ token ใช้ไม่ได้ ได้ `thank_status = null` | `GET /notes`, `GET /notes/<id>` ไม่มี header และด้วย token ที่ไม่รู้จัก | `200` และ `thank_status = null` |
 | NA-108 | auth-service ล่มระหว่างค้นหา ค้นหายังใช้ได้ | identity โยน `IdentityUnavailable` แล้ว `GET /notes`, `GET /notes/<id>` ด้วย token ที่ถูก | `200` และ `thank_status = null` (ไม่ใช่ `503`) |
 | NA-109 | `GET /notes` ให้สถานะต่อโน้ตถูกต้องในหน้าเดียวกัน และ query `thanks` ครั้งเดียว | Bob ค้นหาเจอโน้ตที่ยังไม่ขอบคุณ, ขอบคุณแล้ว และโน้ตของตัวเอง · นับ SQL ตอนมี 5 โน้ต | `can_thank` · `thanked` · `own_note` · อ่านตาราง `thanks` 1 ครั้ง |
-| NA-110 | ลบโน้ตลบคำขอบคุณของโน้ตนั้น (US-20) | Bob กับ Carol ขอบคุณ แล้วลบโน้ตด้วย edit token · มีอีกโน้ตที่ Bob ขอบคุณไว้ | `204` ไม่ชน FK · thanks ของโน้ตที่ลบหายหมด · ของอีกโน้ตยังอยู่ |
-| NA-111 | เจ้าของที่ login แก้ได้โดยไม่ต้องมี edit token (Issue #82, ADR-008) | Alice `PATCH` ด้วย Bearer ของตัวเอง ไม่มี `X-Note-Token` | `200` · `title` เปลี่ยนจริงเมื่ออ่านซ้ำ |
-| NA-112 | เจ้าของที่ login ลบได้โดยไม่ต้องมี edit token | Alice `DELETE` ด้วย Bearer ของตัวเอง | `204` · `GET` ได้ `404` · ไม่มีไฟล์เหลือใน storage |
+| NA-110 | ลบโน้ตลบคำขอบคุณของโน้ตนั้น (US-20) | Bob กับ Carol ขอบคุณ แล้วเจ้าของลบโน้ต · มีอีกโน้ตที่ Bob ขอบคุณไว้ | `204` ไม่ชน FK · thanks ของโน้ตที่ลบหายหมด · ของอีกโน้ตยังอยู่ |
+| NA-111 | เจ้าของที่ login แก้ได้ (Issue #82, ADR-008) | Alice `PATCH` ด้วย Bearer ของตัวเอง | `200` · `title` เปลี่ยนจริงเมื่ออ่านซ้ำ |
+| NA-112 | เจ้าของที่ login ลบได้ | Alice `DELETE` ด้วย Bearer ของตัวเอง | `204` · `GET` ได้ `404` · ไม่มีไฟล์เหลือใน storage |
 | NA-113 | คนอื่นที่ login อยู่แก้/ลบไม่ได้ | Bob `PATCH`/`DELETE` โน้ตของ Alice | `403 forbidden` ทั้งคู่ · `title` คงเดิม |
-| NA-114 | ไม่มีทั้ง token และ login ยังได้ 403 เหมือนเดิม | `PATCH`/`DELETE` ไม่มี header | `403` ทั้งคู่ |
-| NA-115 | Bearer ใช้ไม่ได้และไม่มี token | `DELETE` ด้วย `Bearer expired` | `401` + `WWW-Authenticate: Bearer` · โน้ตยังอยู่ |
-| NA-116 | auth-service ล่มและไม่มี token | identity โยน `IdentityUnavailable` แล้ว Alice `PATCH` | `503 auth_unavailable` |
-| NA-117 | edit token ถูกตรวจก่อน ไม่ต้องถาม auth-service | auth-service ล่ม + Bob ส่ง Bearer ของตัวเองพร้อม token ที่ถูก | `200` · ไม่มีการเรียก auth-service เพิ่ม |
-| NA-118 | token ผิดแต่ login เป็นเจ้าของ | Alice `PATCH` ด้วย Bearer ของตัวเอง + `X-Note-Token: wrong` | `200` |
+| NA-114 | ไม่ login ได้ 401 (ADR-013 — เดิม 403 เพราะยังมีทาง edit token) | `PATCH`/`DELETE` ไม่มี header | `401` + `WWW-Authenticate: Bearer` ทั้งคู่ · `title` คงเดิม |
+| NA-115 | Bearer ใช้ไม่ได้ | `DELETE` ด้วย `Bearer expired` | `401` + `WWW-Authenticate: Bearer` · โน้ตยังอยู่ |
+| NA-116 | auth-service ล่ม | identity โยน `IdentityUnavailable` แล้ว Alice `PATCH` | `503 auth_unavailable` |
+| NA-117 | header `X-Note-Token` แบบเดิมไม่มีผลแล้ว (ADR-013) | Bob + `X-Note-Token` · ไม่มี Bearer + `X-Note-Token` · Alice + `X-Note-Token` | `403` · `401` · `200` (ผลตาม login เท่านั้น) |
+| NA-118 | ~~token ผิดแต่ login เป็นเจ้าของ~~ | ยกเลิกแล้ว (ADR-013) รวมไว้ใน NA-117 | — |
 | NA-119 | โน้ตที่ไม่มีอยู่ได้ 404 ก่อนตรวจสิทธิ์ | Bob `DELETE /notes/999` | `404` |
 | NA-120 | `GET /notes/mine` ต้อง login (Issue #82) | ไม่มี header · auth-service ล่ม | `401` + `WWW-Authenticate: Bearer` · `503` |
 | NA-121 | โน้ตของฉันมีเฉพาะของตัวเอง ใหม่สุดก่อน | Alice อัปโหลด 2 ใบ Bob 1 ใบ แล้ว Alice `GET /notes/mine` | `items` = 2 ใบของ Alice ใบใหม่ก่อน · `count = 2` |
@@ -219,21 +219,21 @@ NA-136 ถึง NA-139 (`total` และ `file_type`, 2026-10-08) จับ mu
 
 ### 2.5 Notes Service — แก้ไข/ลบโน้ต (`pytest`, US-19 #19 + US-20 #20)
 
-ความเป็นเจ้าของพิสูจน์ด้วย edit token ต่อโน้ต ([ADR-004](../architecture/adr/0004-per-note-edit-token.th.md))
-หรือด้วยบัญชีเจ้าของที่ login อยู่ ([ADR-008](../architecture/adr/0008-owner-login-for-note-changes.th.md), ดู NA-111 ถึง NA-119)
+ต้อง login เป็นบัญชีที่อัปโหลดโน้ต ([ADR-008](../architecture/adr/0008-owner-login-for-note-changes.th.md), ดู NA-111 ถึง NA-119)
+edit token ต่อโน้ตของ ADR-004 เลิกใช้แล้ว ([ADR-013](../architecture/adr/0013-retire-per-note-edit-token.th.md)) · NE-09 กับ NE-10 จึงถูกถอด (คนอื่นแก้ไม่ได้อยู่ใน NA-113)
 
 | # | Test case | Request | ผลที่คาดหวัง |
 | --- | --- | --- | --- |
-| NE-01 | token ออกให้ครั้งเดียวตอนสร้าง และไม่รั่วออกทาง endpoint อื่น | `POST /notes` แล้ว `GET /notes/<id>`, `GET /notes` | response ตอนสร้างมี `edit_token` · การอ่านครั้งต่อ ๆ ไปไม่มีทั้ง `edit_token` และ `edit_token_hash` |
+| NE-01 | ไม่มี edit token แล้ว (ADR-013) | `POST /notes` แล้ว `GET /notes/<id>` | ไม่มี `edit_token` ทั้งตอนสร้างและตอนอ่าน และไม่มี `edit_token_hash` |
 | NE-02 | PATCH แก้เฉพาะฟิลด์ที่ส่งมา และประทับ `updated_at` | `PATCH` ส่ง `subject_code` + `topic` | สองฟิลด์นั้นเปลี่ยน ฟิลด์อื่นคงเดิม `updated_at` จาก `null` เป็นเวลาจริง |
 | NE-03 | ล้างค่าฟิลด์ไม่บังคับได้ | `PATCH` ส่ง `topic=` (ว่าง) | `topic` เป็น `null` |
 | NE-04 | ค่าผิดรูปต้องไม่ทำให้ข้อมูลเดิมเสีย | `PATCH` ส่ง `year_level=99` | `400` และค่าเดิมใน DB ไม่เปลี่ยน |
 | NE-05 | ฟิลด์ที่แก้ไม่ได้ถูกเมิน ไม่ใช่ error | `PATCH` ส่ง `uploader_name` + `title` | `title` เปลี่ยน `uploader_name` คงเดิม |
 | NE-06 | PATCH ที่ไม่มีฟิลด์ให้แก้ | `PATCH` body ว่าง | `400` `no_fields_to_update` |
-| NE-07 | ลบแล้วหายทั้ง record และไฟล์ | `DELETE` ด้วย token ถูก | `204` · `GET` ได้ `404` · โฟลเดอร์ storage ว่าง |
-| NE-08 | ไม่ส่ง token | `PATCH`/`DELETE` ไม่มี header | `403` ทั้งคู่ |
-| NE-09 | token ผิด | `PATCH`/`DELETE` ด้วย token มั่ว | `403` ทั้งคู่ |
-| NE-10 | token ของโน้ตใบหนึ่งใช้กับใบอื่นไม่ได้ | ใช้ token ของโน้ต A ไปแก้/ลบโน้ต B | `403` ทั้งคู่ · โน้ต B ไม่ถูกแตะทั้งใน DB และ storage · เจ้าของตัวจริงยังใช้ token ของตัวเองได้ |
+| NE-07 | ลบแล้วหายทั้ง record และไฟล์ | `DELETE` ด้วยบัญชีเจ้าของ | `204` · `GET` ได้ `404` · โฟลเดอร์ storage ว่าง |
+| NE-08 | ไม่ login | `PATCH`/`DELETE` ไม่มี header | `401 unauthorized` ทั้งคู่ · ข้อมูลคงเดิม |
+| NE-09 | ~~token ผิด~~ | ยกเลิกแล้ว (ADR-013) | — |
+| NE-10 | ~~token ของโน้ตใบหนึ่งใช้กับใบอื่นไม่ได้~~ | ยกเลิกแล้ว (ADR-013) — คนอื่นแก้ไม่ได้ดู NA-113 | — |
 | NE-11 | แก้/ลบโน้ตที่ไม่มีอยู่ | `PATCH`/`DELETE /notes/999` | `404` ทั้งคู่ |
 
 ### 2.6 Container smoke test (CI เท่านั้น)
@@ -249,7 +249,7 @@ NA-136 ถึง NA-139 (`total` และ `file_type`, 2026-10-08) จับ mu
 | DK-05 | สมัคร → login → ใช้ token → logout บน Postgres จริง (US-05/US-06) | `curl` ไปที่ `:5002/auth/*` | สมัคร `201` · สมัครซ้ำ `409` · โดเมนอื่น `400` · รหัสผิดกับอีเมลที่ไม่มีได้ body เดียวกัน · `me` ได้ชื่อถูก · logout `204` แล้ว `me` ด้วย token เดิมได้ `401` |
 | DK-06 | อัปโหลดต้อง login และเครดิตมาจากบัญชี (US-31) บน stack จริง | สมัคร + login บัญชี `CI Uploader` แล้ว `POST /notes` สามแบบ (ไม่มี token / token มั่ว / token จริง + `uploader_name=spoofed name`) | สองแบบแรกได้ `401` · แบบที่สามได้ `uploader_name = CI Uploader` · `count = 1` (ครั้งที่ไม่ผ่านไม่ถูกบันทึก) · notes-service คุยกับ auth-service ผ่านเครือข่ายของ compose จริง |
 | DK-07 | preview endpoint ทำงานจริงบน image ที่ build (US-11) — กัน regression ของบั๊ก Dockerfile ที่เคยลืม copy `preview.py` (commit `8f25b9b`) ซึ่ง unit test จับไม่ได้เพราะ import จาก source tree ตรง ๆ | อัปโหลด PNG จริงแล้ว `GET .../preview` โดยไม่ส่ง token, กับอัปโหลดไฟล์ที่ประกาศเป็น `image/png` แต่เนื้อไม่ใช่รูป | ไฟล์จริงได้ `200` + header `Content-Type: image/png` + ไบต์ 8 ตัวแรกตรง PNG signature · ไฟล์ปลอมได้ `422` ไม่ใช่ `500` |
-| DK-08 | web gateway เสิร์ฟหน้าเว็บและส่งต่อ API จาก origin เดียว (ADR-006, US-11/US-31) | `curl :8080/`, `/login.html`, `/upload.html`, `/note.html?id=1`, `/profile.html` (Issue #85), `/admin.html` (Issues #17, #18), `/stats.html` (Issue #16), `/edit.html?id=1` (US-19/US-20), ไฟล์ JS ทั้ง 17 ไฟล์และไฟล์เทสต์ทั้ง 8 ไฟล์ · `GET :8080/stats` · `GET :8080/notes?subject_code=CS201&year_level=2` และ `?year_level=abc` · `GET :8080/notes/<id ของ CS201>/stats` แบบไม่มี token และด้วยเจ้าของ, `GET :8080/notes/<id>` · `GET :8080/reports` แบบไม่มี token และด้วยสมาชิกทั่วไป, `DELETE :8080/reports/1` ด้วยสมาชิกทั่วไป · `GET :8080/auth/me` แบบไม่มี token และมี token · อัปโหลด PNG ผ่าน `:8080/notes` แล้วเปิด `preview_url` ผ่าน `:8080` · `PATCH :8080/notes/<id ของโน้ตนั้น>` แบบไม่มีฟิลด์ด้วย `X-Note-Token` ที่ถูกและผิด · `POST :8080/auth/login` (JSON) → `POST :8080/auth/logout` → `GET :8080/auth/me` ด้วย token เดิม | หน้าแรกมี `id="searchForm"`, หน้า login มี `id="loginForm"`, หน้าอัปโหลดมี `id="uploadForm"`, หน้ารายละเอียดมี `id="noteDetail"`, หน้าโปรไฟล์มี `id="profileStats"`, หน้าผู้ดูแลมี `id="reportsList"`, หน้าสถิติมี `id="overviewCards"`, หน้าแก้ด้วยรหัสมี `id="tokenForm"` · `/stats` ได้ `total_notes` เป็นตัวเลข · ไฟล์ JS ได้ `200` · ไฟล์เทสต์ได้ `404` (ไม่ถูก copy เข้า image) · query string ไปถึง service ครบ (`count = 1`, ค่าผิดได้ `400`) · `/notes/<id>/stats` ไปถึง stats-service (ไม่ login `401`, เจ้าของได้ `downloads` ≥ 1) และ `/notes/<id>` ยังไป notes-service · `/reports` ไม่มี token `401`, สมาชิกทั่วไปได้ `forbidden` และลบไม่ได้ `403` (nginx ส่ง `/reports` ไปถึง notes-service) · `me` ไม่มี token `401` มี token ได้ `CI Uploader` (header `Authorization` ผ่าน nginx) · upload ได้ `uploader_name = CI Uploader` และ preview ได้ `200` + `image/png` · รหัสถูกได้ `no_fields_to_update` รหัสผิดได้ `403` และ `updated_at` ยังเป็น `null` (header `X-Note-Token` ผ่าน nginx) · login ได้ token, logout ได้ `204` แล้ว token เดิมได้ `401` (US-05/US-06 ผ่าน gateway แบบที่หน้าเว็บเรียก) |
+| DK-08 | web gateway เสิร์ฟหน้าเว็บและส่งต่อ API จาก origin เดียว (ADR-006, US-11/US-31) | `curl :8080/`, `/login.html`, `/upload.html`, `/note.html?id=1`, `/profile.html` (Issue #85), `/admin.html` (Issues #17, #18), `/stats.html` (Issue #16), `/edit.html` ที่ถูกลบแล้ว (ADR-013), ไฟล์ JS และไฟล์เทสต์ของแต่ละหน้า · `GET :8080/stats` · `GET :8080/notes?subject_code=CS201&year_level=2` และ `?year_level=abc` · `GET :8080/notes/<id ของ CS201>/stats` แบบไม่มี token และด้วยเจ้าของ, `GET :8080/notes/<id>` · `GET :8080/reports` แบบไม่มี token และด้วยสมาชิกทั่วไป, `DELETE :8080/reports/1` ด้วยสมาชิกทั่วไป · `GET :8080/auth/me` แบบไม่มี token และมี token · อัปโหลด PNG ผ่าน `:8080/notes` แล้วเปิด `preview_url` ผ่าน `:8080` · `PATCH :8080/notes/<id ของโน้ตนั้น>` แบบไม่มีฟิลด์ด้วย Bearer ของเจ้าของ และแบบไม่ login · `POST :8080/auth/login` (JSON) → `POST :8080/auth/logout` → `GET :8080/auth/me` ด้วย token เดิม | หน้าแรกมี `id="searchForm"`, หน้า login มี `id="loginForm"`, หน้าอัปโหลดมี `id="uploadForm"`, หน้ารายละเอียดมี `id="noteDetail"`, หน้าโปรไฟล์มี `id="profileStats"`, หน้าผู้ดูแลมี `id="reportsList"`, หน้าสถิติมี `id="overviewCards"` · `/edit.html` ได้ `404` · `/stats` ได้ `total_notes` เป็นตัวเลข · ไฟล์ JS ได้ `200` · ไฟล์เทสต์ได้ `404` (ไม่ถูก copy เข้า image) · query string ไปถึง service ครบ (`count = 1`, ค่าผิดได้ `400`) · `/notes/<id>/stats` ไปถึง stats-service (ไม่ login `401`, เจ้าของได้ `downloads` ≥ 1) และ `/notes/<id>` ยังไป notes-service · `/reports` ไม่มี token `401`, สมาชิกทั่วไปได้ `forbidden` และลบไม่ได้ `403` (nginx ส่ง `/reports` ไปถึง notes-service) · `me` ไม่มี token `401` มี token ได้ `CI Uploader` (header `Authorization` ผ่าน nginx) · upload ได้ `uploader_name = CI Uploader` และ preview ได้ `200` + `image/png` · เจ้าของได้ `no_fields_to_update` ไม่ login ได้ `401` และ `updated_at` ยังเป็น `null` (header `Authorization` ผ่าน nginx) · login ได้ token, logout ได้ `204` แล้ว token เดิมได้ `401` (US-05/US-06 ผ่าน gateway แบบที่หน้าเว็บเรียก) |
 | DK-09 | เจ้าของแก้/ลบด้วย login, `/notes/mine` และ `sort=rating` บน Postgres จริง (Issues #82, #83) | สมัคร + login บัญชี `CI Rater` · `CI Uploader` อัปโหลด 2 โน้ต (`CS501`) · Rater เปิดดูแล้วให้คะแนนใบแรก · `GET /notes?subject_code=CS501&sort=rating` · `GET /notes/mine` · Rater แล้วเจ้าของ `PATCH`/`DELETE` | ใบที่มีคะแนนมาก่อนใบใหม่กว่าที่ไม่มีคะแนน (Postgres วาง NULL ไว้หน้าสุดเมื่อ DESC ต่างจาก SQLite) · `/notes/mine` มีทั้งสองใบ, `rating_count = 1`, ไม่ login ได้ `401` · Rater ได้ `403` ทั้งคู่ · เจ้าของ `PATCH` ได้ค่าใหม่และ `DELETE` ได้ `204` |
 
 ### 2.7 Auth Service — ตรวจข้อมูลสมัครและ hash รหัสผ่าน (`pytest`, US-05 #5)
@@ -629,33 +629,10 @@ notes-service · ตัวแทน nginx ส่ง `/stats` และ `/notes/<
 session ถูกล้าง การ์ดภาพรวมยังอยู่ · หน้าสถิติและหน้าโปรไฟล์กว้าง 375 px ไม่มี scroll แนวนอน · console ไม่มี JavaScript error มีแค่บรรทัด network ของ
 `404`/`403`/`401` ที่ตั้งใจให้เกิด
 
-### 2.19 Web app — `edit-utils.js` หน้าแก้/ลบด้วยรหัสแก้ไข (`node --test`, US-19 #19 + US-20 #20)
+### 2.19 ~~Web app — `edit-utils.js` หน้าแก้/ลบด้วยรหัสแก้ไข~~ (ยกเลิกแล้ว, ADR-013)
 
-pure function ของหน้า `edit.html` ใน [`web/`](../../web/) แยกจากส่วนที่แตะ DOM (`edit.js`) · เลข WEB ต่อจาก 2.18
-
-| # | Test case | Input | ผลที่คาดหวัง |
-| --- | --- | --- | --- |
-| WEB-90 | `tokenProblem` รับรหัสที่คัดลอกมา รวมช่องว่างหัวท้าย | `pD3x_k9-QmZ1aB7c` · มีช่องว่าง/ขึ้นบรรทัดหัวท้าย | `''` ทั้งสองกรณี |
-| WEB-91 | `tokenProblem` ไม่รับรหัสว่าง เสีย หรือยาวเกิน | `''`, ช่องว่างล้วน, `undefined` · `pD3x k9` · 201 ตัว · 200 ตัว | ให้กรอกรหัส · ห้ามมีช่องว่าง · `ยาวเกิน 200` · 200 ตัวผ่าน |
-| WEB-92 | `tokenHeaders` ส่งแค่ header รหัสที่ trim แล้ว ไม่มี `Authorization` | `'  abc_123 '` | `{'X-Note-Token': 'abc_123'}` ไม่มี key `Authorization` |
-| WEB-93 | `tokenCheckResult` อ่านผลของ `PATCH` ที่ไม่มีฟิลด์ | `400 no_fields_to_update` · `403` · `404` · `400 validation_failed`, `200`, `401`, status `0` | `valid` · `wrong` · `gone` · `error` |
-| WEB-94 | `editErrorMessage` ครอบ error ของ PATCH/DELETE ด้วยรหัส | `403 forbidden`, `validation_failed`, `no_fields_to_update`, `404`, `413`, status `0` | ข้อความเฉพาะของแต่ละกรณี (`403` = รหัสแก้ไขไม่ถูกต้อง หรือไม่ใช่รหัสของโน้ตนี้) |
-
-ฟอร์มแก้ไขใช้ `editFormValues`/`changedFields` ของหน้าโปรไฟล์ (WEB-62 ถึง WEB-64) และ `validateMetadata` (WEB-66) ตัวเดิม จึงไม่ได้เขียนเทสต์ซ้ำ
-
-mutation 10 แบบถูกจับครบ: ไม่ trim รหัส, เช็กช่องว่างแค่ตัวแรก, เปลี่ยนเพดานความยาวเป็น `>=`, ไม่ trim ใน header, นับ `400` ทุกแบบว่ารหัสถูก,
-ตัดกรณี `403`/`404`, นับ `2xx` ว่ารหัสถูก, ตัดข้อความ `forbidden` และเปลี่ยนชื่อ header
-
-**ตรวจบน browser จริง (2026-10-06, อัตโนมัติ):** ตั้งค่าแบบเดียวกับ 2.17 (Edge แบบ headless ผ่าน DevTools Protocol, service จริงบน SQLite + ตัวแทน nginx)
-ผล: `/edit.html` ไม่มี id ได้ "ลิงก์ไม่ถูกต้อง…" · ลิงก์ในหน้ารายละเอียดเป็น `/edit.html?id=1` กดแล้วเห็นชื่อโน้ต วิชา ผู้อัปโหลด ลิงก์กลับ `/note.html?id=1`
-และ focus อยู่ที่ช่องรหัส · รหัสว่าง, รหัสมีช่องว่าง และรหัสของโน้ตอื่นได้ข้อความใต้ช่องตามลำดับ ฟอร์มแก้ไขยังไม่เปิด · **login เป็นเจ้าของโน้ตแต่กรอกรหัสผิด
-ยังได้ "รหัสแก้ไขไม่ถูกต้อง…"** (ยืนยันว่าหน้าไม่ส่ง `Authorization`) · login เป็นสมาชิกคนอื่นแล้วกรอกรหัสที่ถูก (มีช่องว่างหัวท้าย) เปิดฟอร์มได้ ค่าเดิมครบ
-รหัสไม่อยู่ใน `sessionStorage`/`localStorage` และช่องรหัสถูกล้าง · `PATCH` ตอนตรวจรหัสไม่ได้แก้อะไร (`updated_at` ยังเป็น `null`) · บันทึกโดยไม่แก้ได้
-"ยังไม่ได้แก้ข้อมูลช่องใด" · ล้างชื่อได้ error ใต้ช่องและ focus ไปที่ช่องนั้น · แก้ชื่อ (มี `<i>` และช่องว่างท้าย) และล้างวันที่เรียนแล้ว API ได้ชื่อที่ trim แล้ว
-`class_date = null`, `topic` เดิม, `updated_at` ถูกประทับ และชื่อแสดงเป็นข้อความ · ยกเลิกลบแล้ว focus กลับปุ่มลบ · ยืนยันลบแล้วเห็น "ลบโน้ตแล้ว"
-`GET /notes/1` ได้ `404` · เปิดหน้าแก้ของโน้ตที่ลบแล้วได้ "ไม่พบโน้ตนี้แล้ว…" · อัปโหลด PDF ผ่านหน้าอัปโหลดแล้วลิงก์ใต้รหัสเป็น `/edit.html?id=4` กดแล้วใช้รหัสนั้นเปิดฟอร์มได้
-· หน้าแก้ด้วยรหัส หน้ารายละเอียด และหน้าอัปโหลดกว้าง 375 px ไม่มี scroll แนวนอน · console ไม่มี JavaScript error มีแค่บรรทัด network ของ `403`/`400`/`404`
-ที่ตั้งใจให้เกิด (`400` คือการตรวจรหัสที่ถูก)
+หน้า `edit.html`, `edit.js` และ `edit-utils.js` ถูกลบพร้อมกับ edit token ต่อโน้ต เทสต์ WEB-90 ถึง WEB-94 จึงไม่มีแล้ว
+เจ้าของแก้/ลบจากหน้าโปรไฟล์ขณะ login (WEB-62 ถึง WEB-64 และ E2E-04) · ผลตรวจบน browser ของหน้านี้ (2026-10-06) ดูได้ในประวัติของไฟล์นี้
 
 ### 2.20 Deploy บน Vercel — Blob storage, URL ของ Neon และ `vercel.json` (`pytest`, ADR-009)
 
@@ -673,7 +650,7 @@ mutation 10 แบบถูกจับครบ: ไม่ trim รหัส, �
 | VC-08 | `NOTES_STORAGE_BACKEND=blob` เลือก Blob | ตั้งเป็น `blob` | `BlobFileStorage` (ข้ามถ้าเครื่องไม่มี `vercel` SDK · CI ติดตั้งจาก requirements จึงรัน) |
 | VC-09 | URL ของ Neon ใช้ psycopg 3 ทั้ง notes, auth และ stats | `postgres://…`, `postgresql://…`, `postgresql+psycopg://…`, `sqlite:///…` | สองตัวแรกกลายเป็น `postgresql+psycopg://…` · สองตัวหลังไม่เปลี่ยน |
 | VC-10 | request ที่ใหญ่ที่สุดที่ notes-service รับต้องไม่เกินเพดาน body ของ Vercel | `MAX_CONTENT_LENGTH` เมื่อเก็บใน Blob · และเมื่อเก็บบนดิสก์ (compose) | Blob: น้อยกว่า 4,500,000 ไบต์ (ฟอร์ม 4 MB + 256 KB ไฟล์ใหญ่กว่านั้นอัปโหลดตรง ADR-012) · ดิสก์: มากกว่า 10 MB |
-| VC-11 | `vercel.json` ส่ง path ไปที่ service เดียวกับ `web/nginx.conf` | `/notes/12/stats`, `/stats`, `/notes`, `/notes/12/download`, `/reports/3`, `/auth/login`, `/edit.html` ฯลฯ | stats, stats, notes, notes, notes, auth, web ตามลำดับ rewrite |
+| VC-11 | `vercel.json` ส่ง path ไปที่ service เดียวกับ `web/nginx.conf` | `/notes/12/stats`, `/stats`, `/notes`, `/notes/12/download`, `/reports/3`, `/auth/login`, `/profile.html` ฯลฯ | stats, stats, notes, notes, notes, auth, web ตามลำดับ rewrite |
 | VC-12 | ทุก service ใน `vercel.json` มีอยู่จริง และ notes/stats เรียก auth ผ่าน binding | `vercel.json` | ทุก rewrite ชี้ service ที่มี, catch-all อยู่ท้ายสุด, binding ใส่ `AUTH_SERVICE_URL`, `root` มีโฟลเดอร์จริง |
 
 mutation 11 แบบถูกจับครบ: เก็บแบบ public, ไม่แปลง error เป็น `FileNotFoundError`, เขียนทับไฟล์ที่อัปโหลด, `delete` โยน error, รูปตัวอย่างไม่ยอมเขียนทับ,
@@ -696,9 +673,9 @@ deploy preview บน Vercel จริง (2026-10-06, Neon + Blob แบบ pri
 | # | Test case | ขั้นตอน | ผลที่คาดหวัง |
 | --- | --- | --- | --- |
 | E2E-01 | สมัครแล้วเข้าสู่ระบบให้เอง (US-05, US-06) | กรอกแท็บสมัครสมาชิกใน `login.html#register` | กลับหน้าแรก · หน้าอัปโหลดเปิดฟอร์มและขึ้นชื่อที่สมัคร |
-| E2E-02 | อัปโหลดผ่านฟอร์ม แล้วค้นหาเจอ (US-07, US-08, US-09, US-31) | login → เลือกไฟล์ PDF + กรอก metadata → อัปโหลด → กดลิงก์ไปหน้าค้นหา | ขึ้นกล่องสำเร็จพร้อมรหัสแก้ไข · ผลค้นหา `แสดง 1 รายการ` มีชื่อโน้ตและชื่อผู้อัปโหลด |
+| E2E-02 | อัปโหลดผ่านฟอร์ม แล้วค้นหาเจอ (US-07, US-08, US-09, US-31) | login → เลือกไฟล์ PDF + กรอก metadata → อัปโหลด → กดลิงก์ไปหน้าค้นหา | ขึ้นกล่องสำเร็จที่บอกให้แก้/ลบจากหน้าโปรไฟล์ · ผลค้นหา `แสดง 1 รายการ` มีชื่อโน้ตและชื่อผู้อัปโหลด |
 | E2E-03 | อีกบัญชีใช้ทุกปุ่มบนหน้าโน้ต (US-12, US-13, US-14, US-15, US-28) | ดาวน์โหลด → ให้ 4 ดาว → ขอบคุณ → บันทึกรายการโปรด → แสดงความคิดเห็น → reload | ได้ไฟล์ `note.pdf` · `บันทึกคะแนนแล้ว` เฉลี่ย 4.0 · ปุ่มขอบคุณขึ้นหลังดาวน์โหลด · หลัง reload คะแนน รายการโปรด ความคิดเห็น และ `ดาวน์โหลด 1` ยังอยู่ (ไปถึง API จริง) |
-| E2E-04 | แก้และลบด้วยรหัสแก้ไขโดยไม่ login (US-19, US-20) | `edit.html?id=` → รหัสผิด → รหัสถูก → แก้ชื่อ → ลบผ่านกล่องยืนยัน | รหัสผิดขึ้นข้อความใต้ช่องและไม่เปิดฟอร์มแก้ · `บันทึกการแก้ไขแล้ว` และหน้าโน้ตขึ้นชื่อใหม่ · ลบแล้ว `GET /notes/<id>` ได้ `404` |
+| E2E-04 | เจ้าของแก้และลบจากหน้าโปรไฟล์ (US-19, US-20, ADR-013) | อีกบัญชีลบผ่าน API ก่อน → เจ้าของ login → โปรไฟล์ → แก้ชื่อ → หน้าโน้ต → โปรไฟล์ → ลบผ่านกล่องยืนยัน | อีกบัญชีได้ `403` · `บันทึกการแก้ไขแล้ว` และหน้าโน้ตขึ้นชื่อใหม่ · ปุ่มลบของโน้ตนั้นหายจากรายการ · `GET /notes/<id>` ได้ `404` |
 | E2E-05 | ผลค้นหาเกินหน้าแรกบอกยอดรวม (NA-137, WEB-95, WEB-96) | 21 โน้ตรหัสวิชาเดียวกัน แล้วค้นด้วยรหัสนั้น → โหลดเพิ่ม | `แสดง 20 จาก 21 รายการ` และมีปุ่มโหลดเพิ่ม → `แสดง 21 รายการ` และปุ่มหาย |
 | E2E-06 | หน้าจอมือถือกว้าง 375 px (NFR-008, NFR-009) | เปิด `/`, `login.html`, `upload.html`, `stats.html` | ไม่มี scroll แนวนอนทุกหน้า · ช่องค้นหาและปุ่มค้นหาอยู่ในจอแรกโดยไม่ต้อง scroll |
 | E2E-07 | ไฟล์ 6 MB อัปโหลดผ่านหน้าเว็บ (NFR-006, ADR-012) | เลือก PDF 6 MB แล้วอัปโหลด → ค้นด้วยรหัสวิชา → ดาวน์โหลดผ่าน API | ขึ้นกล่องสำเร็จ · `size_bytes` ตรง · ดาวน์โหลดได้ไบต์เดิมครบ · บน compose ไปทางฟอร์ม (nginx `11m`) กับ stack ที่เก็บใน Blob ไปทางอัปโหลดตรง |
@@ -817,7 +794,7 @@ mutation 10 แบบถูกจับครบ (2026-10-09, SQLite): ไม่
 | BU-05 | ขอสองครั้งได้คนละไฟล์ | ขอ token ซ้ำ | pathname ไม่ซ้ำกัน |
 | BU-06 | ไฟล์ที่ประกาศมาไม่ผ่าน → ไม่ออก token | 10 MB + 1, 0 byte, ขนาดเป็นข้อความ, GIF | `400 validation_failed` พร้อมเหตุผลของ `file` |
 | BU-07 | compose ไม่มี Blob | `LocalFileStorage` | `{"mode": "form", "max_file_bytes": 10485760}` |
-| BU-08 | สร้างโน้ตจากไฟล์ที่อัปโหลดตรง | PUT 5,009 byte แล้ว `POST /notes` JSON ที่อ้าง `size_bytes = 1` และ `year_level` เป็นตัวเลข | `201` · ขนาดจาก Blob (5,009) · มี `edit_token` · ดาวน์โหลดได้ไบต์เดิม |
+| BU-08 | สร้างโน้ตจากไฟล์ที่อัปโหลดตรง | PUT 5,009 byte แล้ว `POST /notes` JSON ที่อ้าง `size_bytes = 1` และ `year_level` เป็นตัวเลข | `201` · ขนาดจาก Blob (5,009) · ดาวน์โหลดได้ไบต์เดิม |
 | BU-09 | metadata ผิดใน JSON | `title` ว่าง, `year_level = true` | `400` ระบุทั้งสองช่อง · ไฟล์ใน Blob ยังอยู่ |
 | BU-10 | อ้างไฟล์ที่ไม่ได้ออกให้ผู้เรียก | ของผู้ใช้ 8, key ของโน้ตแบบฟอร์ม, key ของรูปตัวอย่าง, `..`, ค่าว่าง | `400 ไม่พบไฟล์ที่อัปโหลด` · ไม่มีไฟล์ไหนถูกลบ |
 | BU-11 | ได้ token แต่ PUT ไม่สำเร็จ | ไม่มีไฟล์ใน Blob | `400 ไม่พบไฟล์ที่อัปโหลด` |

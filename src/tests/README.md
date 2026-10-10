@@ -14,7 +14,7 @@
 | `test_email_error.py` | `email_error()` ของ auth-service โดยตรง (Lab 12B) | อติชาติ |
 | `test_notes_validation.py` | ตรวจ metadata และไฟล์ตอนอัปโหลด (US-08) | อติชาติ |
 | `test_notes_validation_boundary.py` | boundary/equivalence ของการตรวจ metadata (Lab 9) | อติชาติ |
-| `test_tokens_property.py` | property-based test ของ edit token ด้วย Hypothesis (Lab 9) | อติชาติ |
+| `test_tokens_property.py` | property-based test ด้วย Hypothesis (Lab 9) — เดิมทดสอบ edit token ต่อโน้ต ตั้งแต่ ADR-013 ทดสอบ client token ของ Blob แทน | อติชาติ |
 | `test_fizzbuzz.py` | TDD kata (Lab 9) | อติชาติ |
 | `test_notes_api.py` | Notes Service: อัปโหลด ค้นหา/กรอง ดาวน์โหลด แก้ไข/ลบโน้ต และตัวนับ view/download (US-08, US-10, US-12, US-16, US-19, US-20, US-26) | อติชาติ, วชิรวิทย์, กฤตเมธ |
 | `test_notes_identity.py` | Notes Service ตรวจ token ผ่าน auth-service ตัวจริงทาง HTTP (US-31) | อติชาติ |

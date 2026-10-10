@@ -3,7 +3,6 @@ from datetime import date
 import pytest
 
 from models import Comment, Note, build_session_factory
-from tokens import issue_token
 
 
 @pytest.fixture()
@@ -59,7 +58,6 @@ def create_test_note(session_factory, note_id=1):
         storage_key=f"test-{note_id}.txt",
         uploader_id=1,
         uploader_name="User One",
-        edit_token_hash="a" * 64,
     )
 
     with session_factory() as session:
@@ -222,16 +220,9 @@ def test_deleting_note_also_deletes_comments(test_context, client):
         comment = session.get(Comment, comment_id)
         assert comment is not None
 
-    edit_token, edit_token_hash = issue_token()
-
-    with session_factory() as session:
-        note = session.get(Note, note_id)
-        note.edit_token_hash = edit_token_hash
-        session.commit()
-
     response = client.delete(
         f"/notes/{note_id}",
-        headers={"X-Note-Token": edit_token},
+        headers={"Authorization": "Bearer valid-user-1"},
     )
 
     assert response.status_code == 204

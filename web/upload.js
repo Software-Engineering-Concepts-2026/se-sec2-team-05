@@ -2,7 +2,7 @@
 // form with UploadUtils.validateUpload, then asks POST /notes/uploads how to send the file
 // (ADR-012): on Vercel the file goes straight to Vercel Blob with a one-file upload token and
 // the note is created with JSON; on compose it goes to POST /notes as multipart. Both show a
-// progress bar (Issue #85, NFR-003), then the one-time edit token.
+// progress bar (Issue #85, NFR-003). Editing and deleting happen on the profile page (ADR-013).
 (function () {
   const { authHeaders, clearSession, loginUrl, fieldErrors } = window.SessionUtils;
   const {
@@ -19,10 +19,6 @@
   const doneNoteTitle = document.getElementById('doneNoteTitle');
   const doneUploader = document.getElementById('doneUploader');
   const doneSearchLink = document.getElementById('doneSearchLink');
-  const tokenInput = document.getElementById('editToken');
-  const doneEditLink = document.getElementById('doneEditLink');
-  const copyButton = document.getElementById('copyToken');
-  const copyStatus = document.getElementById('copyStatus');
   const submitButton = form.querySelector('button[type="submit"]');
   const progressBox = document.getElementById('uploadProgress');
   const progressBar = document.getElementById('progressBar');
@@ -200,27 +196,11 @@
     doneNoteTitle.textContent = note.title;
     doneUploader.textContent = note.uploader_name;
     doneSearchLink.href = searchUrlFor(note);
-    tokenInput.value = note.edit_token || '';
-    doneEditLink.href = `/edit.html?id=${encodeURIComponent(note.id)}`;
-    copyStatus.textContent = '';
     done.hidden = false;
     doneTitle.focus();
   }
 
-  copyButton.addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.writeText(tokenInput.value);
-      copyStatus.textContent = 'คัดลอกแล้ว';
-    } catch {
-      // Clipboard API needs a secure context (https or localhost). Select it for Ctrl+C instead.
-      tokenInput.select();
-      copyStatus.textContent = 'คัดลอกอัตโนมัติไม่ได้ เลือกข้อความไว้ให้แล้ว กด Ctrl+C';
-    }
-  });
-
   document.getElementById('uploadAnother').addEventListener('click', () => {
-    // The token is only on screen while this box is open
-    tokenInput.value = '';
     done.hidden = true;
     form.reset();
     showFieldErrors(form, {});

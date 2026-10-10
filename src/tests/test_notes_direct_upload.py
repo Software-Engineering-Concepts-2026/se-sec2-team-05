@@ -163,7 +163,7 @@ def test_upload_ticket_on_local_disk_says_use_the_form(make_app, tmp_path):
 
 
 def test_note_from_direct_upload(make_app, blob_client):
-    """BU-08: ขนาดและชนิดมาจาก Blob เอง ได้ edit token แบบเดียวกับการอัปโหลดผ่านฟอร์ม"""
+    """BU-08: ขนาดและชนิดมาจาก Blob เอง ได้โน้ตแบบเดียวกับการอัปโหลดผ่านฟอร์ม"""
     client = make_app()
     ticket = start(client).get_json()
     browser_put(blob_client, ticket, data=b"%PDF-1.4 " + b"x" * 5000)
@@ -177,7 +177,6 @@ def test_note_from_direct_upload(make_app, blob_client):
     assert note["file_name"] == "week3.pdf"
     assert note["uploader_name"] == MEMBER["display_name"]
     assert note["year_level"] == 2
-    assert note["edit_token"]
     assert client.get(f"/notes/{note['id']}/download").data == blob_client.blobs[ticket["pathname"]]
 
 
