@@ -64,6 +64,7 @@ Per-layer rationale and the alternatives we weighed are in [tech_stack.md](./tec
 - [ADR-008 — Let the Logged-In Uploader Edit and Delete Their Notes, Alongside the Edit Token](./adr/0008-owner-login-for-note-changes.md)
 - [ADR-009 — Deploy on Vercel with Services, Neon Postgres and Private Vercel Blob](./adr/0009-deploy-on-vercel-services.md)
 - [ADR-010 — Alembic Migrations Run at Service Startup](./adr/0010-alembic-migrations-at-startup.md)
+- [ADR-011 — Rate Limit Login and Registration with Counters in Postgres](./adr/0011-rate-limit-login-and-register.md)
 - [ADR-012 — Upload Note Files Directly to Vercel Blob](./adr/0012-direct-upload-to-vercel-blob.md)
 
 > ⚠️ The C4 Container diagram above describes the **target** architecture. What `docker compose up` actually starts today is narrower — `notes-service`, `auth-service` and `stats-service`, plus a `web` nginx container on port 8080 that serves the search page and proxies `/notes` and `/auth` (ADR-006). That container does not check tokens, so it is not yet the API Gateway in the diagram. `notes-service` calls `auth-service` (`GET /auth/me`) only to authenticate uploads; reads stay open and edits/deletes still use ADR-004's edit tokens. See ADR-003, ADR-004, ADR-005 and ADR-006.
