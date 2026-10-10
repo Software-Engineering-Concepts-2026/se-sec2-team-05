@@ -110,6 +110,21 @@ test('renderComment escapes the comment text', () => {
   assert.match(html, /&lt;img src=x onerror=alert\(1\)&gt;/);
 });
 
+test('commentAuthor shows the author name for other people\'s comments', () => {
+  const named = { id: 5, user_id: 1, author_name: '  Alice  ', content: 'ดีมาก' };
+  assert.equal(commentAuthor(named, bob), 'Alice');
+  assert.equal(commentAuthor(named, null), 'Alice');
+  assert.equal(commentAuthor(named, alice), 'คุณ');
+  assert.equal(commentAuthor({ ...named, author_name: '   ' }, bob), 'สมาชิก');
+  assert.equal(commentAuthor({ ...named, author_name: null }, bob), 'สมาชิก');
+});
+
+test('renderComment escapes the author name', () => {
+  const html = renderComment({ id: 6, user_id: 1, author_name: '<b>x</b>', content: 'hi' }, bob);
+  assert.doesNotMatch(html, /<b>x/);
+  assert.match(html, /<strong>&lt;b&gt;x&lt;\/b&gt;<\/strong>/);
+});
+
 test('textProblem uses the same rules as the API (trim, not empty, max length)', () => {
   assert.equal(textProblem('  ดีมาก  ', MAX_COMMENT_LENGTH), '');
   assert.equal(textProblem('   ', MAX_COMMENT_LENGTH), 'ต้องไม่ว่าง');

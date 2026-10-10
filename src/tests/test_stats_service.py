@@ -200,3 +200,33 @@ def test_note_stats_hides_thanks_from_non_owner(client, stats_db):
 
     assert response.status_code == 403
     assert "thanks" not in response.get_json()
+
+
+def test_stats_top_contributors_carry_the_latest_uploader_name(client, stats_db):
+    # NM-03: ชื่อมาจาก uploader_name ของโน้ตล่าสุดของเจ้าของคนนั้น (id มากสุด) ไม่ใช่โน้ตแรก
+    with stats_db() as session:
+        session.add(Note(
+            id=9003,
+            title="Newer Note",
+            subject_name="Stats Test Subject",
+            subject_code="STATS101",
+            faculty="ICT",
+            year_level=1,
+            lesson="Newer lesson",
+            file_name="newer.txt",
+            content_type="text/plain",
+            size_bytes=5,
+            storage_key="stats-newer-note.txt",
+            uploader_id=101,
+            uploader_name="Owner 101 renamed",
+            view_count=0,
+            download_count=0,
+        ))
+        session.commit()
+
+    body = client.get("/stats").get_json()
+
+    assert body["top_contributors"] == [
+        {"owner_id": 101, "owner_name": "Owner 101 renamed", "total_downloads": 3},
+        {"owner_id": 102, "owner_name": "Owner 102", "total_downloads": 2},
+    ]

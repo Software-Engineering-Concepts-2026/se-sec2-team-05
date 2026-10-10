@@ -230,3 +230,32 @@ def test_deleting_note_also_deletes_comments(test_context, client):
     with session_factory() as session:
         comment = session.get(Comment, comment_id)
         assert comment is None
+
+def test_comment_keeps_the_author_display_name(test_context, client):
+    # NM-01: ชื่อผู้เขียนมาจาก auth-service ตอนโพสต์ ไม่ใช่จาก body ที่ client ส่งมา
+    _, session_factory = test_context
+    note_id = create_test_note(session_factory)
+
+    created = client.post(
+        f"/notes/{note_id}/comments",
+        headers={"Authorization": "Bearer valid-user-2"},
+        json={"content": "Nice", "author_name": "Somebody Else"},
+    )
+    assert created.status_code == 201
+    assert created.get_json()["author_name"] == "User Two"
+
+    listed = client.get(f"/notes/{note_id}/comments").get_json()["comments"]
+    assert [(c["user_id"], c["author_name"]) for c in listed] == [(2, "User Two")]
+
+
+def test_old_comment_without_a_name_returns_null(test_context, client):
+    # NM-02: ความคิดเห็นก่อน revision 0003 ไม่มีชื่อ API ส่ง null ให้หน้าเว็บแสดง "สมาชิก"
+    _, session_factory = test_context
+    note_id = create_test_note(session_factory)
+    with session_factory() as session:
+        session.add(Comment(note_id=note_id, user_id=2, content="Old"))
+        session.commit()
+
+    listed = client.get(f"/notes/{note_id}/comments").get_json()["comments"]
+    assert listed[0]["author_name"] is None
+    assert listed[0]["content"] == "Old"
