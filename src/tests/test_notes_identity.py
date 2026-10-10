@@ -157,6 +157,14 @@ def test_identity_from_env_reads_auth_service_url(monkeypatch):
     assert identity_from_env().me_url == "http://auth-service:5002/auth/me"
 
 
+@pytest.mark.parametrize("url", ["file:///etc/passwd", "ftp://auth-service", "auth-service:5002", ""])
+def test_auth_service_url_must_be_http(url):
+    """NI-09: urlopen เปิด file:// ได้ด้วย AUTH_SERVICE_URL ที่ตั้งผิดต้องพังตั้งแต่สร้าง ไม่ใช่ไปอ่านไฟล์"""
+    with pytest.raises(ValueError):
+        HttpIdentity(url)
+    assert HttpIdentity("https://auth.example.com").me_url == "https://auth.example.com/auth/me"
+
+
 # --- ต่อครบทั้งสอง service: สมัคร → login → อัปโหลด → logout → อัปโหลดไม่ได้ ------------------
 
 

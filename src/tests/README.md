@@ -28,6 +28,7 @@
 | `test_vercel_deploy.py` | deploy บน Vercel: `BlobFileStorage`, URL ของ Neon ทั้ง 3 service, เพดาน body 4.5 MB และ route ใน `vercel.json` (ADR-009) | อติชาติ |
 | `test_notes_direct_upload.py` | อัปโหลดตรงเข้า Vercel Blob: client token, `POST /notes/uploads`, สร้างโน้ตแบบ JSON และล้างไฟล์ที่ค้าง (ADR-012) | อติชาติ |
 | `../e2e/test_web_flows.py` | E2E ผ่าน browser: สมัคร อัปโหลด ค้นหา ใช้โน้ตจากอีกบัญชี แก้/ลบด้วยรหัส และความกว้างมือถือ (test plan 2.21) | อติชาติ |
+| `../perf/load_test.py` | load test: เวลาตอบสนองของ API เทียบ NFR-001/002 ที่ 1, 10 และ 25 คนพร้อมกัน (test plan 2.24) — ไม่ใช่ pytest และไม่อยู่ใน CI | อติชาติ |
 | `../../prototypes/sprint1/note-utils.test.js` | `escapeHtml`, `formatStars`, `compareNotes` | อติชาติ (Lab 7) |
 | `../../web/*.test.js` | pure function ของหน้าเว็บ: `search-utils`, `session-utils`, `upload-utils`, `note-utils`, `profile-utils`, `admin-utils`, `stats-utils`, `edit-utils` | อติชาติ |
 
@@ -75,6 +76,15 @@ pytest src/e2e -v --base-url http://localhost:8080
 
 ทุกเทสต์สมัครบัญชีใหม่และสุ่มรหัสวิชาเอง จึงรันซ้ำบน DB เดิมได้ แต่จะทิ้งบัญชีและโน้ตทดสอบไว้ใน DB นั้น
 ใช้กับ stack ทดสอบเท่านั้น (ล้างด้วย `docker compose down -v`) ห้ามชี้ `--base-url` ไปที่เว็บจริงบน Vercel
+
+**Load test** — สคริปต์ธรรมดาที่ [`src/perf/`](../perf/) (ไม่ใช่ pytest) seed โน้ตหลายร้อยไฟล์แล้ววัด p50/p95/p99
+เทียบ NFR-001/002 กับ stack ที่ยกไว้ ยอมรันกับ `localhost` เท่านั้น วิธีรันและเหตุผลที่ไม่อยู่ใน CI ดู [`src/perf/README.md`](../perf/README.md)
+
+```bash
+docker compose up -d --build
+pip install -r src/perf/requirements.txt
+python src/perf/load_test.py --base-url http://localhost:8080
+```
 
 **เทสต์ JavaScript (prototypes และ web)** — ใช้ test runner ที่มากับ Node 18+ ไม่ต้อง npm install
 
