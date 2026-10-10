@@ -2,7 +2,7 @@
 
 ก่อนหน้านี้ตรวจด้วยมือบน compose ทุกครั้งที่แก้หน้าเว็บ (test plan หัวข้อ 3) ชุดนี้ทำซ้ำเส้นทางเดิม
 อัตโนมัติ: สมัคร → อัปโหลด → ค้นหา → อีกบัญชีดาวน์โหลด/ให้คะแนน/ขอบคุณ/แสดงความคิดเห็น
-→ แก้และลบด้วยรหัสแก้ไข รวมถึงยอดรวมผลค้นหาและความกว้างหน้าจอมือถือ (NFR-008)
+→ เจ้าของแก้และลบจากหน้าโปรไฟล์ รวมถึงยอดรวมผลค้นหา ความกว้างหน้าจอมือถือ (NFR-008) และไฟล์ 6 MB
 """
 
 from playwright.sync_api import expect
@@ -27,8 +27,8 @@ def test_register_logs_in_and_the_upload_page_knows_who(page, api):
     expect(page.locator("#uploaderLine")).to_contain_text("สมาชิกใหม่ E2E")
 
 
-def test_upload_gives_an_edit_token_and_search_finds_the_note(page, api, log_in, tmp_path):
-    """E2E-02: อัปโหลดผ่านฟอร์มได้รหัสแก้ไข แล้วค้นหาเจอพร้อมชื่อผู้อัปโหลด (US-07, US-08, US-09, US-31)"""
+def test_upload_then_search_finds_the_note(page, api, log_in, tmp_path):
+    """E2E-02: อัปโหลดผ่านฟอร์ม แล้วค้นหาเจอพร้อมชื่อผู้อัปโหลด (US-07, US-08, US-09, US-31)"""
     owner = api.register("เจ้าของโน้ต E2E")
     code = unique("UP")
     # ลิงก์ "ไปหน้าค้นหา" ค้นด้วยชื่อโน้ต ชื่อจึงต้องไม่ซ้ำกับรอบก่อนที่ยังอยู่ใน DB
@@ -48,7 +48,7 @@ def test_upload_gives_an_edit_token_and_search_finds_the_note(page, api, log_in,
     page.get_by_role("button", name="อัปโหลด ✓").click()
 
     expect(page.locator("#uploadDone")).to_be_visible()
-    expect(page.locator("#editToken")).not_to_have_value("")
+    expect(page.locator("#uploadDone")).to_contain_text("หน้าโปรไฟล์")
 
     page.locator("#doneSearchLink").click()
     expect(page.locator("#resultsCount")).to_have_text("แสดง 1 รายการ")
@@ -96,35 +96,30 @@ def test_reader_downloads_rates_thanks_saves_and_comments(page, api, log_in):
     expect(page.locator("#noteMeta")).to_contain_text("ดาวน์โหลด 1")
 
 
-def test_edit_and_delete_with_the_edit_token_without_logging_in(page, api):
-    """E2E-04: รหัสผิดถูกปฏิเสธ รหัสถูกแก้ชื่อและลบได้ โดยไม่ต้อง login (US-19, US-20)"""
-    owner = api.register("เจ้าของรหัส E2E")
+def test_owner_edits_and_deletes_from_the_profile_page(page, api, log_in):
+    """E2E-04: เจ้าของแก้ชื่อและลบโน้ตจากหน้าโปรไฟล์ขณะ login (US-19, US-20, ADR-008, ADR-013)
+
+    คนอื่นไม่เห็นโน้ตนั้นในโปรไฟล์ของตัวเอง และ API ตอบ 403 ถ้าพยายามลบ
+    """
+    owner = api.register("เจ้าของโน้ต E2E")
+    stranger = api.register("คนอื่น E2E")
     note = api.upload(owner, title="ชื่อเดิม")
+    assert api.delete(stranger, note["id"]) == 403
 
-    page.goto(f"/edit.html?id={note['id']}")
-    token_form = page.locator("#tokenForm")
-    token_form.locator('[name="token"]').fill("not-the-real-token")
-    token_form.get_by_role("button", name="ตรวจรหัส").click()
-    expect(token_form.locator('[data-error-for="token"]')).to_be_visible()
-    expect(page.locator("#editForm")).to_be_hidden()
-
-    token_form.locator('[name="token"]').fill(note["edit_token"])
-    token_form.get_by_role("button", name="ตรวจรหัส").click()
-    expect(page.locator("#pageStatus")).to_have_text("รหัสถูกต้อง แก้ข้อมูลแล้วกดบันทึก หรือลบโน้ตนี้ได้")
-
+    log_in(owner)
+    page.goto("/profile.html")
+    page.locator(f'[data-edit-note="{note["id"]}"]').click()
     edit_form = page.locator("#editForm")
-    edit_form.locator('[name="title"]').fill("ชื่อใหม่จากหน้าแก้ไข")
+    edit_form.locator('[name="title"]').fill("ชื่อใหม่จากโปรไฟล์")
     edit_form.get_by_role("button", name="บันทึก").click()
-    expect(page.locator("#pageStatus")).to_have_text("บันทึกการแก้ไขแล้ว")
+    expect(page.locator("#profileStatus")).to_have_text("บันทึกการแก้ไขแล้ว")
     page.goto(f"/note.html?id={note['id']}")
-    expect(page.locator("#noteTitle")).to_have_text("ชื่อใหม่จากหน้าแก้ไข")
+    expect(page.locator("#noteTitle")).to_have_text("ชื่อใหม่จากโปรไฟล์")
 
-    page.goto(f"/edit.html?id={note['id']}")
-    token_form.locator('[name="token"]').fill(note["edit_token"])
-    token_form.get_by_role("button", name="ตรวจรหัส").click()
-    page.locator("#deleteOpen").click()
+    page.goto("/profile.html")
+    page.locator(f'[data-delete-note="{note["id"]}"]').click()
     page.locator("#deleteForm").get_by_role("button", name="ลบโน้ต").click()
-    expect(page.locator("#deletedBox")).to_be_visible()
+    expect(page.locator(f'[data-delete-note="{note["id"]}"]')).to_have_count(0)
     assert api.note_status(note["id"]) == 404
 
 

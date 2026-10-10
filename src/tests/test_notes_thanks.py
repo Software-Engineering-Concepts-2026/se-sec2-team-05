@@ -297,7 +297,7 @@ def test_deleting_a_thanked_note_removes_its_thanks(client, db):
         thank(client, created["id"], headers)
     thank(client, kept, BOB)
 
-    response = client.delete(f"/notes/{created['id']}", headers={"X-Note-Token": created["edit_token"]})
+    response = client.delete(f"/notes/{created['id']}", headers=ALICE)
 
     assert response.status_code == 204
     assert thank_count(db, created["id"]) == 0

@@ -160,7 +160,7 @@ def test_upload_download_preview_and_delete_through_the_api_with_blob(blob_app):
     assert preview.mimetype == "image/png"
     assert len(blob_client.blobs) == 2  # ไฟล์จริง + รูปตัวอย่างที่สร้างครั้งแรก
 
-    deleted = client.delete(f"/notes/{note['id']}", headers={"X-Note-Token": note["edit_token"]})
+    deleted = client.delete(f"/notes/{note['id']}", headers=AUTH_HEADER)
 
     assert deleted.status_code == 204
     assert blob_client.blobs == {}
@@ -255,7 +255,7 @@ def _service_for(path):
         ("/reports/3", "notes"),
         ("/auth/login", "auth"),
         ("/", "web"),
-        ("/edit.html", "web"),
+        ("/profile.html", "web"),
     ],
 )
 def test_vercel_routes_match_the_nginx_gateway(path, service):

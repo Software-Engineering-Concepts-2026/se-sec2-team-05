@@ -1,4 +1,4 @@
-"""เทสต์ "โน้ตของฉัน" และการแก้/ลบด้วยบัญชีเจ้าของ — Issue #82, ADR-008
+"""เทสต์ "โน้ตของฉัน" และการแก้/ลบด้วยบัญชีเจ้าของ — Issue #82, ADR-008, ADR-013
 
 โครงเดียวกับ test_notes_thanks.py: Flask test client + SQLite ชั่วคราว และ `FakeIdentity`
 Alice เป็นเจ้าของโน้ต Bob, Carol, Dave เป็นคนอื่นที่ login อยู่
@@ -83,12 +83,11 @@ def upload(client, headers=ALICE, **overrides):
     form["file"] = (io.BytesIO(b"%PDF-1.4 fake note"), "note.pdf", "application/pdf")
     response = client.post("/notes", data=form, headers=headers, content_type="multipart/form-data")
     assert response.status_code == 201
-    body = response.get_json()
-    return body["id"], body["edit_token"]
+    return response.get_json()["id"]
 
 
 def new_note(client, headers=ALICE, **overrides):
-    return upload(client, headers, **overrides)[0]
+    return upload(client, headers, **overrides)
 
 
 def rate(client, note_id, value, headers):
@@ -101,10 +100,10 @@ def title_of(client, note_id):
     return client.get(f"/notes/{note_id}").get_json()["title"]
 
 
-# --- A. แก้/ลบด้วยบัญชีเจ้าของ (ADR-008) ---
+# --- A. แก้/ลบด้วยบัญชีเจ้าของเท่านั้น (ADR-008, ADR-013) ---
 
 
-def test_owner_can_edit_without_edit_token(client):
+def test_owner_can_edit(client):
     note_id = new_note(client)
 
     response = client.patch(f"/notes/{note_id}", data={"title": "ชื่อใหม่"}, headers=ALICE)
@@ -114,7 +113,7 @@ def test_owner_can_edit_without_edit_token(client):
     assert title_of(client, note_id) == "ชื่อใหม่"
 
 
-def test_owner_can_delete_without_edit_token_and_files_are_removed(client, storage_dir):
+def test_owner_can_delete_and_files_are_removed(client, storage_dir):
     note_id = new_note(client)
     assert any(storage_dir.iterdir())
 
@@ -137,14 +136,20 @@ def test_other_member_cannot_edit_or_delete(client):
     assert title_of(client, note_id) == FORM["title"]
 
 
-def test_no_token_and_no_login_is_still_403(client):
+def test_without_login_is_401(client):
+    """ADR-013: ไม่มีทางแก้/ลบโดยไม่ login แล้ว จึงเป็น 401 ให้หน้าเว็บพาไป login (เดิม 403)"""
     note_id = new_note(client)
 
-    assert client.patch(f"/notes/{note_id}", data={"title": "x"}).status_code == 403
-    assert client.delete(f"/notes/{note_id}").status_code == 403
+    for response in (
+        client.patch(f"/notes/{note_id}", data={"title": "x"}),
+        client.delete(f"/notes/{note_id}"),
+    ):
+        assert response.status_code == 401
+        assert response.headers["WWW-Authenticate"] == "Bearer"
+    assert title_of(client, note_id) == FORM["title"]
 
 
-def test_unknown_bearer_without_edit_token_is_401(client):
+def test_unknown_bearer_is_401(client):
     note_id = new_note(client)
 
     response = client.delete(f"/notes/{note_id}", headers={"Authorization": "Bearer expired"})
@@ -154,7 +159,7 @@ def test_unknown_bearer_without_edit_token_is_401(client):
     assert client.get(f"/notes/{note_id}").status_code == 200
 
 
-def test_auth_service_down_without_edit_token_is_503(client, identity):
+def test_auth_service_down_is_503(client, identity):
     note_id = new_note(client)
     identity.down = True
 
@@ -164,28 +169,14 @@ def test_auth_service_down_without_edit_token_is_503(client, identity):
     assert response.get_json()["error"] == "auth_unavailable"
 
 
-def test_valid_edit_token_skips_auth_service(client, identity):
-    """token ถูกตรวจก่อน — ใช้ได้แม้ auth-service ล่ม และไม่ต้องถาม auth-service เลย"""
-    note_id, token = upload(client)
-    identity.down = True
-    calls = identity.calls
-
-    response = client.patch(
-        f"/notes/{note_id}", data={"title": "แก้ด้วย token"}, headers={**BOB, "X-Note-Token": token}
-    )
-
-    assert response.status_code == 200
-    assert identity.calls == calls
-
-
-def test_wrong_edit_token_from_owner_still_passes_by_login(client):
+def test_an_old_edit_token_header_grants_nothing(client):
+    """ADR-013: header X-Note-Token ของเดิมถูกเมิน — คนอื่นที่ส่งมาด้วยยังได้ 403 ไม่ login ได้ 401"""
     note_id = new_note(client)
+    old_token = {"X-Note-Token": "a" * 43}
 
-    response = client.patch(
-        f"/notes/{note_id}", data={"title": "ชื่อใหม่"}, headers={**ALICE, "X-Note-Token": "wrong"}
-    )
-
-    assert response.status_code == 200
+    assert client.patch(f"/notes/{note_id}", data={"title": "x"}, headers={**BOB, **old_token}).status_code == 403
+    assert client.delete(f"/notes/{note_id}", headers=old_token).status_code == 401
+    assert client.patch(f"/notes/{note_id}", data={"title": "ชื่อใหม่"}, headers={**ALICE, **old_token}).status_code == 200
 
 
 def test_missing_note_is_404_before_any_auth_check(client):

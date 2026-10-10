@@ -6,7 +6,6 @@ from sqlalchemy import func, select
 from identity import IdentityUnavailable
 from models import Note, NoteAccess, Rating, build_session_factory
 from storage import LocalFileStorage
-from tokens import issue_token
 
 ALICE = {"Authorization": "alice-token"}
 BOB = {"Authorization": "bob-token"}
@@ -59,7 +58,6 @@ def create_note(session_factory, storage, note_id=1):
         storage_key=f"note-{note_id}.pdf",
         uploader_id=1,
         uploader_name="Alice",
-        edit_token_hash="a" * 64,
     )
     with session_factory() as session:
         session.add(note)
@@ -257,16 +255,7 @@ def test_deleting_note_removes_access_and_rating_records(rating_context):
     note_id = create_note(session_factory, storage)
     make_eligible(client, note_id)
     assert rate(client, note_id, 5).status_code == 200
-    edit_token, token_hash = issue_token()
-    with session_factory() as session:
-        note = session.get(Note, note_id)
-        note.edit_token_hash = token_hash
-        session.commit()
-
-    response = client.delete(
-        f"/notes/{note_id}",
-        headers={"X-Note-Token": edit_token},
-    )
+    response = client.delete(f"/notes/{note_id}", headers=ALICE)
 
     assert response.status_code == 204
     with session_factory() as session:

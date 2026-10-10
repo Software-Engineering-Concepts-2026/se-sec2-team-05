@@ -190,7 +190,7 @@ def test_deleting_a_note_removes_its_preview(env):
     assert list((root / "previews").glob("*.png"))
 
     response = client.delete(
-        f"/notes/{note['id']}", headers={"X-Note-Token": note["edit_token"]}
+        f"/notes/{note['id']}", headers=AUTH_HEADER
     )
 
     assert response.status_code == 204

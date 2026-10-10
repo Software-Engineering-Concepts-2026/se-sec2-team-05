@@ -241,11 +241,11 @@ def test_list_when_auth_service_is_down_is_503(client, identity):
 def test_deleted_note_disappears_from_the_list(client):
     kept = new_note(client)
     doomed_response = upload(client).get_json()
-    doomed, token = doomed_response["id"], doomed_response["edit_token"]
+    doomed = doomed_response["id"]
     favorite(client, kept)
     favorite(client, doomed)
 
-    assert client.delete(f"/notes/{doomed}", headers={"X-Note-Token": token}).status_code == 204
+    assert client.delete(f"/notes/{doomed}", headers=ALICE).status_code == 204
 
     assert favorite_ids(client) == [kept]
 
@@ -255,7 +255,7 @@ def test_deleting_a_note_favorited_by_several_users_removes_every_favorite_row(c
     favorite(client, created["id"], ALICE)
     favorite(client, created["id"], BOB)
 
-    response = client.delete(f"/notes/{created['id']}", headers={"X-Note-Token": created["edit_token"]})
+    response = client.delete(f"/notes/{created['id']}", headers=ALICE)
 
     assert response.status_code == 204
     assert favorite_ids(client, ALICE) == []
