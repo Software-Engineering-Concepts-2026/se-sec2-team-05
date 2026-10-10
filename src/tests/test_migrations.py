@@ -69,9 +69,17 @@ def test_migrations_build_exactly_the_tables_of_the_models(empty_url, module, ba
 
 @pytest.mark.parametrize("module, base, build", SERVICES)
 def test_database_made_by_create_all_is_stamped_and_keeps_its_rows(empty_url, module, base, build):
-    """MG-02: DB เดิมที่สร้างด้วย create_all (compose เก่า, Neon) ถูก stamp เป็น baseline ข้อมูลไม่หาย"""
+    """MG-02: DB เดิมที่สร้างด้วย create_all (compose เก่า, Neon) ถูก stamp เป็น baseline ข้อมูลไม่หาย
+
+    จำลอง DB เดิมด้วย schema ของ baseline แล้วลบตาราง version ทิ้ง ไม่ใช้ create_all ของ models ปัจจุบัน
+    เพราะ models มีตารางที่เพิ่มทีหลัง baseline แล้ว (เช่น `auth_attempts` ของ revision 0002) ซึ่ง DB เดิมไม่มี
+    """
+    from alembic import command
+
     engine = engine_for(empty_url)
-    base.metadata.create_all(engine)
+    with engine.begin() as conn:
+        command.upgrade(module.alembic_config(conn), module.BASELINE_REVISION)
+        conn.execute(text(f"DROP TABLE {module.VERSION_TABLE}"))
     table = module.LEGACY_TABLE
     with engine.begin() as conn:
         if table == "notes":

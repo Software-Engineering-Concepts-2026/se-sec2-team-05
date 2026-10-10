@@ -3,6 +3,8 @@
 Endpoint:
     GET  /health              health check (รูปแบบเดียวกับ stats-service)
     POST /notes               อัปโหลดไฟล์ + metadata (multipart/form-data) ต้อง login (US-31)
+                              หรือ JSON + upload_pathname ของไฟล์ที่อัปโหลดตรงเข้า Blob แล้ว (ADR-012)
+    POST /notes/uploads       ขอ client token สำหรับอัปโหลดตรงเข้า Blob ต้อง login (ADR-012)
     GET  /notes               ค้นหา/กรองด้วย metadata ที่กรอกไว้ (AC ข้อ 4) · sort=rating (Issue #83)
                               total = จำนวนที่ตรงเงื่อนไขทั้งหมด ไม่ใช่แค่หน้านี้ (count)
                               ถ้า login จะมี is_favorited ต่อโน้ต ไม่ login เป็น null (US-15)
@@ -21,19 +23,20 @@ Endpoint:
     POST   /notes/<id>/favorite  บันทึกเข้ารายการโปรด ต้อง login (US-15)
     DELETE /notes/<id>/favorite  เอาออกจากรายการโปรด ต้อง login (US-15)
     POST   /notes/<id>/thanks    ขอบคุณเจ้าของโน้ต ต้อง login กดได้ครั้งเดียวต่อโน้ต (US-28)
-    PATCH  /notes/<id>        แก้ metadata บางส่วน (US-19) ต้องมี X-Note-Token หรือ login เป็นเจ้าของ
-    DELETE /notes/<id>        ลบโน้ตพร้อมไฟล์ (US-20) ต้องมี X-Note-Token หรือ login เป็นเจ้าของ
+    PATCH  /notes/<id>        แก้ metadata บางส่วน (US-19) ต้อง login เป็นเจ้าของ (ADR-013)
+    DELETE /notes/<id>        ลบโน้ตพร้อมไฟล์ (US-20) ต้อง login เป็นเจ้าของ (ADR-013)
     GET  /notes/<id>/download ดาวน์โหลดไฟล์จริง
     GET  /notes/<id>/preview  รูปตัวอย่าง (PNG) ของโน้ต ไม่นับเป็นการดาวน์โหลด (US-11)
 
 การอัปโหลดต้องส่ง `Authorization: Bearer <token>` ที่ได้จาก auth-service ชื่อผู้อัปโหลด
 มาจากบัญชีนั้น ไม่รับจากฟอร์ม (ดู identity.py) — endpoint ที่อ่านอย่างเดียวยังเปิดหมด
-ส่วนการแก้/ลบใช้ edit token ต่อโน้ต (ADR-004, tokens.py) หรือบัญชีเจ้าของที่ login อยู่ (ADR-008)
+ส่วนการแก้/ลบต้อง login เป็นบัญชีที่อัปโหลด (ADR-008) — edit token ต่อโน้ตของ ADR-004 เลิกใช้แล้ว (ADR-013)
 """
 
 import io
 import os
-from datetime import date, datetime, timezone
+import re
+from datetime import date, datetime, timedelta, timezone
 
 from flask import Flask, jsonify, request, send_file
 from sqlalchemy import delete, func, select, update
@@ -51,11 +54,11 @@ from models import (
     build_session_factory,
 )
 from preview import PreviewUnavailable, render_preview
-from storage import storage_from_env
-from tokens import HEADER_NAME, issue_token, token_matches
+from storage import CLIENT_TOKEN_TTL_SECONDS, storage_from_env
 from validation import (
     ALLOWED_CONTENT_TYPES,
     MAX_FILE_BYTES,
+    file_error,
     validate_file,
     validate_metadata,
 )
@@ -142,12 +145,23 @@ def validate_rating(value):
     return value
 
 
-# เพดานขนาด request ทั้งก้อน = ขนาดไฟล์สูงสุด + ที่เผื่อไว้ให้ multipart boundary กับฟิลด์ metadata
-# ตั้งให้สูงกว่า MAX_FILE_BYTES เล็กน้อยโดยตั้งใจ ไฟล์ที่เกินนิดเดียวจะได้ตกที่ validate_file
+# เพดานขนาด request ทั้งก้อน = ขนาดไฟล์สูงสุดที่รับในฟอร์ม + ที่เผื่อไว้ให้ multipart boundary กับ
+# ฟิลด์ metadata · ตั้งให้สูงกว่าเพดานไฟล์เล็กน้อยโดยตั้งใจ ไฟล์ที่เกินนิดเดียวจะได้ตกที่ validate_file
 # ซึ่งบอกเหตุผลรายฟิลด์ แทนที่จะถูกตัดทิ้งแบบไม่มีรายละเอียดตั้งแต่ชั้น Werkzeug
-# รวมกันต้องไม่เกิน 4.5 MB ซึ่งเป็นเพดาน body ของ Vercel (ADR-009) จึงเผื่อไว้แค่ 256 KB
+# เมื่อเก็บใน Blob (Vercel) รวมกันต้องไม่เกิน 4.5 MB ซึ่งเป็นเพดาน body ของ Vercel (ADR-009)
+# จึงเผื่อไว้แค่ 256 KB · ไฟล์ที่ใหญ่กว่านั้นต้องอัปโหลดตรงเข้า Blob (ADR-012)
 REQUEST_OVERHEAD_BYTES = 256 * 1024
-MAX_REQUEST_BYTES = MAX_FILE_BYTES + REQUEST_OVERHEAD_BYTES
+
+# ไฟล์ที่ browser อัปโหลดตรงเข้า Blob อยู่ใต้ uploads/<user_id>/ — ตอนสร้างโน้ตจึงตรวจได้ว่าไฟล์นี้
+# ออก token ให้ผู้ใช้คนนี้ ไม่ใช่ไฟล์ของคนอื่นหรือรูปตัวอย่างที่ระบบสร้าง
+DIRECT_UPLOAD_PREFIX = "uploads"
+DIRECT_UPLOAD_KEY = re.compile(r"^uploads/(\d+)/[0-9a-f]{32}\.(pdf|png|jpg)$")
+MAX_FILE_NAME_LENGTH = 255
+
+
+def direct_upload_key(user_id: int, base_key: str) -> str:
+    return f"{DIRECT_UPLOAD_PREFIX}/{user_id}/{base_key}"
+
 
 # รูปตัวอย่างของโน้ตไม่เปลี่ยนเลยหลังอัปโหลด (แก้ไฟล์ไม่ได้ ดู IMMUTABLE_FIELDS) จึง cache ได้นาน
 PREVIEW_CACHE_CONTROL = "public, max-age=86400"
@@ -217,16 +231,20 @@ def utc_iso(moment: datetime) -> str:
 def create_app(database_url: str | None = None, storage=None, identity=None) -> Flask:
     app = Flask(__name__)
 
-    # ตัดคำขอที่ใหญ่เกินตั้งแต่ชั้น Werkzeug ไม่ต้องรอให้ validate_file เห็นขนาด
-    # เพราะกว่าจะถึงตรงนั้น request body ถูกอ่านเข้ามาครบแล้ว
-    app.config["MAX_CONTENT_LENGTH"] = MAX_REQUEST_BYTES
-
     session_factory = build_session_factory(
         database_url or os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL)
     )
 
     file_storage = storage or storage_from_env()
     current_user = identity or identity_from_env()
+
+    # เก็บใน Blob = รันบน Vercel ฟอร์มจึงรับไฟล์ได้ไม่เกิน 4 MB ส่วนไฟล์ถึง 10 MB อัปโหลดตรง (ADR-012)
+    form_file_limit = getattr(file_storage, "form_upload_limit", MAX_FILE_BYTES)
+    direct_upload = getattr(file_storage, "supports_direct_upload", False)
+
+    # ตัดคำขอที่ใหญ่เกินตั้งแต่ชั้น Werkzeug ไม่ต้องรอให้ validate_file เห็นขนาด
+    # เพราะกว่าจะถึงตรงนั้น request body ถูกอ่านเข้ามาครบแล้ว
+    app.config["MAX_CONTENT_LENGTH"] = form_file_limit + REQUEST_OVERHEAD_BYTES
 
     @app.get("/health")
     def health():
@@ -242,7 +260,7 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
 
         ถ้าไม่ดักไว้ Werkzeug จะคืนหน้า HTML ซึ่ง client ที่ parse JSON อยู่แล้วจะพัง
         """
-        limit_mb = MAX_FILE_BYTES // (1024 * 1024)
+        limit_mb = form_file_limit // (1024 * 1024)
 
         return (
             jsonify(
@@ -252,27 +270,82 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
             413,
         )
 
+    @app.post("/notes/uploads")
+    def start_upload():
+        """ขอที่อัปโหลดไฟล์ก่อนสร้างโน้ต (ADR-012)
+
+        เก็บใน Blob: ตรวจชนิด/ขนาดที่ประกาศมา แล้วออก client token ที่ใช้ได้กับ pathname เดียว
+        ภายใต้ uploads/<user_id>/ ชนิดเดียว และขนาดไม่เกิน 10 MB · browser ส่งไฟล์ตรงเข้า Blob
+        แล้วค่อยเรียก POST /notes แบบ JSON พร้อม `upload_pathname`
+        เก็บบนดิสก์ (compose): ตอบ `mode: "form"` ให้ส่งไฟล์มาใน POST /notes แบบ multipart เหมือนเดิม
+        """
+        user, denied = require_user()
+        if denied:
+            return denied
+
+        if not direct_upload:
+            return jsonify(mode="form", max_file_bytes=form_file_limit)
+
+        body = request.get_json(silent=True)
+        if not isinstance(body, dict):
+            return jsonify(error="invalid_json"), 400
+
+        content_type = str(body.get("content_type") or "").lower()
+        size_bytes = body.get("size_bytes")
+        problem = file_error(content_type, size_bytes)
+        if problem:
+            return jsonify(error="validation_failed", fields={"file": problem}), 400
+
+        remove_abandoned_uploads(user["id"])
+        key = direct_upload_key(user["id"], file_storage.build_key(content_type))
+        return jsonify(
+            mode="direct",
+            max_file_bytes=MAX_FILE_BYTES,
+            **file_storage.direct_upload(key, content_type, MAX_FILE_BYTES),
+        )
+
+    def remove_abandoned_uploads(user_id):
+        """ลบไฟล์ที่ผู้ใช้คนนี้อัปโหลดตรงแล้วไม่มีโน้ตตามมา (ปิดแท็บ, เน็ตหลุด, ฟอร์มไม่ผ่าน)
+
+        เฉพาะไฟล์ที่เก่ากว่าอายุ client token — หน้าเว็บสร้างโน้ตทันทีหลังส่งไฟล์เสร็จ ไฟล์ที่ยัง
+        ไม่มีโน้ตหลังจากนั้นจึงไม่มีใครใช้แล้ว (กดส่งใหม่ก็ขอ token และอัปโหลดใหม่) · ถ้าลบไม่สำเร็จ
+        ไม่ขวางการอัปโหลดครั้งนี้ รอบหน้าจะลองอีก
+        """
+        cutoff = datetime.now(timezone.utc) - timedelta(seconds=CLIENT_TOKEN_TTL_SECONDS)
+        try:
+            stale = [
+                key
+                for key, uploaded_at in file_storage.list_uploads(direct_upload_key(user_id, ""))
+                if uploaded_at < cutoff
+            ]
+            if not stale:
+                return
+            with session_factory() as session:
+                used = set(session.scalars(select(Note.storage_key).where(Note.storage_key.in_(stale))))
+            for key in stale:
+                if key not in used:
+                    file_storage.delete(key)
+        except Exception:
+            app.logger.exception("cleaning abandoned uploads of user %s failed", user_id)
+
     @app.post("/notes")
     def create_note():
         # ตรวจตัวตนก่อนแตะ body — ถ้าไม่ผ่านจะไม่มีการอ่านไฟล์หรือบันทึกอะไรลง storage เลย
-        try:
-            user = current_user(request.headers.get("Authorization"))
-        except IdentityUnavailable:
-            return jsonify(error="auth_unavailable"), 503
+        user, denied = require_user()
+        if denied:
+            return denied
 
-        if user is None:
-            return jsonify(error="unauthorized"), 401, {
-                "WWW-Authenticate": "Bearer"
-            }
+        if request.is_json:
+            return create_note_from_direct_upload(user)
 
         cleaned, errors = validate_metadata(request.form)
 
-        content_type, size_bytes, file_error = validate_file(
-            request.files.get("file")
+        content_type, size_bytes, upload_error = validate_file(
+            request.files.get("file"), form_file_limit
         )
 
-        if file_error:
-            errors["file"] = file_error
+        if upload_error:
+            errors["file"] = upload_error
 
         if errors:
             return jsonify(error="validation_failed", fields=errors), 400
@@ -282,18 +355,71 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
         storage_key = file_storage.build_key(content_type)
         file_storage.save(storage_key, upload)
 
-        token, token_hash = issue_token()
+        return save_note(user, cleaned, upload.filename, content_type, size_bytes, storage_key)
 
+    def create_note_from_direct_upload(user):
+        """สร้างโน้ตจากไฟล์ที่ browser อัปโหลดตรงเข้า Blob แล้ว (ADR-012)
+
+        เชื่อเฉพาะสิ่งที่อ่านจาก Blob เอง (ขนาด ชนิด) ไม่เชื่อค่าที่ client ส่งมา
+        """
+        body = request.get_json(silent=True)
+        if not isinstance(body, dict):
+            return jsonify(error="invalid_json"), 400
+
+        # ฟอร์มส่งทุกอย่างเป็นข้อความ JSON อาจส่ง year_level เป็นตัวเลข — แปลงให้ validate_metadata
+        # เห็นแบบเดียวกับฟอร์ม · ค่าที่ไม่ใช่ข้อความหรือตัวเลขถือว่าไม่ได้กรอก
+        form = {
+            key: str(value)
+            for key, value in body.items()
+            if isinstance(value, (str, int)) and not isinstance(value, bool)
+        }
+        cleaned, errors = validate_metadata(form)
+
+        file_name = str(body.get("file_name") or "").strip()
+        if not file_name:
+            errors["file"] = "ต้องแนบไฟล์โน้ต"
+        elif len(file_name) > MAX_FILE_NAME_LENGTH:
+            errors["file"] = f"ชื่อไฟล์ยาวเกิน {MAX_FILE_NAME_LENGTH} ตัวอักษร"
+
+        storage_key = str(body.get("upload_pathname") or "")
+        match = DIRECT_UPLOAD_KEY.match(storage_key)
+        if not direct_upload or not match or int(match.group(1)) != user["id"]:
+            # ไม่ใช่ไฟล์ที่ออก token ให้ผู้ใช้คนนี้ — ไม่แตะไฟล์นั้นเลย
+            errors["file"] = "ไม่พบไฟล์ที่อัปโหลด กรุณาอัปโหลดใหม่"
+
+        if errors:
+            return jsonify(error="validation_failed", fields=errors), 400
+
+        try:
+            size_bytes, content_type = file_storage.stat(storage_key)
+        except FileNotFoundError:
+            return jsonify(
+                error="validation_failed",
+                fields={"file": "ไม่พบไฟล์ที่อัปโหลด กรุณาอัปโหลดใหม่"},
+            ), 400
+
+        problem = file_error(content_type, size_bytes)
+        if not problem and ALLOWED_CONTENT_TYPES[content_type] != storage_key[storage_key.rindex("."):]:
+            problem = "ชนิดไฟล์ไม่ตรงกับที่ขออัปโหลด"
+        if problem:
+            # client token บังคับชนิดและขนาดไว้แล้ว ถ้ายังหลุดมาได้ก็ไม่เก็บไฟล์นั้นไว้
+            file_storage.delete(storage_key)
+            return jsonify(error="validation_failed", fields={"file": problem}), 400
+
+        return save_note(user, cleaned, file_name, content_type, size_bytes, storage_key,
+                         duplicate_key_possible=True)
+
+    def save_note(user, cleaned, file_name, content_type, size_bytes, storage_key,
+                  duplicate_key_possible=False):
         note = Note(
             **cleaned,
             # US-31: เจ้าของโน้ตมาจากบัญชีที่ login เสมอ uploader_name ในฟอร์ม (ถ้ามี) ถูกเมิน
             uploader_id=user["id"],
             uploader_name=user["display_name"],
-            file_name=upload.filename,
+            file_name=file_name,
             content_type=content_type,
             size_bytes=size_bytes,
             storage_key=storage_key,
-            edit_token_hash=token_hash,
         )
 
         with session_factory() as session:
@@ -301,14 +427,20 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
 
             try:
                 session.commit()
+            except IntegrityError:
+                session.rollback()
+                if duplicate_key_possible:
+                    # ไฟล์นี้เป็นของโน้ตอื่นไปแล้ว (ส่ง JSON เดิมซ้ำ) storage_key เป็น unique จึงชน — ห้ามลบไฟล์
+                    return jsonify(error="upload_already_used"), 409
+                file_storage.delete(storage_key)
+                raise
             except Exception:
                 # ถ้า commit ไม่ผ่าน อย่าทิ้งไฟล์กำพร้าไว้ใน storage
                 session.rollback()
                 file_storage.delete(storage_key)
                 raise
 
-            # ครั้งเดียวที่ token ตัวจริงออกจาก service — ในฐานข้อมูลมีแค่ hash
-            return jsonify(**note.to_dict(), edit_token=token), 201
+            return jsonify(note.to_dict()), 201
 
     @app.get("/notes")
     def list_notes():
@@ -443,10 +575,7 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
             return jsonify(items=items, count=len(items), total=total)
 
     def require_user():
-        """ตรวจตัวตนสำหรับ route ของรายการโปรด คืน (user, None) หรือ (None, error response)
-
-        แยกจาก create_note ตั้งใจ — ไม่ refactor โค้ดของ US-31 ในงานนี้
-        """
+        """ตรวจตัวตนของ route ที่ต้อง login คืน (user, None) หรือ (None, error response)"""
         try:
             user = current_user(request.headers.get("Authorization"))
         except IdentityUnavailable:
@@ -464,16 +593,11 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
         return user, None
 
     def change_denied(note):
-        """ตรวจสิทธิ์แก้/ลบโน้ต คืน None ถ้าผ่าน หรือ error response — ADR-004 + ADR-008
+        """ตรวจสิทธิ์แก้/ลบโน้ต คืน None ถ้าผ่าน หรือ error response — ADR-008 + ADR-013
 
-        ผ่านได้สองทาง: edit token ของโน้ตนั้น (ADR-004) หรือ login เป็นบัญชีที่อัปโหลด (Issue #82)
-        token ถูกตรวจก่อนจึงไม่ต้องถาม auth-service ถ้า token ใช้ได้ · ไม่มีทั้งสองอย่างได้ 403
-        เหมือนเดิม · ส่ง Bearer ที่ใช้ไม่ได้ได้ 401 ให้หน้าเว็บรู้ว่าต้อง login ใหม่
+        ต้อง login เป็นบัญชีที่อัปโหลดโน้ตนั้น · ไม่ได้ login หรือ token ใช้ไม่ได้ได้ 401 ให้หน้าเว็บ
+        พาไป login · login เป็นคนอื่นได้ 403 · edit token ต่อโน้ต (ADR-004) เลิกใช้แล้ว
         """
-        if token_matches(request.headers.get(HEADER_NAME), note.edit_token_hash):
-            return None
-        if not request.headers.get("Authorization"):
-            return jsonify(error="forbidden"), 403
         user, failure = require_user()
         if failure:
             return failure

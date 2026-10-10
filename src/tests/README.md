@@ -13,7 +13,7 @@
 | `test_email_error.py` | `email_error()` ของ auth-service โดยตรง (Lab 12B) | อติชาติ |
 | `test_notes_validation.py` | ตรวจ metadata และไฟล์ตอนอัปโหลด (US-08) | อติชาติ |
 | `test_notes_validation_boundary.py` | boundary/equivalence ของการตรวจ metadata (Lab 9) | อติชาติ |
-| `test_tokens_property.py` | property-based test ของ edit token ด้วย Hypothesis (Lab 9) | อติชาติ |
+| `test_tokens_property.py` | property-based test ด้วย Hypothesis (Lab 9) — เดิมทดสอบ edit token ต่อโน้ต ตั้งแต่ ADR-013 ทดสอบ client token ของ Blob แทน | อติชาติ |
 | `test_fizzbuzz.py` | TDD kata (Lab 9) | อติชาติ |
 | `test_notes_api.py` | Notes Service: อัปโหลด ค้นหา/กรอง ดาวน์โหลด แก้ไข/ลบโน้ต และตัวนับ view/download (US-08, US-10, US-12, US-16, US-19, US-20, US-26) | อติชาติ, วชิรวิทย์, กฤตเมธ |
 | `test_notes_identity.py` | Notes Service ตรวจ token ผ่าน auth-service ตัวจริงทาง HTTP (US-31) | อติชาติ |
@@ -26,6 +26,7 @@
 | `test_notes_owner.py` | โน้ตของฉัน `GET /notes/mine` และการแก้/ลบด้วยบัญชีเจ้าของ (Issue #82, ADR-008) | อติชาติ |
 | `test_notes_sort_rating.py` | `GET /notes?sort=rating` เรียงตามคะแนนเฉลี่ย (Issue #83) | อติชาติ |
 | `test_vercel_deploy.py` | deploy บน Vercel: `BlobFileStorage`, URL ของ Neon ทั้ง 3 service, เพดาน body 4.5 MB และ route ใน `vercel.json` (ADR-009) | อติชาติ |
+| `test_notes_direct_upload.py` | อัปโหลดตรงเข้า Vercel Blob: client token, `POST /notes/uploads`, สร้างโน้ตแบบ JSON และล้างไฟล์ที่ค้าง (ADR-012) | อติชาติ |
 | `test_gateway_rules.py` | ตาราง route ที่ gateway ต้องตรวจ login: map ใน `web/nginx.conf`, `proxy.matcher` ใน `vercel.json` และทุก route ของ Flask อยู่ใน `gateway/cases.json` (ADR-014) | อติชาติ |
 | `../../gateway/rules.test.js` | middleware ฝั่ง Vercel (`gateway/rules.js`): ตาราง route, ข้อยกเว้นของ edit token และคำตอบ 401/503 (ADR-014) | อติชาติ |
 | `../e2e/test_web_flows.py` | E2E ผ่าน browser: สมัคร อัปโหลด ค้นหา ใช้โน้ตจากอีกบัญชี แก้/ลบด้วยรหัส และความกว้างมือถือ (test plan 2.21) | อติชาติ |

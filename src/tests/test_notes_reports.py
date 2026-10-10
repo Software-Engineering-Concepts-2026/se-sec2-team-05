@@ -475,7 +475,7 @@ def test_deleting_note_cascades_to_its_reports(client, session_factory):
 
     response = client.delete(
         f"/notes/{note['id']}",
-        headers={"X-Note-Token": note["edit_token"]},
+        headers=MEMBER_AUTH,
     )
 
     assert response.status_code == 204

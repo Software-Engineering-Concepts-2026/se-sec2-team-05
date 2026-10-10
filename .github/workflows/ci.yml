@@ -198,30 +198,30 @@ jobs:
           cmp /tmp/note.pdf /tmp/downloaded.pdf
           echo "end-to-end OK"
 
-      # เส้นทางของ US-19/US-20: แก้ metadata ด้วย edit token แล้วลบทิ้ง พร้อมเช็คว่าคนที่ไม่มี token ทำไม่ได้
-      - name: End-to-end smoke test (edit -> delete with edit token)
+      # เส้นทางของ US-19/US-20: เจ้าของที่ login แก้ metadata แล้วลบทิ้ง พร้อมเช็คว่าไม่ login ทำไม่ได้
+      # และ edit token แบบเดิม (ADR-004) ไม่มีผลแล้ว (ADR-013)
+      - name: End-to-end smoke test (edit -> delete by the owner)
         run: |
           set -euo pipefail
           printf '%s' '%PDF-1.4 ci edit note' > /tmp/edit.pdf
           created=$(curl -fsS -X POST http://localhost:5001/notes -H "Authorization: Bearer $UPLOAD_TOKEN"             -F 'title=CI edit note'             -F 'subject_name=Algorithms'             -F 'subject_code=CS301'             -F 'faculty=ICT'             -F 'year_level=3'             -F 'lesson=Sorting'             -F 'file=@/tmp/edit.pdf;type=application/pdf')
           note_id=$(echo "$created" | jq -r '.id')
-          token=$(echo "$created" | jq -r '.edit_token')
-          test "$token" != "null"
+          test "$(echo "$created" | jq -r '.edit_token')" = "null"
 
-          # ไม่มี token ต้องแก้ไม่ได้และลบไม่ได้
+          # ไม่ login ต้องแก้ไม่ได้และลบไม่ได้ แม้จะส่ง header X-Note-Token แบบเดิมมา
           for verb in PATCH DELETE; do
-            status=$(curl -s -o /dev/null -w '%{http_code}' -X $verb "http://localhost:5001/notes/$note_id" -d 'title=hijacked')
-            test "$status" = "403"
+            status=$(curl -s -o /dev/null -w '%{http_code}' -X $verb "http://localhost:5001/notes/$note_id" -H 'X-Note-Token: old-token' -d 'title=hijacked')
+            test "$status" = "401"
           done
 
-          # มี token ถึงจะแก้ได้ และ updated_at ต้องถูกประทับ
-          updated=$(curl -fsS -X PATCH "http://localhost:5001/notes/$note_id"             -H "X-Note-Token: $token" -d 'topic=Merge Sort')
+          # เจ้าของที่ login แก้ได้ และ updated_at ต้องถูกประทับ
+          updated=$(curl -fsS -X PATCH "http://localhost:5001/notes/$note_id"             -H "Authorization: Bearer $UPLOAD_TOKEN" -d 'topic=Merge Sort')
           test "$(echo "$updated" | jq -r '.topic')" = "Merge Sort"
           test "$(echo "$updated" | jq -r '.updated_at')" != "null"
           # ฟิลด์ที่ไม่ได้ส่งมาต้องคงเดิม
           test "$(echo "$updated" | jq -r '.subject_code')" = "CS301"
 
-          status=$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "http://localhost:5001/notes/$note_id" -H "X-Note-Token: $token")
+          status=$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "http://localhost:5001/notes/$note_id" -H "Authorization: Bearer $UPLOAD_TOKEN")
           test "$status" = "204"
           test "$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:5001/notes/$note_id")" = "404"
           echo "edit/delete OK"
@@ -386,12 +386,8 @@ jobs:
           curl -fsS -o /dev/null "$gw/stats-utils.js"
           test "$(curl -s -o /dev/null -w '%{http_code}' "$gw/stats-utils.test.js")" = "404"
           test "$(curl -fsS "$gw/stats" | jq -r '.total_notes | type')" = "number"
-          # หน้าแก้/ลบด้วยรหัสแก้ไข (US-19, US-20)
-          curl -fsS "$gw/edit.html?id=1" -o /tmp/edit.html
-          grep -q 'id="tokenForm"' /tmp/edit.html
-          curl -fsS -o /dev/null "$gw/edit.js"
-          curl -fsS -o /dev/null "$gw/edit-utils.js"
-          test "$(curl -s -o /dev/null -w '%{http_code}' "$gw/edit-utils.test.js")" = "404"
+          # หน้าแก้/ลบด้วยรหัสแก้ไขถูกเอาออกแล้ว (ADR-013) — เจ้าของแก้จากหน้าโปรไฟล์
+          test "$(curl -s -o /dev/null -w '%{http_code}' "$gw/edit.html")" = "404"
 
           # query string ต้องไปถึง notes-service ครบ (โน้ต CS201 สร้างไว้ใน step end-to-end ด้านบน)
           test "$(curl -fsS "$gw/notes?subject_code=CS201&year_level=2" | jq '.count')" -eq 1
@@ -420,13 +416,11 @@ jobs:
           test "$status" = "200"
           grep -qi '^content-type: image/png' /tmp/gateway-headers.txt
 
-          # หน้าแก้ด้วยรหัสตรวจรหัสด้วย PATCH ที่ไม่มีฟิลด์: header X-Note-Token ต้องผ่าน nginx ไปถึง notes-service
-          # รหัสถูกได้ 400 no_fields_to_update (ไม่มีอะไรถูกแก้) รหัสผิดได้ 403
+          # PATCH ผ่าน gateway: header Authorization ต้องผ่าน nginx ไปถึง notes-service
+          # เจ้าของส่ง PATCH ที่ไม่มีฟิลด์ได้ 400 no_fields_to_update (ไม่มีอะไรถูกแก้) ไม่ login ได้ 401
           gw_note=$(echo "$created" | jq -r '.id')
-          gw_token=$(echo "$created" | jq -r '.edit_token')
-          echo "::add-mask::$gw_token"
-          test "$(curl -s -X PATCH "$gw/notes/$gw_note" -H "X-Note-Token: $gw_token" | jq -r '.error')" = "no_fields_to_update"
-          test "$(curl -s -o /dev/null -w '%{http_code}' -X PATCH "$gw/notes/$gw_note" -H 'X-Note-Token: wrong-token')" = "403"
+          test "$(curl -s -X PATCH "$gw/notes/$gw_note" -H "Authorization: Bearer $UPLOAD_TOKEN" | jq -r '.error')" = "no_fields_to_update"
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X PATCH "$gw/notes/$gw_note")" = "401"
           test "$(curl -fsS "$gw/notes/$gw_note" | jq -r '.updated_at')" = "null"
 
           # login ผ่าน gateway แบบที่ login.html ทำ (JSON) แล้ว logout ต้องทำให้ token นั้นใช้ไม่ได้ทันที

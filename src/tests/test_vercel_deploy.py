@@ -3,13 +3,14 @@
 ครอบ 4 เรื่องที่ Vercel ต่างจาก docker compose:
 1. ไฟล์โน้ตเก็บใน Vercel Blob แบบ private ผ่าน `BlobFileStorage` (ใช้ client ปลอม ไม่ต่อเน็ต)
 2. URL ของ Neon (`postgres://` / `postgresql://`) ต้องถูกแปลงให้ใช้ psycopg 3
-3. request ทั้งก้อนต้องไม่เกินเพดาน body 4.5 MB ของ Vercel Functions
+3. request ทั้งก้อนต้องไม่เกินเพดาน body 4.5 MB ของ Vercel Functions (ไฟล์ใหญ่กว่านั้นอัปโหลดตรง ADR-012)
 4. `vercel.json` ส่ง path ไปถูก service แบบเดียวกับ `web/nginx.conf`
 """
 
 import io
 import json
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -35,6 +36,8 @@ class FakeBlobClient:
 
     def __init__(self):
         self.blobs = {}
+        self.types = {}
+        self.uploaded_at = {}
         self.puts = []
 
     def put(self, path, body, *, access, content_type=None, overwrite=False):
@@ -42,6 +45,8 @@ class FakeBlobClient:
             raise AssertionError(f"overwrite {path!r} without overwrite=True")
         self.puts.append({"path": path, "access": access, "content_type": content_type, "overwrite": overwrite})
         self.blobs[path] = bytes(body)
+        self.types[path] = content_type
+        self.uploaded_at[path] = datetime.now(timezone.utc)
 
     def get(self, path, *, access):
         assert access == "private"
@@ -52,12 +57,21 @@ class FakeBlobClient:
     def head(self, path):
         if path not in self.blobs:
             raise FakeNotFound(path)
-        return SimpleNamespace(size=len(self.blobs[path]))
+        return SimpleNamespace(size=len(self.blobs[path]), content_type=self.types.get(path))
+
+    def iter_objects(self, *, prefix=None):
+        return [
+            SimpleNamespace(pathname=path, uploaded_at=self.uploaded_at[path])
+            for path in sorted(self.blobs)
+            if path.startswith(prefix or "")
+        ]
 
     def delete(self, path):
         if path not in self.blobs:
             raise FakeNotFound(path)
         del self.blobs[path]
+        self.types.pop(path, None)
+        self.uploaded_at.pop(path, None)
 
 
 @pytest.fixture
@@ -146,7 +160,7 @@ def test_upload_download_preview_and_delete_through_the_api_with_blob(blob_app):
     assert preview.mimetype == "image/png"
     assert len(blob_client.blobs) == 2  # ไฟล์จริง + รูปตัวอย่างที่สร้างครั้งแรก
 
-    deleted = client.delete(f"/notes/{note['id']}", headers={"X-Note-Token": note["edit_token"]})
+    deleted = client.delete(f"/notes/{note['id']}", headers=AUTH_HEADER)
 
     assert deleted.status_code == 204
     assert blob_client.blobs == {}
@@ -196,11 +210,20 @@ def test_neon_urls_use_psycopg3(module, given, expected):
 # --- 3. เพดาน body ---
 
 
-def test_largest_accepted_request_fits_the_vercel_body_limit(notes_create_app, tmp_path, make_db_url):
+def test_largest_accepted_request_fits_the_vercel_body_limit(notes_create_app, blob, make_db_url):
+    # บน Vercel ใช้ Blob เสมอ ไฟล์ที่ใหญ่กว่านี้อัปโหลดตรงเข้า Blob (ADR-012) ไม่ผ่าน function
+    _, storage = blob
+    app = notes_create_app(database_url=make_db_url("test.db"), identity=FakeIdentity(), storage=storage)
+
+    assert app.config["MAX_CONTENT_LENGTH"] < VERCEL_BODY_LIMIT_BYTES
+
+
+def test_compose_form_takes_the_full_10_mb(notes_create_app, tmp_path, make_db_url):
+    # compose ไม่มีเพดานของ Vercel ฟอร์มจึงรับได้เต็ม MAX_FILE_BYTES ตาม NFR-006
     app = notes_create_app(database_url=make_db_url("test.db"), identity=FakeIdentity(),
                            storage=LocalFileStorage(str(tmp_path / "s")))
 
-    assert app.config["MAX_CONTENT_LENGTH"] < VERCEL_BODY_LIMIT_BYTES
+    assert app.config["MAX_CONTENT_LENGTH"] > 10 * 1024 * 1024
 
 
 # --- 4. vercel.json ---
@@ -232,7 +255,7 @@ def _service_for(path):
         ("/reports/3", "notes"),
         ("/auth/login", "auth"),
         ("/", "web"),
-        ("/edit.html", "web"),
+        ("/profile.html", "web"),
     ],
 )
 def test_vercel_routes_match_the_nginx_gateway(path, service):

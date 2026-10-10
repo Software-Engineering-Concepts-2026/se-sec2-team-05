@@ -36,7 +36,7 @@ vercel integration add neon --plan free_v3 -m region=iad1
 
 หรือในหน้า project → **Storage** → **Create Database** → Neon แล้วเชื่อมกับ project นี้
 Vercel จะใส่ `DATABASE_URL` ให้เอง ไม่ต้องแก้รูปแบบ URL เพราะ service แปลง `postgres://` เป็น psycopg 3 ให้
-ตารางจะถูกสร้างตอน service ทำงานครั้งแรก (ยังไม่มี migration)
+ตารางถูกสร้างและอัปเกรดด้วย migration ของ Alembic ตอน service ทำงานครั้งแรกของแต่ละ deploy (ADR-010)
 
 ## 3. ที่เก็บไฟล์ Vercel Blob (private)
 
@@ -81,7 +81,7 @@ vercel deploy --prod             # production — URL สาธารณะ
 
 - [ ] เปิด URL แล้วเห็นหน้าค้นหา · `/notes` ตอบ JSON
 - [ ] สมัคร + login ได้ (ทดสอบ auth และ `DATABASE_URL`)
-- [ ] อัปโหลด PDF ไม่เกิน 4 MB ได้ และได้รหัสแก้ไข (ทดสอบ Blob และ binding ไป auth)
+- [ ] อัปโหลด PDF ขนาด 5–10 MB ได้ แล้วแก้ชื่อและลบได้จากหน้าโปรไฟล์ (ทดสอบการอัปโหลดตรงเข้า Blob ตาม ADR-012 และ binding ไป auth)
 - [ ] เปิดหน้าโน้ต เห็นภาพตัวอย่าง ดาวน์โหลดได้
 - [ ] หน้าสถิติแสดงตัวเลข (ทดสอบ route `/stats` และ `/notes/<id>/stats`)
 - [ ] บัญชีผู้ดูแลเห็นปุ่ม "ตรวจรายงานโน้ต" ในโปรไฟล์
@@ -93,10 +93,13 @@ vercel deploy --prod             # production — URL สาธารณะ
 
 ## ข้อจำกัดที่ควรรู้
 
-- ไฟล์อัปโหลดไม่เกิน **4 MB** เพราะ Vercel รับ body ได้ไม่เกิน 4.5 MB
+- ไฟล์อัปโหลดได้ถึง **10 MB** เพราะหน้าเว็บส่งไฟล์ตรงเข้า Blob ไม่ผ่าน function (ADR-012) · ถ้าเรียก `POST /notes` แบบฟอร์มเองยังได้แค่ 4 MB
+  เพราะ Vercel รับ body ได้ไม่เกิน 4.5 MB
+- ไฟล์ที่อัปโหลดตรงแล้วไม่ได้สร้างโน้ต (ปิดแท็บกลางทาง) ค้างใน `uploads/<user id>/` จนผู้ใช้คนนั้นขออัปโหลดครั้งถัดไป ระบบจึงลบให้
 - request แรกหลังไม่มีคนใช้สักพักจะช้า (cold start)
 - route ที่ต้อง login ผ่าน Routing Middleware (`gateway/proxy.ts`, ADR-014) ซึ่งถาม `/auth/me` ของ deployment เดียวกันอีกรอบ
   จึงช้ากว่า route ที่เปิดให้ทุกคนหนึ่ง request · ต้องตั้งผ่าน `"proxy"` ใน `vercel.json` เพราะไฟล์ `middleware.ts` ที่ root
   ถูกเมินเมื่อ project ใช้ `services`
-- ยังไม่มี migration: ถ้าเพิ่มคอลัมน์ในโค้ด ต้องสร้างคอลัมน์เองใน Neon หรือล้างฐานข้อมูล
+- schema อัปเกรดเองตอน deploy (ADR-010) · preview กับ production ใช้ Neon ก้อนเดียวกัน ห้าม deploy preview ของ branch ที่มี migration ใหม่
+  เพราะ migration จะไปแก้ฐานข้อมูลของ production ทันที
 - ข้อมูลเดิมในเครื่อง (`docker compose`) ไม่ได้ย้ายขึ้นไปด้วย

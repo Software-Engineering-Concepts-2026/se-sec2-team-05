@@ -56,7 +56,6 @@ def stats_db(client, monkeypatch):
             storage_key="stats-test-note.txt",
             uploader_id=101,
             uploader_name="Owner 101",
-            edit_token_hash="test-token-hash",
             view_count=7,
             download_count=3,
         )
@@ -75,7 +74,6 @@ def stats_db(client, monkeypatch):
             storage_key="other-test-note.txt",
             uploader_id=102,
             uploader_name="Owner 102",
-            edit_token_hash="test-token-hash-2",
             view_count=4,
             download_count=2,
         )

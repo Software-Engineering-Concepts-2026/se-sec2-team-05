@@ -2,7 +2,7 @@
 
 🌐 **English** · [ภาษาไทย](./0008-owner-login-for-note-changes.th.md)
 
-**Status:** Accepted · amends [ADR-004](./0004-per-note-edit-token.md)
+**Status:** Accepted · amends [ADR-004](./0004-per-note-edit-token.md) · since [ADR-013](./0013-retire-per-note-edit-token.md) the owner's login is the only way; the edit token is gone
 
 **Context:**
 [ADR-004](./0004-per-note-edit-token.md) made a per-note edit token the only way to edit or delete a note, as a stand-in until the team had accounts. Accounts now exist: [ADR-005](./0005-auth-jwt-with-server-side-sessions.md) added `auth-service`, and since US-31 (#31) every upload requires login and stores the uploader's account id in `notes.uploader_id` (a `NOT NULL` column).

@@ -2,7 +2,7 @@
 
 [🌐 English](./0009-deploy-on-vercel-services.md) · **ภาษาไทย**
 
-**สถานะ:** Accepted
+**สถานะ:** Accepted · เพดานอัปโหลด 4 MB ถูกแทนด้วย ADR-012 (อัปโหลดตรงเข้า Blob ได้ 10 MB)
 
 **บริบท:**
 ทีมต้องการ URL สาธารณะของ NoteShare และเลือก Vercel · ADR-001 วางแผนไว้ว่า backend เป็น container บน Render/Railway และ frontend บน Vercel แต่สิ่งที่สร้างจริงเป็น `docker compose` ก้อนเดียว คือ Flask 3 service, PostgreSQL, ไฟล์บน volume ของดิสก์ (ADR-003) และ gateway nginx (ADR-006) · บน Vercel แต่ละ backend รันเป็น Vercel Function ซึ่งไม่เก็บ state และปิดตัวเองเมื่อไม่มีคนใช้ ของที่เขียนลงดิสก์จึงหาย และ body ของ request/response รับได้ไม่เกิน 4.5 MB

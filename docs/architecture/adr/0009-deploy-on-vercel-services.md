@@ -2,7 +2,7 @@
 
 🌐 **English** · [ภาษาไทย](./0009-deploy-on-vercel-services.th.md)
 
-**Status:** Accepted
+**Status:** Accepted · the 4 MB upload limit is replaced by ADR-012 (direct upload to Blob, 10 MB)
 
 **Context:**
 The team wants a public URL for NoteShare and chose Vercel. ADR-001 planned containers on Render/Railway for the backend plus Vercel for the frontend, but what we actually built is one `docker compose` stack: three Flask services, PostgreSQL, files on a disk volume (ADR-003) and an nginx gateway (ADR-006). Vercel runs each backend as a Vercel Function: instances are stateless and scale to zero, so anything written to their disk is lost, and a request or response body is capped at 4.5 MB.

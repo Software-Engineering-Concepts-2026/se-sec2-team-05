@@ -3,9 +3,9 @@
 Service ที่ดูแล metadata และไฟล์ของโน้ต — ทำตาม [US-08 (#8)](https://github.com/Software-Engineering-Concepts-2026/se-sec2-team-05/issues/8)
 ขอบเขตและสิ่งที่จงใจยังไม่ทำในรอบนี้อธิบายไว้ใน [ADR-003](../../docs/architecture/adr/0003-tracer-bullet-scope.th.md)
 
-> ⚠️ **การอัปโหลดต้อง login แล้ว** (US-31) แต่ endpoint ที่อ่านอย่างเดียวยังเปิดหมด ส่วนการแก้/ลบใช้ได้ทั้ง
-> edit token ต่อโน้ต ([ADR-004](../../docs/architecture/adr/0004-per-note-edit-token.th.md)) และบัญชีเจ้าของที่ login อยู่
-> ([ADR-008](../../docs/architecture/adr/0008-owner-login-for-note-changes.th.md)) และ auth-service ยังไม่มีการยืนยันอีเมล ([ADR-005](../../docs/architecture/adr/0005-auth-jwt-with-server-side-sessions.th.md))
+> ⚠️ **การอัปโหลดต้อง login แล้ว** (US-31) แต่ endpoint ที่อ่านอย่างเดียวยังเปิดหมด ส่วนการแก้/ลบต้อง login
+> เป็นบัญชีเจ้าของ ([ADR-008](../../docs/architecture/adr/0008-owner-login-for-note-changes.th.md),
+> [ADR-013](../../docs/architecture/adr/0013-retire-per-note-edit-token.th.md)) และ auth-service ยังไม่มีการยืนยันอีเมล ([ADR-005](../../docs/architecture/adr/0005-auth-jwt-with-server-side-sessions.th.md))
 > จึงยังห้าม deploy ออกสู่สาธารณะ
 
 ## รันในเครื่อง
@@ -54,8 +54,8 @@ NOTES_STORAGE_DIR=./data python services/notes-service/app.py
 | `POST` | `/notes/<id>/favorite` | บันทึกเข้ารายการโปรด → `201` (ครั้งแรก) / `200` (มีอยู่แล้ว) — **ต้อง login** (US-15) |
 | `DELETE` | `/notes/<id>/favorite` | เอาออกจากรายการโปรด → `204` — **ต้อง login** (US-15) |
 | `POST` | `/notes/<id>/thanks` | ขอบคุณเจ้าของโน้ต → `201` (ครั้งแรก) / `200` (กดซ้ำ) — **ต้อง login** กดได้ครั้งเดียวต่อโน้ต (US-28) |
-| `PATCH` | `/notes/<id>` | แก้ metadata บางส่วน — ต้องมี `X-Note-Token` หรือ login เป็นเจ้าของ (US-19, ADR-008) |
-| `DELETE` | `/notes/<id>` | ลบโน้ตพร้อมไฟล์ — ต้องมี `X-Note-Token` หรือ login เป็นเจ้าของ (US-20, ADR-008) → `204` |
+| `PATCH` | `/notes/<id>` | แก้ metadata บางส่วน — ต้อง login เป็นเจ้าของ (US-19, ADR-008, ADR-013) |
+| `DELETE` | `/notes/<id>` | ลบโน้ตพร้อมไฟล์ — ต้อง login เป็นเจ้าของ (US-20, ADR-008, ADR-013) → `204` |
 | `GET` | `/notes/<id>/download` | ดาวน์โหลดไฟล์จริง (ตั้งชื่อไฟล์ตามที่ผู้ใช้อัปโหลดมา) และนับยอดดาวน์โหลด (US-12) |
 | `GET` | `/notes/<id>/preview` | รูปตัวอย่างของโน้ต (PNG) ดูได้โดยไม่ต้องดาวน์โหลดไฟล์เต็ม ไม่นับ `download_count` (US-11) |
 
@@ -99,7 +99,7 @@ notes-service ส่ง header นี้ต่อไปตรวจที่ `GE
 
 | ฟิลด์ | บังคับ | หมายเหตุ |
 | --- | --- | --- |
-| `file` | ✅ | PDF / PNG / JPEG เท่านั้น ไม่เกิน 4 MB |
+| `file` | ✅ | PDF / PNG / JPEG เท่านั้น ไม่เกิน 10 MB (บน Vercel ไม่เกิน 4 MB — ไฟล์ใหญ่กว่านั้นใช้การอัปโหลดตรงด้านล่าง) |
 | `title` | ✅ | ชื่อโน้ต |
 | `subject_name`, `subject_code`, `faculty`, `lesson` | ✅ | ข้อความ |
 | `year_level` | ✅ | ตัวเลข 1–8 |
@@ -120,8 +120,25 @@ notes-service ส่ง header นี้ต่อไปตรวจที่ `GE
 { "error": "validation_failed", "fields": { "subject_code": "จำเป็นต้องกรอก", "year_level": "ต้องเป็นตัวเลข" } }
 ```
 
-request ที่ใหญ่เกิน 4 MB + 256 KB (ไฟล์ 4 MB + ที่เผื่อให้ multipart/metadata) จะถูกตัดตั้งแต่ชั้น Werkzeug
-และได้ `413` ที่มีรูปร่าง JSON เดียวกัน — ไม่ต้องรอให้อ่าน body เข้ามาครบก่อนถึงจะปฏิเสธ
+request ที่ใหญ่เกินเพดานไฟล์ของฟอร์ม + 256 KB (เผื่อให้ multipart/metadata) จะถูกตัดตั้งแต่ชั้น Werkzeug
+และได้ `413` ที่มีรูปร่าง JSON เดียวกัน — ไม่ต้องรอให้อ่าน body เข้ามาครบก่อนถึงจะปฏิเสธ · เพดานไฟล์ของฟอร์มคือ 10 MB
+เมื่อเก็บบนดิสก์ (compose) และ 4 MB เมื่อเก็บใน Blob เพราะ Vercel รับ body ได้ไม่เกิน 4.5 MB (ADR-009)
+
+### อัปโหลดตรงเข้า Vercel Blob (ADR-012)
+
+บน Vercel ไฟล์ไม่ผ่าน notes-service แต่ browser ส่งตรงเข้า Blob แล้วค่อยสร้างโน้ต (หน้า `web/upload.js` ทำให้เอง):
+
+1. `POST /notes/uploads` (ต้อง login) body JSON `{"file_name", "content_type", "size_bytes"}`
+   - เก็บใน Blob: ตอบ `{"mode": "direct", "pathname", "upload_url", "client_token", "store_id", "api_version", "expires_at", "max_file_bytes"}`
+     token ใช้ได้กับ `pathname` เดียวใต้ `uploads/<user id>/` ชนิดที่ประกาศ ไม่เกิน 10 MB ห้ามเขียนทับ อายุ 10 นาที
+     ชนิด/ขนาดไม่ผ่านได้ `400 validation_failed` เหมือนฟอร์ม · ตอนขอ token จะลบไฟล์เก่ากว่า 10 นาทีของผู้ใช้คนนั้นที่ไม่มีโน้ต
+   - เก็บบนดิสก์ (compose): ตอบ `{"mode": "form", "max_file_bytes": 10485760}` ให้ส่งฟอร์ม multipart ตามด้านบน
+2. `PUT upload_url` ด้วย header `authorization: Bearer <client_token>`, `x-api-version`, `x-vercel-blob-access: private`,
+   `x-vercel-blob-store-id`, `x-content-type`, `x-content-length` (ชุดเดียวกับ `put` ของ `@vercel/blob/client`)
+3. `POST /notes` body JSON = ฟิลด์เดียวกับฟอร์ม + `file_name` + `upload_pathname`
+   - ขนาดและชนิดอ่านจาก Blob เอง ไม่เชื่อค่าจาก client · pathname ที่ไม่ได้ออกให้ผู้เรียก หรือไฟล์ไม่อยู่ใน Blob → `400`
+   - ไฟล์ผิดชนิด/ใหญ่เกิน (ไม่ควรเกิดเพราะ token กันไว้) → `400` และลบไฟล์นั้นทิ้ง
+   - ไฟล์นี้เป็นของโน้ตอื่นไปแล้ว (ส่งซ้ำ) → `409` `{"error": "upload_already_used"}`
 
 ### `GET /notes` — query parameters
 
@@ -309,24 +326,16 @@ render ซ้ำ และไฟล์ตัวอย่างจะถูกล
 
 response ของโน้ต (`GET /notes`, `GET /notes/<id>`) มีฟิลด์ `preview_url` ชี้มาที่ endpoint นี้เสมอ
 
-### `PATCH /notes/<id>` และ `DELETE /notes/<id>` — edit token หรือบัญชีเจ้าของ
+### `PATCH /notes/<id>` และ `DELETE /notes/<id>` — บัญชีเจ้าของเท่านั้น
 
-ยืนยันความเป็นเจ้าของได้สองทาง ทางใดทางหนึ่งก็พอ:
-
-1. **edit token** (ADR-004) — ตอน `POST /notes` สำเร็จ response จะมีฟิลด์ `edit_token` เพิ่มมา **ครั้งเดียวเท่านั้น**
-   ฐานข้อมูลเก็บแค่ hash และไม่มี endpoint ไหนคืนค่านี้ให้อีก ส่งมาใน header `X-Note-Token`
-2. **login เป็นบัญชีที่อัปโหลดโน้ตนั้น** (ADR-008, Issue #82) — ส่ง `Authorization: Bearer <access_token>`
-   ไม่ต้องมี edit token ทำ token หายก็ยังแก้/ลบได้ถ้า login เป็นเจ้าของ
-
-token ถูกตรวจก่อน ถ้าใช้ได้จะไม่เรียก auth-service เลย จึงยังแก้/ลบได้แม้ auth-service ล่ม
+ต้อง login เป็นบัญชีที่อัปโหลดโน้ตนั้น (ADR-008, Issue #82) ส่ง `Authorization: Bearer <access_token>`
+edit token ต่อโน้ตของ ADR-004 เลิกใช้แล้ว (ADR-013) — `POST /notes` ไม่คืน `edit_token` และ header `X-Note-Token` ถูกเมิน
 
 ```bash
 # แก้เฉพาะฟิลด์ที่ส่งมา ฟิลด์ที่ไม่ส่งคงค่าเดิม (partial update)
-curl -X PATCH localhost:5001/notes/1 \
-  -H "X-Note-Token: $TOKEN" \
-  -d 'subject_code=CS202' -d 'topic=Binary Tree'
+curl -X PATCH localhost:5001/notes/1 -H "Authorization: Bearer $ACCESS_TOKEN" -d 'subject_code=CS202' -d 'topic=Binary Tree'
 
-curl -X DELETE localhost:5001/notes/1 -H "X-Note-Token: $TOKEN"
+curl -X DELETE localhost:5001/notes/1 -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
 | กรณี | Response |
@@ -335,17 +344,10 @@ curl -X DELETE localhost:5001/notes/1 -H "X-Note-Token: $TOKEN"
 | `DELETE` สำเร็จ | `204` ไม่มี body · ลบทั้ง record และไฟล์ใน storage |
 | ค่าที่ส่งมาผิดรูป | `400` `{"error": "validation_failed", "fields": {...}}` |
 | `PATCH` ที่ไม่มีฟิลด์ให้แก้เลย | `400` `{"error": "no_fields_to_update"}` |
-| ไม่ส่งทั้ง token และ `Authorization` หรือ token ผิดและไม่ได้ login | `403` `{"error": "forbidden"}` |
-| login อยู่แต่ไม่ใช่เจ้าของ (และไม่มี token ที่ถูก) | `403` `{"error": "forbidden"}` |
-| ส่ง Bearer ที่ใช้ไม่ได้/หมดอายุ (และไม่มี token ที่ถูก) | `401` `{"error": "unauthorized"}` + `WWW-Authenticate: Bearer` |
-| ไม่มี token ที่ถูก และเรียก auth-service ไม่ถึง | `503` `{"error": "auth_unavailable"}` |
+| ไม่ส่ง `Authorization` หรือ Bearer ใช้ไม่ได้/หมดอายุ | `401` `{"error": "unauthorized"}` + `WWW-Authenticate: Bearer` |
+| login อยู่แต่ไม่ใช่เจ้าของ | `403` `{"error": "forbidden"}` |
+| เรียก auth-service ไม่ถึง | `503` `{"error": "auth_unavailable"}` |
 | ไม่มีโน้ตนั้น | `404` `{"error": "not_found"}` — ตรวจก่อนเรื่องสิทธิ์ |
-
-```bash
-# เจ้าของที่ login อยู่ ไม่ต้องมี edit token
-curl -X PATCH  localhost:5001/notes/1 -H "Authorization: Bearer $ACCESS_TOKEN" -d 'topic=Heap'
-curl -X DELETE localhost:5001/notes/1 -H "Authorization: Bearer $ACCESS_TOKEN"
-```
 
 แก้ได้เฉพาะ metadata — ตัวไฟล์แก้ไม่ได้ ต้องอัปโหลดใหม่ · ส่ง `uploader_name`, `uploader_id`,
 `created_at` หรือฟิลด์ของไฟล์มาใน `PATCH` จะถูกเมิน ไม่ถือเป็น error ·
