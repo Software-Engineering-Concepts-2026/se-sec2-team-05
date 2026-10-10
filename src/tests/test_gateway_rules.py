@@ -23,6 +23,7 @@ CASES = json.loads((REPO_ROOT / "gateway" / "cases.json").read_text(encoding="ut
 NOT_PUBLIC = {"/health"}
 
 
+# note_token = แถวที่ส่ง header X-Note-Token เดิมมาด้วย ต้องได้ผลเหมือนไม่ส่ง (ADR-013) nginx ไม่อ่าน header นี้เลย
 def _case_id(case):
     return f"{case['method']} {case['path']}" + (" +token" if case.get("note_token") else "")
 
@@ -58,8 +59,7 @@ def _nginx_lookup(variable, key):
 def test_nginx_map_gives_the_same_answer_as_the_cases(case):
     """GW-07: map ทั้งสองชั้นใน nginx.conf ให้ rule และผลการตรวจตรงกับ cases.json ทุกแถว"""
     rule = _nginx_lookup("gateway_rule", f"{case['method']} {case['path']}")
-    token = "some-token" if case.get("note_token") else ""
-    check = _nginx_lookup("gateway_check", f"{rule}:{token}")
+    check = _nginx_lookup("gateway_check", rule)
 
     assert rule == case["rule"]
     assert check == ("login" if case["check"] == "login" else "skip")
@@ -91,6 +91,8 @@ def test_every_nginx_location_of_the_api_runs_the_check():
     assert "if ($gateway_check_main = skip)" in auth_location
     assert "proxy_pass http://auth-service:5002/auth/me;" in auth_location
     assert "proxy_pass_request_body off;" in auth_location
+    # ADR-013: header X-Note-Token เดิมต้องไม่มีผลกับการตรวจ
+    assert "$http_x_note_token" not in NGINX_CONF
 
 
 def _flask_routes():

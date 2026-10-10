@@ -434,7 +434,7 @@ jobs:
 
       # ADR-014: gateway ตรวจ token กับ auth-service ก่อนส่งต่อ route ที่ต้อง login
       # แยกคำตอบของ gateway ออกจากของ service ด้วย body: stats-service ตอบ "Authentication required"
-      # ส่วน gateway ตอบ {"error": "unauthorized"} · PATCH ที่ไม่มีอะไรเลย service ตอบ 403 แต่ gateway ตัดก่อนด้วย 401
+      # ส่วน gateway ตอบ {"error": "unauthorized"} · แก้โน้ตและขอสิทธิ์อัปโหลดต้อง login แม้ส่ง X-Note-Token เดิมมา (ADR-013)
       - name: Gateway checks the login before forwarding (ADR-014)
         run: |
           set -euo pipefail
@@ -445,6 +445,8 @@ jobs:
           test "$(curl -s "$gw/notes/$note/stats" -H 'Authorization: Bearer not-a-real-token' | jq -r '.error')" = "unauthorized"
           test "$(curl -s -o /dev/null -w '%{http_code}' "$gw/notes/$note/stats" -H "Authorization: Bearer $UPLOAD_TOKEN")" = "200"
           test "$(curl -s -o /dev/null -w '%{http_code}' -X PATCH "$gw/notes/$note" -d 'title=hijacked')" = "401"
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X PATCH "$gw/notes/$note" -H 'X-Note-Token: old-token' -d 'title=hijacked')" = "401"
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$gw/notes/uploads" -H 'Content-Type: application/json' -d '{}')" = "401"
           curl -s -D /tmp/gw-401.txt -o /dev/null "$gw/notes/mine"
           grep -qi '^www-authenticate: Bearer' /tmp/gw-401.txt
           grep -qi '^content-type: application/json' /tmp/gw-401.txt

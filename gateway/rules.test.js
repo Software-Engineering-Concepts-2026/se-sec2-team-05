@@ -34,15 +34,15 @@ test('GW-01 every route in cases.json gets the expected rule and check', () => {
   }
 });
 
-test('GW-01 the method is matched case-insensitively and plain header objects work', () => {
+test('GW-01 the method is matched case-insensitively and an old X-Note-Token changes nothing', () => {
   assert.equal(classify('post', '/notes'), 'login');
-  assert.equal(needsLogin('PATCH', '/notes/3', { 'x-note-token': 'abc' }), false);
-  assert.equal(needsLogin('PATCH', '/notes/3', {}), true);
-  // An empty X-Note-Token is not a token.
-  assert.equal(needsLogin('DELETE', '/notes/3', new Headers({ 'X-Note-Token': '' })), true);
+  assert.equal(classify('patch', '/notes/3'), 'login');
+  // ADR-013: editing needs the owner's login, the edit token is gone.
+  assert.equal(needsLogin('PATCH', '/notes/3', { 'x-note-token': 'abc' }), true);
+  assert.equal(needsLogin('DELETE', '/notes/3', new Headers({ 'X-Note-Token': 'abc' })), true);
 });
 
-test('GW-02 open routes and edit-token calls never ask auth-service', async () => {
+test('GW-02 open routes never ask auth-service', async () => {
   const auth = fakeAuth(401);
   for (const c of cases.filter((x) => x.check === 'skip')) {
     const result = await checkRequest(request(c.method, c.path, Object.fromEntries(caseHeaders(c))), auth.fetchImpl);
@@ -63,7 +63,7 @@ test('GW-03 a protected route without Authorization gets 401 JSON without callin
 test('GW-04 a valid token passes; the call goes to this deployment\'s /auth/me with the right headers', async () => {
   const auth = fakeAuth(200);
   const result = await checkRequest(
-    request('POST', '/notes/12/comments?x=1', {
+    request('PATCH', '/notes/12?x=1', {
       Authorization: 'Bearer good',
       Cookie: '_vercel_jwt=abc',
       'X-Vercel-Protection-Bypass': 'bypass',
