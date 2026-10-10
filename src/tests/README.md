@@ -28,7 +28,7 @@
 | `test_vercel_deploy.py` | deploy บน Vercel: `BlobFileStorage`, URL ของ Neon ทั้ง 3 service, เพดาน body 4.5 MB และ route ใน `vercel.json` (ADR-009) | อติชาติ |
 | `test_notes_direct_upload.py` | อัปโหลดตรงเข้า Vercel Blob: client token, `POST /notes/uploads`, สร้างโน้ตแบบ JSON และล้างไฟล์ที่ค้าง (ADR-012) | อติชาติ |
 | `test_gateway_rules.py` | ตาราง route ที่ gateway ต้องตรวจ login: map ใน `web/nginx.conf`, `proxy.matcher` ใน `vercel.json` และทุก route ของ Flask อยู่ใน `gateway/cases.json` (ADR-014) | อติชาติ |
-| `../../gateway/rules.test.js` | middleware ฝั่ง Vercel (`gateway/rules.js`): ตาราง route, ข้อยกเว้นของ edit token และคำตอบ 401/503 (ADR-014) | อติชาติ |
+| `../../gateway/rules.test.js` | middleware ฝั่ง Vercel (`gateway/rules.js`): ตาราง route, header `X-Note-Token` เดิมไม่มีผล และคำตอบ 401/503 (ADR-014) | อติชาติ |
 | `../e2e/test_web_flows.py` | E2E ผ่าน browser: สมัคร อัปโหลด ค้นหา ใช้โน้ตจากอีกบัญชี แก้/ลบด้วยรหัส และความกว้างมือถือ (test plan 2.21) | อติชาติ |
 | `../../prototypes/sprint1/note-utils.test.js` | `escapeHtml`, `formatStars`, `compareNotes` | อติชาติ (Lab 7) |
 | `../../web/*.test.js` | pure function ของหน้าเว็บ: `search-utils`, `session-utils`, `upload-utils`, `note-utils`, `profile-utils`, `admin-utils`, `stats-utils`, `edit-utils` | อติชาติ |
