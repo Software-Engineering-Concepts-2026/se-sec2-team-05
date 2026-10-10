@@ -117,6 +117,8 @@
     const code = body && body.error;
     if (code === 'invalid_credentials') return (body && body.message) || 'อีเมลหรือรหัสผ่านไม่ถูกต้อง';
     if (code === 'email_taken') return 'อีเมลนี้สมัครสมาชิกไว้แล้ว ลองเข้าสู่ระบบแทน';
+    // 429 from the auth-service rate limit (ADR-011): its message already says how many minutes to wait.
+    if (code === 'rate_limited') return (body && body.message) || 'ลองหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่';
     if (code === 'validation_failed') return 'ข้อมูลยังไม่ถูกต้อง แก้ช่องที่มีข้อความสีแดงแล้วลองใหม่';
     if (code === 'unauthorized') return 'เซสชันหมดอายุหรือออกจากระบบไปแล้ว กรุณาเข้าสู่ระบบใหม่';
     if (code === 'auth_unavailable') return 'ระบบยืนยันตัวตนไม่พร้อมใช้งานตอนนี้ ลองใหม่อีกสักครู่';

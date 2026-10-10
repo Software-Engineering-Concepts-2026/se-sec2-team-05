@@ -18,7 +18,8 @@ MAX_DISPLAY_NAME_LENGTH = 120
 # scrypt ที่ N=2^17, r=8, p=1 = ค่าขั้นต่ำของ OWASP Password Storage Cheat Sheet
 # ต้องระบุเอง เพราะค่า default ของ Werkzeug คือ N=2^15 ซึ่งต่ำกว่านั้น
 # เหตุผลที่ใช้แทน bcrypt ตาม NFR-004 อยู่ใน ADR-005
-PASSWORD_HASH_METHOD = "scrypt:131072:8:1"
+# bandit B105 เข้าใจว่าเป็นรหัสผ่านเพราะชื่อตัวแปร — จริง ๆ คือชื่ออัลกอริทึมและพารามิเตอร์ ไม่ใช่ความลับ
+PASSWORD_HASH_METHOD = "scrypt:131072:8:1"  # nosec B105
 
 
 def parse_allowed_domains(raw: str | None) -> tuple[str, ...]:
@@ -62,7 +63,7 @@ def email_error(email: str, allowed_domains: tuple[str, ...]) -> str | None:
 
 def password_error(password) -> str | None:
     # ไม่ strip รหัสผ่าน — ช่องว่างเป็นส่วนหนึ่งของรหัสผ่านได้
-    if not isinstance(password, str) or password == "":
+    if not isinstance(password, str) or not password:
         return "จำเป็นต้องกรอก"
     if len(password) < MIN_PASSWORD_LENGTH:
         return f"ต้องมีอย่างน้อย {MIN_PASSWORD_LENGTH} ตัวอักษร"

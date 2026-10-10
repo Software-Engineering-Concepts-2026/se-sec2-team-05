@@ -1,9 +1,10 @@
 """Data model ของ User & Auth Service — US-05 (#5), US-06 (#6)
 
-มีสองตาราง
+มีสามตาราง
 - `users` บัญชีสมาชิก เก็บรหัสผ่านเป็น hash เท่านั้น (NFR-004)
 - `auth_sessions` session ฝั่งเซิร์ฟเวอร์ 1 แถวต่อการ login 1 ครั้ง ผูกกับ `jti` ของ JWT
   มีไว้เพื่อให้ logout เพิกถอน token ได้ทันทีตาม AC ข้อ 2 ของ #6 (ดู ADR-005)
+- `auth_attempts` ตัวนับของ rate limit ที่ login และสมัครสมาชิก (ดู ADR-011)
 
 ชื่อไฟล์ไม่ใช้ `models.py` เพราะ conftest เติมทุก service เข้า sys.path พร้อมกัน
 ถ้าชื่อซ้ำกับ `models.py` ของ notes-service ตัวไหนอยู่ต้น path ก็จะชนะ
@@ -11,7 +12,7 @@
 
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, create_engine
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, create_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
 from auth_migrate import upgrade_to_head
@@ -63,6 +64,24 @@ class AuthSession(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     # ว่างจนกว่าจะ logout — มีค่าเมื่อไหร่ token ของ session นี้ใช้ไม่ได้ทันที
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AuthAttempt(Base):
+    """1 แถวต่อการกระทำที่ถูกจำกัดความถี่ (ADR-011) — login ที่ไม่ผ่าน และการสมัครสมาชิก
+
+    เก็บไว้ในฐานข้อมูลไม่ใช่ใน memory เพราะบน Vercel มีหลาย instance และ instance หายตอน scale to zero
+    ตัวนับใน memory ของแต่ละตัวจึงแยกกันและเริ่มนับใหม่เรื่อย ๆ · แถวที่เก่ากว่าหน้าต่างเวลาถูกลบทิ้งระหว่างใช้งาน
+    """
+
+    __tablename__ = "auth_attempts"
+    __table_args__ = (Index("ix_auth_attempts_kind_key_created", "kind", "key", "created_at"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    # "login_failed" หรือ "register" — ดู auth_rate_limit.py
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    # "email:<อีเมลตัวเล็ก>" หรือ "ip:<ที่อยู่>" — อีเมลยาวได้ถึง 254 ตัวอักษร (คอลัมน์ users.email)
+    key: Mapped[str] = mapped_column(String(300), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 def sqlalchemy_url(url: str) -> str:

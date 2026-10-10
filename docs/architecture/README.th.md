@@ -65,6 +65,7 @@
 - [ADR-008 — ให้เจ้าของที่ login อยู่แก้และลบโน้ตของตัวเองได้ โดยยังใช้ edit token ควบคู่](./adr/0008-owner-login-for-note-changes.th.md)
 - [ADR-009 — Deploy บน Vercel ด้วย Services, Neon Postgres และ Vercel Blob แบบ private](./adr/0009-deploy-on-vercel-services.th.md)
 - [ADR-010 — รัน migration ด้วย Alembic ตอน service สตาร์ต](./adr/0010-alembic-migrations-at-startup.th.md)
+- [ADR-011 — จำกัดความถี่ของ login และสมัครสมาชิก โดยเก็บตัวนับใน Postgres](./adr/0011-rate-limit-login-and-register.th.md)
 - [ADR-012 — อัปโหลดไฟล์โน้ตตรงเข้า Vercel Blob](./adr/0012-direct-upload-to-vercel-blob.th.md)
 - [ADR-013 — เลิกใช้ edit token ต่อโน้ต](./adr/0013-retire-per-note-edit-token.th.md)
 
