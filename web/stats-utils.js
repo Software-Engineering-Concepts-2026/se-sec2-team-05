@@ -24,15 +24,16 @@
     ];
   }
 
-  // top_contributors (already sorted by downloads) -> the first few places. The API gives only
-  // owner_id, no names, so the page says "คุณ" for the viewer and "สมาชิก" for everyone else
-  // instead of showing other people's account numbers.
+  // top_contributors (already sorted by downloads) -> the first few places. Each row shows
+  // "คุณ" for the viewer, else owner_name (the uploader name already shown on their notes) —
+  // never the account number. A body without owner_name falls back to "สมาชิก".
   function leaderboard(stats, session, size = LEADERBOARD_SIZE) {
     const list = stats && Array.isArray(stats.top_contributors) ? stats.top_contributors : [];
     const me = session && session.user ? session.user.id : null;
     return list.slice(0, size).map((entry, index) => {
       const isYou = entry.owner_id === me;
-      return { rank: index + 1, label: isYou ? 'คุณ' : 'สมาชิก', downloads: count(entry.total_downloads), isYou };
+      const name = typeof entry.owner_name === 'string' ? entry.owner_name.trim() : '';
+      return { rank: index + 1, label: isYou ? 'คุณ' : name || 'สมาชิก', downloads: count(entry.total_downloads), isYou };
     });
   }
 

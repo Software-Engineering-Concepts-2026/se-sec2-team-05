@@ -89,12 +89,14 @@
   function renderNav() {
     if (!nav) return;
     const session = currentSession();
-    const left = document.createElement('div');
-    left.className = 'nav-links';
+    // brand, links and user are siblings so a phone can put brand + user on the first row
+    // and the links on a second row of their own (style.css, max-width 480px)
     const brand = link('/', 'NoteShare');
     brand.className = 'nav-brand';
     brand.removeAttribute('aria-current');
-    left.append(brand, link('/', 'ค้นหาโน้ต'), link('/upload.html', 'อัปโหลดโน้ต'), link('/stats.html', 'สถิติ'));
+    const left = document.createElement('div');
+    left.className = 'nav-links';
+    left.append(link('/', 'ค้นหาโน้ต'), link('/upload.html', 'อัปโหลดโน้ต'), link('/stats.html', 'สถิติ'));
     if (session) left.append(link('/profile.html', 'โปรไฟล์'));
 
     const right = document.createElement('div');
@@ -117,7 +119,7 @@
       login.className = 'primary-btn';
       right.append(login);
     }
-    nav.replaceChildren(left, right);
+    nav.replaceChildren(brand, left, right);
   }
 
   renderNav();
