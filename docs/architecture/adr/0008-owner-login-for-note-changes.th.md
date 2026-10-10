@@ -2,7 +2,7 @@
 
 [🌐 English](./0008-owner-login-for-note-changes.md) · **ภาษาไทย**
 
-**สถานะ:** Accepted · แก้ไขเพิ่มเติม [ADR-004](./0004-per-note-edit-token.th.md)
+**สถานะ:** Accepted · แก้ไขเพิ่มเติม [ADR-004](./0004-per-note-edit-token.th.md) · ตั้งแต่ [ADR-013](./0013-retire-per-note-edit-token.th.md) การ login เป็นเจ้าของเป็นทางเดียว edit token ถูกเอาออกแล้ว
 
 **บริบท:**
 [ADR-004](./0004-per-note-edit-token.th.md) ให้ edit token ต่อโน้ตเป็นทางเดียวที่จะแก้หรือลบโน้ตได้ ระหว่างที่ทีมยังไม่มีระบบบัญชี ตอนนี้มีแล้ว: [ADR-005](./0005-auth-jwt-with-server-side-sessions.th.md) เพิ่ม `auth-service` และตั้งแต่ US-31 (#31) การอัปโหลดทุกครั้งต้อง login และเก็บ id ของบัญชีผู้อัปโหลดไว้ใน `notes.uploader_id` (คอลัมน์ `NOT NULL`)

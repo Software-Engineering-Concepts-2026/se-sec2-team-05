@@ -40,9 +40,9 @@ This section explains how to get a local copy of the project up and running for 
 
     > ℹ️ ตอนนี้ยังยกไม่ครบตาม C4 Container diagram — ยังไม่มี API Gateway · การอัปโหลดโน้ตต้อง login
     > แล้ว (Notes Service ตรวจ token ผ่าน `GET /auth/me` ของ User & Auth Service) แต่การอ่านยังเปิดหมด
-    > และการแก้/ลบยังใช้ edit token ต่อโน้ต เหตุผลอยู่ใน
-    > [ADR-003](./docs/architecture/adr/0003-tracer-bullet-scope.th.md), [ADR-004](./docs/architecture/adr/0004-per-note-edit-token.th.md)
-    > และ [ADR-005](./docs/architecture/adr/0005-auth-jwt-with-server-side-sessions.th.md)
+    > และการแก้/ลบต้อง login เป็นเจ้าของโน้ต เหตุผลอยู่ใน
+    > [ADR-003](./docs/architecture/adr/0003-tracer-bullet-scope.th.md), [ADR-005](./docs/architecture/adr/0005-auth-jwt-with-server-side-sessions.th.md)
+    > และ [ADR-013](./docs/architecture/adr/0013-retire-per-note-edit-token.th.md)
 
 3.  **Deploy บน Vercel (ไม่บังคับ):** ทำตาม [docs/deploy/vercel.md](./docs/deploy/vercel.md) — หน้าเว็บและ 3 service เป็น Vercel Services, ฐานข้อมูล Neon, ไฟล์ใน Vercel Blob ([ADR-009](./docs/architecture/adr/0009-deploy-on-vercel-services.th.md)) · ไฟล์อัปโหลดไม่เกิน 4 MB
 
