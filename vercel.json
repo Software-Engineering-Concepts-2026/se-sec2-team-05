@@ -26,6 +26,10 @@
       ]
     }
   },
+  "proxy": {
+    "entrypoint": "gateway/proxy.ts",
+    "matcher": ["/notes", "/notes/:path*", "/reports", "/reports/:path*"]
+  },
   "rewrites": [
     { "source": "/notes/:id(\\d+)/stats", "destination": { "service": "stats" } },
     { "source": "/stats", "destination": { "service": "stats" } },

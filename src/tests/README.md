@@ -28,6 +28,8 @@
 | `test_notes_sort_rating.py` | `GET /notes?sort=rating` เรียงตามคะแนนเฉลี่ย (Issue #83) | อติชาติ |
 | `test_vercel_deploy.py` | deploy บน Vercel: `BlobFileStorage`, URL ของ Neon ทั้ง 3 service, เพดาน body 4.5 MB และ route ใน `vercel.json` (ADR-009) | อติชาติ |
 | `test_notes_direct_upload.py` | อัปโหลดตรงเข้า Vercel Blob: client token, `POST /notes/uploads`, สร้างโน้ตแบบ JSON และล้างไฟล์ที่ค้าง (ADR-012) | อติชาติ |
+| `test_gateway_rules.py` | ตาราง route ที่ gateway ต้องตรวจ login: map ใน `web/nginx.conf`, `proxy.matcher` ใน `vercel.json` และทุก route ของ Flask อยู่ใน `gateway/cases.json` (ADR-014) | อติชาติ |
+| `../../gateway/rules.test.js` | middleware ฝั่ง Vercel (`gateway/rules.js`): ตาราง route, header `X-Note-Token` เดิมไม่มีผล และคำตอบ 401/503 (ADR-014) | อติชาติ |
 | `../e2e/test_web_flows.py` | E2E ผ่าน browser: สมัคร อัปโหลด ค้นหา ใช้โน้ตจากอีกบัญชี แก้/ลบด้วยรหัส และความกว้างมือถือ (test plan 2.21) | อติชาติ |
 | `../perf/load_test.py` | load test: เวลาตอบสนองของ API เทียบ NFR-001/002 ที่ 1, 10 และ 25 คนพร้อมกัน (test plan 2.24) — ไม่ใช่ pytest และไม่อยู่ใน CI | อติชาติ |
 | `../../prototypes/sprint1/note-utils.test.js` | `escapeHtml`, `formatStars`, `compareNotes` | อติชาติ (Lab 7) |
@@ -95,6 +97,10 @@ node --test
 
 # เทสต์ของหน้าเว็บ
 cd ../../web
+node --test
+
+# middleware ของ gateway บน Vercel (ADR-014)
+cd ../gateway
 node --test
 ```
 
