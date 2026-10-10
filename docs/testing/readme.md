@@ -345,6 +345,7 @@ NA-136 ถึง NA-139 (`total` และ `file_type`, 2026-10-08) จับ mu
 | NI-06 | ต่อ auth-service ไม่ติด | พอร์ตที่ไม่มีใครฟัง | `IdentityUnavailable` |
 | NI-07 | อ่านที่อยู่จาก env | `AUTH_SERVICE_URL=http://auth-service:5002/` | เรียก `http://auth-service:5002/auth/me` |
 | NI-08 | ต่อครบสอง service | สมัคร → login → อัปโหลด (แนบ `uploader_name` ปลอม) → logout → อัปโหลดซ้ำ | `201` ด้วยชื่อจากบัญชี แล้ว `401` · มีโน้ตใบเดียว |
+| NI-09 | `AUTH_SERVICE_URL` ต้องเป็น http/https (bandit B310, หัวข้อ 4) | `file:///etc/passwd`, `ftp://auth-service`, `auth-service:5002`, `""` | `ValueError` ตั้งแต่สร้าง `HttpIdentity` · `https://…` ยังใช้ได้ |
 
 **ตรวจว่าเทสต์จับบั๊กได้จริง (2026-09-27):** ลองแก้ `POST /notes` ให้ปล่อยผ่านเมื่อ token ใช้ไม่ได้
 (ใส่บัญชี anonymous แทนการตอบ 401) มี 5 เทสต์ fail — NA-20 ทั้งสามแบบ, NA-21 และ NI-08 — จากนั้น revert แล้วผ่านครบ
@@ -749,7 +750,7 @@ CI จับของจริงไปแล้ว 2 ครั้งตั้�
 ## 4. CI
 
 [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) รันทุก push เข้า `main` และทุก PR ที่ยิงเข้า `main`
-โดยแบ่ง job เพื่อให้อ่านผลได้ว่าอะไรพัง (`lint` รันแยกอิสระ ไม่มี job ไหนรอ)
+โดยแบ่ง job เพื่อให้อ่านผลได้ว่าอะไรพัง (`lint` และ `security-scan` รันแยกอิสระ ไม่มี job ไหนรอ)
 
 ```
 js-tests ──────────────┐    ┌──> docker-build (build image + smoke ด้วย curl)
@@ -771,6 +772,23 @@ job นี้ตั้ง `timeout-minutes: 15` ไว้ (ปกติจบใ
 ตรวจว่า job นี้จับของที่ SQLite ปล่อยผ่านได้จริง (2026-10-08, เครื่อง local + Postgres 16 ใน Docker): เปลี่ยน `ilike` เป็น `like` ทีละฟิลด์ใน `GET /notes?q=`
 ครบ 5 ฟิลด์ (title, subject_name, subject_code, lesson, topic) — NA-135 ผ่านบน SQLite ทั้ง 5 แบบ และล้มบน Postgres ทั้ง 5 แบบ · ก่อนเพิ่ม NA-135
 ทั้งชุดผ่านทั้งสองฐานข้อมูลแม้มี mutation นี้ แปลว่าการค้นแบบไม่สนตัวพิมพ์ไม่เคยถูกทดสอบเลย
+
+`security-scan` (ชื่อใน GitHub: **Security scan**) ตรวจ 2 อย่าง: `pip-audit` เช็คว่า package ที่ pin ไว้ใน `requirements.txt` ทุกไฟล์
+(notes, auth, stats, `src/tests`, `src/e2e` รวม dependency ที่ติดมา) มีช่องโหว่ที่ประกาศแล้วหรือไม่ และ `bandit` หาโค้ดที่เสี่ยงใน `services/`
+เครื่องมือ pin เวอร์ชันไว้เหมือน ruff แต่ฐานข้อมูลช่องโหว่อัปเดตทุกวัน job นี้จึงแดงเองได้แม้ไม่มีใครแก้โค้ด ถ้าแดงให้อัปเกรด package ตัวนั้นเป็นเวอร์ชันที่แก้แล้ว
+
+รอบแรกที่รัน (2026-10-09) เจอและจัดการแบบนี้:
+
+| เครื่องมือ | เจอ | จัดการ |
+| --- | --- | --- |
+| pip-audit | Flask 3.0.3 — CVE-2026-27205 ไม่ใส่ `Vary: Cookie` เมื่อเข้าถึง session บางแบบ (cache กลางอาจเก็บ response ของผู้ใช้คนหนึ่งไว้) | อัปเกรดเป็น 3.1.3 ทั้ง 3 service |
+| pip-audit | requests 2.32.5 — CVE-2026-25645 `extract_zipped_paths()` ใช้ชื่อไฟล์ใน temp ที่เดาได้ (โค้ดเราไม่ได้เรียกฟังก์ชันนี้) | อัปเกรดเป็น 2.33.0 (stats-service, E2E) |
+| pip-audit | pytest 8.3.3 — CVE-2025-71176 ใช้โฟลเดอร์ `/tmp/pytest-of-{user}` ที่คนอื่นบนเครื่องเดียวกันสร้างดักไว้ได้ | อัปเกรดเป็น 9.0.3 (`src/tests`, E2E) |
+| bandit B310 | `urlopen` ใน `identity.py` เปิดได้ทุก scheme ถ้า `AUTH_SERVICE_URL` ตั้งเป็น `file://` จะไปอ่านไฟล์บนเครื่อง | `HttpIdentity` รับแค่ `http`/`https` ตั้งแต่ตอนสร้าง (NI-09) แล้วปิดคำเตือนที่บรรทัด `urlopen` |
+| bandit B104 ×3 | `app.run(host="0.0.0.0")` ของ notes, auth, stats | ใช้แค่ตอนรันตรงเพื่อ dev ใน container · compose/Docker ใช้ gunicorn และ Vercel ไม่ผ่านบรรทัดนี้ → `# nosec B104` พร้อมเหตุผล |
+| bandit B105/B106 ×5 | "รหัสผ่านฝังในโค้ด" ที่จริงคือ `password == ""`, ข้อความ error ของช่อง password, `token_type="Bearer"`, ชื่ออัลกอริทึม `scrypt:131072:8:1` | เขียน `password == ""` เป็น `not password` (ผลเหมือนเดิม) ส่วนที่เหลือ `# nosec` รายบรรทัดพร้อมเหตุผล |
+
+หลังแก้ ทั้งสองเครื่องมือไม่เจออะไร · เทสต์ทั้งชุดผ่านกับ Flask 3.1.3, requests 2.33.0 และ pytest 9.0.3 ทั้งบน SQLite และ Postgres
 
 ## 5. งานที่ยังค้าง
 
