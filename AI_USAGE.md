@@ -48,6 +48,9 @@
 | 2026-10-06, branch `feature/web-stats-page` | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | หน้าสถิติจาก stats-service (Issue #16 + US-28 AC3 ซึ่งเดิมมีแค่ API, รอบเดียวกับ Prompt 25 ที่บันทึกใน branch `feature/web-admin-reports`): `web/stats.html` + `stats.js` (ภาพรวมจาก `GET /stats`, อันดับของตัวเอง, สถิติรายโน้ตจาก `GET /notes/<id>/stats`, ไฮไลต์ `?id=`) และ pure function `stats-utils.js` พร้อมเทสต์ 9 ตัวใน `stats-utils.test.js` · ปุ่ม "สถิติ" ในแถวโน้ตของหน้าโปรไฟล์ (`profile-utils.js` + เทสต์) · ลิงก์ "สถิติ" บนแถบเมนู (`site.js`) · `/stats.html` ใน `NEXT_PAGES` + assert · route ไป stats-service ใน `web/nginx.conf` และ `depends_on` ใน `docker-compose.yml` · สไตล์ใน `style.css` · `web/Dockerfile`, step DK-08 ใน `ci.yml`, `web/README.md` และหัวข้อ 2.18 + แถว DK-08 ใน test plan | อติชาติเลือกจากเมนู: หน้าสถิติใช้ stats-service ผ่าน gateway (แทนที่จะไม่ทำ เพราะหน้าโปรไฟล์มีตัวเลขรายโน้ตจาก notes-service อยู่แล้ว) · `node --test` ใน `web/` 76/76 · mutation 11 แบบ จับได้ 10 แบบที่หลุดคือเงื่อนไขที่ไม่มีผลจึงลบออก · ตรวจบน Microsoft Edge แบบ headless กับ auth/notes/stats-service จริงบน SQLite + ตัวแทน nginx (รายละเอียดท้ายหัวข้อ 2.18 ของ test plan) · บรรทัดใหม่ใน DK-08 รันผ่านกับตัวแทน nginx ส่วน `nginx.conf` จริงรอผลจาก CI · ไม่แตะโค้ดของ service ใด |
 | 2026-10-06, branch `feature/web-edit-token` | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | หน้าแก้/ลบด้วยรหัสแก้ไข (US-19, US-20 แบบ edit token ของ ADR-004 ซึ่งเดิมใช้ได้แค่ผ่าน API, รอบเดียวกับ Prompt 25 ที่บันทึกใน branch `feature/web-admin-reports`): `web/edit.html` + `edit.js` (ตรวจรหัสด้วย `PATCH` ที่ไม่มีฟิลด์, ฟอร์มแก้เฉพาะช่องที่เปลี่ยน, ลบพร้อมกล่องยืนยัน, ไม่ส่ง `Authorization`) และ pure function `edit-utils.js` พร้อมเทสต์ 5 ตัวใน `edit-utils.test.js` · ลิงก์จากหน้ารายละเอียด (`note.html`, `note.js`) และใต้รหัสในหน้าอัปโหลด (`upload.html`, `upload.js`) · `web/Dockerfile`, step DK-08 ใน `ci.yml`, `web/README.md` (แทนบรรทัด "ยังไม่มีในเว็บ") และหัวข้อ 2.19 + แถว DK-08 ใน test plan | อติชาติเลือกจากเมนู: เป็นหน้าใหม่ `edit.html?id=` (แทน dialog ในหน้ารายละเอียด) · `node --test` ใน `web/` 72/72 · mutation 10 แบบถูกจับครบ · ตรวจบน Microsoft Edge แบบ headless กับ service จริงบน SQLite + ตัวแทน nginx รวมกรณี login เป็นเจ้าของแต่กรอกรหัสผิด (รายละเอียดท้ายหัวข้อ 2.19 ของ test plan) · บรรทัดใหม่ใน DK-08 รันผ่านกับตัวแทน nginx · ไม่แตะโค้ดของ service ใด |
 | 2026-10-06, merge #90 #94 #95 #96, แก้ conflict #90, ทดสอบบน compose จริง และ branch `docs/after-web-pages` | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | ตรวจสถานะ PR (ทั้ง 4 ตัวได้ approve จากกฤตเมธที่ head เดิม) → จำลอง merge ทั้งสองลำดับด้วย `git merge-tree` → merge #94 (`075d96f`) → เปลี่ยน base ของ #95 เป็น `main` แล้ว merge (`fe3e540`) → เปลี่ยน base ของ #96 แล้ว merge (`702757c`) → รวม `main` เข้า #90 แก้ conflict ใน `AI_USAGE.md` (เก็บแถว Log ของทั้งสองฝั่งตามวันที่ และ Prompt 24 ก่อนหัวข้อของ Prompt 25) เป็น `2d2be5e` → merge #90 (`65bd2bc`) → ยก stack ด้วย `docker compose` (Postgres 16 + nginx จริง) แล้วกดทุกหน้าบน Chrome ด้วยบัญชีทดสอบ 2 บัญชี และตรวจตารางใน Postgres → branch `docs/after-web-pages`: Prompt 26, หมายเหตุผ่านรีวิวในแถว "ส่วนที่รับจาก AI ตรงๆ" ของ #90 #94 #95 #96 และหัวข้อ 3 + 5 ของ test plan | อติชาติเลือกจากเมนู: merge ชุด #94→#95→#96 ก่อนแล้วค่อย #90 (แก้ conflict ครั้งเดียว), push ผลแก้ conflict แล้วรอ, merge #90 และเปิด docs PR นี้ · issue #91 #92 #93 ปิดโดย PR · ตรวจผลแก้ conflict ด้วยการเทียบบรรทัดที่เพิ่ม/ลบของทั้งสองฝั่ง (diff ของ #90 เทียบ `main` เท่าเดิม +43/−9) · CI ผ่านครบ 4 job ทั้ง #90 และ `main` หลัง merge · merge ทั้งสี่เป็น merge commit ที่มี 2 parent · บน `main` ที่ `65bd2bc`: `node --test` ใน `web/` 89/89, `prototypes/sprint1` 7/7, pytest 376 passed + 1 xfailed · ไม่ได้ลบ branch ใด |
+| 2026-10-06, branch `feature/vercel-deploy` และ deploy preview บน Vercel | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | Issue #98: เตรียม NoteShare ให้ deploy บน Vercel ได้ — `vercel.json` แบบ Services (web เป็นไฟล์ static, notes/auth/stats เป็น Flask) พร้อม rewrite ชุดเดียวกับ nginx, `.vercelignore`, `BlobFileStorage` ใน `services/notes-service/storage.py` (เลือกด้วย `NOTES_STORAGE_BACKEND=blob`), `sqlalchemy_url()` รับ URL `postgres://` ของ Neon ในทั้งสาม service, เพดานอัปโหลดลดเหลือ 4 MB เพราะ Vercel Function รับ body ได้ไม่เกิน 4.5 MB (ADR-009), คู่มือ `docs/deploy/vercel.md` และเทสต์ VC-01 ถึง VC-12 (หัวข้อ 2.20) · สร้าง project `noteshare` พร้อม Neon Postgres และ Blob แบบ private ผ่าน Vercel CLI แล้ว deploy preview | อติชาติเลือกจากเมนู: เพดาน 4 MB, เปิด issue + push + PR (#98, #99), deploy preview ชื่อ project `noteshare`, push 3 commit หลัง deploy · ตรวจทั้งเส้นบน preview จริง (สมัคร → อัปโหลด → ดาวน์โหลดผ่าน Blob) · mutation 11/11 · CI ผ่านครบ 4 job · PR #99 มี 9 commit (`9ec9c9a` ถึง `41f1b86`) · ระหว่างทาง deploy ครั้งแรกที่ไม่ได้ระบุ `--target` ไปเป็น production และ build ไม่ผ่าน (ดู Prompt 27) · production ยังไม่ขึ้นในรอบนี้ |
+| 2026-10-08 ~ 2026-10-09, merge #97 #99, deploy production และ branch `test/pytest-postgres`, `feature/notes-total-count`, `test/e2e-playwright`, `feature/alembic-migrations` | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | merge #97 (`f4b111b`) และ #99 (`454edb2`) → deploy production จาก `454edb2` ที่ https://noteshare-sooty.vercel.app (ตรวจแบบอ่านอย่างเดียว) → Issues #100 #101 #102 #106 และ PR ที่ซ้อนกัน 4 ตัว: #103 รันเทสต์ Python บน PostgreSQL 16 ใน CI (job `Unit tests (PostgreSQL)`, NA-135), #104 `total` ใน `GET /notes` และ `file_type=jpeg` (NA-136 ถึง NA-139, WEB-95/96), #105 E2E ผ่าน browser ด้วย Playwright (E2E-01 ถึง E2E-06, job `E2E tests (browser)`), #107 migration ด้วย Alembic ตอน service สตาร์ต (advisory lock, stamp DB เดิมเป็น `0001`, ADR-010, MG-01 ถึง MG-07) → merge ทั้ง 4 (`dbf83a4`, `3a8aceb`, `7f348c9`, `ac195d0`) → deploy production จาก `ac195d0` (Neon ถูก stamp เป็น `0001` ทั้ง notes และ auth) | อติชาติเลือกจากเมนู: deploy production, เทสต์ Postgres + E2E ใน CI, ช่องว่างเล็กของ API (total, jpeg, Alembic), เปิด issue + push + PR, Alembic รันตอนสตาร์ต, merge ทั้ง 4 · mutation: `ilike` → `like` ผ่านบน SQLite แต่ล้มบน Postgres ทั้ง 5 ฟิลด์ · เอา lock ของ migration ออกแล้ว MG-06 ล้ม 12/12 ภายใน 33 วินาที (ก่อนแก้ เทสต์ค้างแทนที่จะล้ม) · local ของ #107: SQLite 424 passed, Postgres 426 passed · กฤตเมธ approve ทั้ง 4 (2026-10-09) · merge เป็น merge commit ที่มี 2 parent · CI ของ `main` ผ่านหลัง merge ทุกตัว · ยังไม่ได้ตั้ง `ADMIN_USER_IDS` บน production เพราะยังไม่มีบัญชีผู้ดูแลบนเว็บจริง |
+| 2026-10-09 ~ 2026-10-10, branch `ci/security-scan`, `test/load-test`, `feature/auth-rate-limit`, `feature/gateway-auth-check`, `feature/blob-direct-upload`, `feature/retire-edit-token` และ `docs/after-quality-round` | อติชาติ ผาแสนเถิน | Claude Code (Anthropic) | Issues #108 #110 #112 #114 #116 #118 และ PR: #109 job security scan (pip-audit + bandit) พร้อมอัปเกรด Flask 3.1.3, requests 2.33.0, pytest 9.0.3 · #111 load test `src/perf/load_test.py` เทียบ NFR-001/002 (PF-01 ถึง PF-09) · #113 จำกัดความถี่ login และสมัครสมาชิก เก็บใน Postgres (ADR-011, auth migration `0002`, RL-01 ถึง RL-13) · #115 gateway ตรวจ login ก่อนส่งต่อ ทั้ง nginx `auth_request` และ Routing Middleware บน Vercel (ADR-014, GW-01 ถึง GW-10, DK-10) · #117 อัปโหลดตรงเข้า Vercel Blob ได้ถึง 10 MB (ADR-012, BU-01 ถึง BU-16, WEB-97 ถึง WEB-100, E2E-07) · #119 เลิกใช้ edit token ต่อโน้ต แก้/ลบต้อง login เป็นเจ้าของ (ADR-013, notes migration `0002`, ซ้อนบน #117) · #109 #111 #113 #115 ทำพร้อมกันโดย agent ย่อยของ Claude Code คนละ git worktree · 2026-10-10 ตรวจสถานะ แก้ body ของ #117 ให้ผูก #116 และเขียน docs PR นี้ (Prompt 27, 28 และหัวข้อ 1, 2.6, 3, 5 ของ test plan) | อติชาติเลือกจากเมนู: ทำทั้ง 3 feature ใหญ่ (อัปโหลดตรง, เลิก edit token, gateway ตรวจ login), rate limit เก็บใน Postgres, push + PR + deploy ได้ แต่ merge ต้องรอ approve และคำสั่ง · ทุก PR รันเทสต์ทั้ง SQLite และ Postgres ในเครื่องก่อน push และ CI ผ่านครบทุก job · mutation: #117 7/7, #119 5/5 · #117 ตรวจกับ Blob จริงและ Edge ผ่าน compose แล้วลบไฟล์ทดสอบทิ้ง · #115 ตรวจบน Vercel preview ด้วยบัญชีทดสอบบัญชีเดียวแล้วลบทิ้ง (2026-10-10 ตรวจซ้ำ: Neon ไม่มี user และโน้ต, Blob ไม่มีไฟล์) · ไม่ deploy preview ของ branch ที่มี migration เพราะ preview กับ production ใช้ Neon ตัวเดียวกัน · ยังไม่มีรีวิว ยังไม่ merge |
 
 > **TODO:** วชิรวิทย์และกฤตเมธ — ช่วยกรอกแถวของตัวเองให้ละเอียดขึ้น (prompt ที่ใช้จริง, ช่วง session, และรายละเอียดของสิ่งที่ตรวจ/แก้) เพราะมีแค่เจ้าของงานที่รู้ข้อมูลนี้แน่ชัด — แถวของวชิรวิทย์ที่ยังค้างคือ "สร้าง prototype หน้าค้นหาโน้ต" (2026-07-10); แถว preview-note (2026-09-26 ~ 2026-09-28) ด้านบนเติมรายละเอียดแล้ว
 
@@ -814,6 +817,110 @@ approve 90 เป็นงานสุดท้ายแล้วมั้ย
 - ตรวจ `?topic=` ที่มี `%` หรือ `_` ต้องมีโน้ตอีกตัวที่ไม่มีตัวอักษรนั้นไว้เทียบ ครั้งแรกมีแค่โน้ตที่ topic มี `%` เองจึงผ่านทั้งที่พิสูจน์อะไรไม่ได้
 - ตอนคุม browser ผ่าน extension ข้อความที่พิมพ์หลังเปิดหน้าใหม่บางครั้งไม่ลงช่อง ทำให้ login เหมือนไม่ทำงาน (ช่องว่าง ไม่มี error) ก่อนเรียกว่าเป็นบั๊กต้องเช็คค่าในช่องก่อนกดส่ง ใน `login.js` ไม่มีโค้ดล้างช่องอีเมล และเมื่อข้อความลงช่องจริง login ผ่านทั้งกด Enter และคลิก
 
+### งาน Sprint 2 — Deploy และงานคุณภาพหลังทำครบทุก Issue (ไม่ผูกกับ Lab)
+
+หลังโค้ดของทุก Issue และหน้าเว็บครบแล้ว งานที่เหลือคือขึ้นเว็บจริงบน Vercel และปิดช่องว่างด้านคุณภาพ (เทสต์บน Postgres, E2E, migration, security scan, load test, rate limit, gateway, เพดานอัปโหลดตาม NFR)
+
+#### Prompt 27 — deploy บน Vercel (อติชาติ, Claude Code, 2026-10-06)
+
+- **เครื่องมือที่ใช้:** Claude Code
+- **ที่มาของ prompt:** ต่อจาก Prompt 26 แบบเดียวกันคือพิมพ์คำสั้น ๆ แล้วเลือกขั้นถัดไปจากเมนู ข้อความที่พิมพ์เอง (คำต่อคำ ตามลำดับ):
+
+```
+แล้วสามารถ Deploy เลยได้มั้ย
+```
+
+```
+อยากจะ deploy บน vercel เลยน่ะ สามารถทำได้ไหม หรือว่าทำไม่ได้
+```
+
+```
+ฉันสามารถ deploy เลยได้ไหม หรือว่ารอเข้า main ทั้งหมดก่อน
+```
+
+```
+deploy เลยให้ที
+```
+
+```
+ตอนนี้ลอง deploy หรือยัง
+```
+
+```
+มันจะแจ้งมาทางไหนน่ะ
+```
+
+```
+deploy อันไหนใช้ได้บ้าง
+```
+
+```
+ช่วยเช็คให้หน่อย ว่ามันส่งมาทางไหนให้ฉัน ฉันล็อกอินไม่ได้น่ะ
+```
+
+```
+ช่วยหา Recovery ในเมลให้หน่อยได้ไหม ไม่งั้นฉันจะเข้าเว็บไม่ได้แล้วน่ะ
+```
+
+```
+ไม่จำเป็นต้องล็อกอินก็สามารถเข้าเว็บได้เลยเหรอ
+```
+
+```
+หมายถึงชิ้นงานไม่ต้องล็อกอินเหรอ
+```
+
+  (ข้อความที่ 2 พิมพ์ในช่อง "Other" ของเมนู · ข้อความที่ 6 และ 8 แนบภาพหน้าจอหน้า 2FA ของ Vercel · ข้อความสุดท้ายของรอบเป็นการสั่งบันทึกสถานะก่อนล้าง session จึงไม่ใส่)
+- **การตัดสินใจที่เลือกจากเมนู (ตามลำดับ):** push และเปิด docs PR #97 · เริ่มเตรียม Vercel โดยลดเพดานอัปโหลดเหลือ 4 MB · เปิด issue + push + PR (#98, #99) · deploy preview ชื่อ project `noteshare` · push 3 commit หลัง deploy เข้า #99
+- **ผลลัพธ์:** ดูแถว `2026-10-06, branch feature/vercel-deploy …` ในตาราง Log · ADR-009, `docs/deploy/vercel.md`, หัวข้อ 2.20 ของ test plan · preview ใช้งานได้ครบเส้น ส่วน production ขึ้นวันที่ 2026-10-08 (Prompt 28)
+- **ตรวจสอบแล้วว่าเข้าใจทุกบรรทัดที่ส่ง:** [ ] ← ทีมติ๊กเองหลังอ่านครบ
+
+เทียบกับ Five S's: "deploy เลยให้ที" ไม่ได้บอกว่าเป็น preview หรือ production **Specific** จึงมาจากเมนู แต่คำสั่ง deploy ครั้งแรกไม่ได้ระบุ target และ CLI เลือก production ให้เอง
+· คำถาม "ไม่จำเป็นต้องล็อกอินก็สามารถเข้าเว็บได้เลยเหรอ" แยกได้สองเรื่อง (login ของ Vercel กับ login ของ NoteShare) คำตอบจึงต้องแยกให้ชัด
+
+**บทเรียนจริงจากรอบนี้:**
+- Vercel ตรวจ framework ของ service จากไฟล์ในโฟลเดอร์ เจอ `web/Dockerfile` จึงมอง `web` เป็น container และ build ไม่ผ่าน ต้องกันไฟล์นั้นด้วย `.vercelignore`
+- Vercel CLI แก้ `.gitignore` เอง และการติดตั้ง Neon ผ่าน CLI ทิ้งไฟล์อื่นไว้ใน repo ต้องดู `git status` ทุกครั้งหลังใช้ CLI
+- คำสั่ง deploy ต้องระบุ `--target preview` หรือ `--prod` เสมอ ไม่อย่างนั้นอาจขึ้น production โดยไม่ตั้งใจ
+- preview ถูกกันด้วย Deployment Protection (ต้อง login Vercel) แต่โดเมน production เปิดสาธารณะ · ส่วน login ของ NoteShare เองบังคับเฉพาะการเขียน (อัปโหลด แก้ ลบ ให้คะแนน) ตาม ADR-005
+- 2FA แบบ TOTP ที่เปิดในวันเดียวกันทำให้เข้าเว็บ Vercel ไม่ได้ แต่ CLI ที่ login ไว้ก่อนยังใช้ได้ · Vercel ไม่ส่งรหัสทางเมล ต้องใช้แอป authenticator หรือขั้นตอนกู้บัญชี และควรเก็บ recovery code ไว้ตั้งแต่เปิด 2FA
+
+#### Prompt 28 — deploy production และงานคุณภาพ: Postgres, E2E, Alembic, security scan, load test, rate limit, gateway, อัปโหลด 10 MB และเลิก edit token (อติชาติ, Claude Code, 2026-10-08 ~ 2026-10-10)
+
+- **เครื่องมือที่ใช้:** Claude Code (บางงานแบ่งให้ agent ย่อยทำพร้อมกันคนละ git worktree)
+- **ที่มาของ prompt:** แบบเดียวกับ Prompt 22–27 คือพิมพ์คำสั้น ๆ แล้วเลือกขั้นถัดไปจากเมนู ข้อความที่บันทึกไว้คำต่อคำ (ตามลำดับ):
+
+```
+จะพัฒนาอะไรอีกดีมั้ย
+```
+
+```
+จัดการต่อให้ที เอาให้ไม่เหลืองานอะไรเลยน่ะ
+```
+
+```
+เช็คงานล่าสุดให้ที
+```
+
+  (ข้อความสั้นอื่นในรอบนี้ เช่น ตอนสั่งพักงานระหว่างวันที่ 2026-10-09 กับ 2026-10-10 ไม่ได้บันทึกไว้คำต่อคำจึงไม่ใส่)
+- **การตัดสินใจที่เลือกจากเมนู (ตามลำดับ):**
+  · 2026-10-08: merge #97 แล้ว #99 · จากรายการงานที่เสนอ เลือก deploy production, เทสต์บน Postgres + E2E ใน CI และช่องว่างเล็กของ API (total, jpeg, Alembic) (ไม่เลือกในรอบนั้น: แก้ NFR-003/006 ที่ยังเขียน 10 MB, Prompt 27, รีเฟรชหัวข้อ 3 ของ test plan) · เปิด issue + push + PR ทันที · Alembic รันตอน service สตาร์ต
+  · 2026-10-09: แก้จุดที่ตรวจพบใน PR ของ Alembic แล้วเปิด issue + commit + push + PR · merge #103 #104 #105 #107 · ทำทั้ง 3 feature ใหญ่ (อัปโหลดตรงเข้า Blob, เลิก edit token, gateway ตรวจ login) · rate limit เก็บใน Postgres · ตั้ง `ADMIN_USER_IDS` จากบัญชีอีเมลของอติชาติ · push + PR + deploy ได้เลย (merge ยังต้องรอ approve และคำสั่ง)
+  · 2026-10-10: ปิดงานเลิก edit token (รันบน Postgres + mutation → issue → commit → push → PR) · แก้ body ของ #117, เตรียมแก้ gateway #115 และเขียน docs PR นี้
+- **ผลลัพธ์:** ดูแถว `2026-10-08 ~ 2026-10-09, merge #97 #99, …` และ `2026-10-09 ~ 2026-10-10, branch ci/security-scan, …` ในตาราง Log · หัวข้อ 2.21, 2.22 และหัวข้อ 3 ของ test plan · PR #109 #111 #113 #115 #117 #119 ยังรอรีวิว
+- **ตรวจสอบแล้วว่าเข้าใจทุกบรรทัดที่ส่ง:** [ ] ← ทีมติ๊กเองหลังอ่านครบ
+
+เทียบกับ Five S's: "จะพัฒนาอะไรอีกดีมั้ย" กับ "จัดการต่อให้ที เอาให้ไม่เหลืองานอะไรเลยน่ะ" ไม่ได้บอกขอบเขต **Specific** มาจากเมนูหลายรอบ (เลือกงาน เลือกดีไซน์ เลือกจุดหยุด)
+· **Scope** ของแต่ละงานล็อกไว้เป็น 1 issue + 1 PR และสิทธิ์ที่ให้ (push, PR, deploy) แยกจาก merge ที่ยังต้องรอ approve ของเพื่อนในทีม
+
+**บทเรียนจริงจากรอบนี้:**
+- preview กับ production ใช้ Neon และ Blob ชุดเดียวกัน deploy preview ของ branch ที่มี migration จะเปลี่ยน schema ของเว็บจริงทันที จึงต้อง deploy ของแบบนี้หลัง merge เท่านั้น
+- `ilike` → `like` ผ่านบน SQLite ทุกเทสต์แต่ล้มบน Postgres: การค้นแบบไม่สนตัวพิมพ์ไม่เคยถูกทดสอบจริงจนมี job บน Postgres
+- เอา lock ของ migration ออกแล้วเทสต์ที่สตาร์ตหลาย thread พร้อมกัน **ค้าง** แทนที่จะล้ม (thread หนึ่งถือ transaction ค้างไว้ขณะรอ Python) จึงต้องมีเส้นตายรวมในเทสต์และ `timeout-minutes` ใน CI
+- body ของ PR ที่เขียน "ปิด #116" GitHub ไม่ผูกกับ issue ต้องใช้คำภาษาอังกฤษอย่าง `Closes #116` · ตรวจได้จาก `closingIssuesReferences` ของ PR
+- เปลี่ยน base ของ PR ที่ซ้อนกันเป็น `main` ไม่ทำให้ CI รันใหม่ ต้องยืนยันว่า tree ของ `main` หลัง merge ตรงกับ head ของ PR แทน
+- เมื่อ route ใหม่ (`POST /notes/uploads` ของ #117) ต้องอยู่ในตารางของ gateway (#115) ด้วย PR ที่แยกกันจะผ่าน CI ทั้งคู่แต่ล้มเมื่อรวมกัน ลำดับ merge และงานรวมต้องวางไว้ก่อน
+
 ### รายการที่ยังไม่ระบุ Lab
 
 รายการต่อไปนี้ไม่ได้ระบุ Lab ไว้ในข้อมูลเดิม จึงแยกมาไว้ท้ายหัวข้อนี้
@@ -962,6 +1069,10 @@ user story ระดับ Must ของ Sprint 1 ที่ปิดไปแ�
 | `web/admin.html`, `admin.js`, `admin-utils.js`, `admin-utils.test.js` ทั้งไฟล์, ส่วนที่แก้ใน `web/profile.html`/`profile.js`/`session-utils.js`/`session-utils.test.js`/`site.js`/`style.css`/`nginx.conf`/`Dockerfile`/`README.md`, step DK-08 ใน `.github/workflows/ci.yml`, หัวข้อ 2.17 และแถว DK-08 ใน `docs/testing/readme.md` (Issues #17, #18, branch `feature/web-admin-reports`) | Claude Code (2026-10-06) | generate ทั้งหมดโดยใช้สไตล์เดิมของหน้าโปรไฟล์ ไม่มีคนแก้บรรทัดใด · ทางเลือก (แยก PR, ทางเข้าหน้าผู้ดูแล) อติชาติเป็นคนเลือก · ตรวจด้วยเทสต์, mutation และบน browser จริง (ดูแถว Log `2026-10-06, branch feature/web-admin-reports`) · ยังไม่ผ่านการรีวิวโค้ดจากเพื่อนในทีม · **อัปเดต 2026-10-06:** ผ่านการรีวิวแล้ว: กฤตเมธ approve PR #94 (2026-10-06) |
 | `web/stats.html`, `stats.js`, `stats-utils.js`, `stats-utils.test.js` ทั้งไฟล์, ส่วนที่แก้ใน `web/profile-utils.js`/`profile-utils.test.js`/`session-utils.js`/`session-utils.test.js`/`site.js`/`style.css`/`nginx.conf`/`Dockerfile`/`README.md`, `docker-compose.yml`, step DK-08 ใน `.github/workflows/ci.yml`, หัวข้อ 2.18 และแถว DK-08 ใน `docs/testing/readme.md` (Issue #16 + US-28 AC3, branch `feature/web-stats-page`) | Claude Code (2026-10-06) | generate ทั้งหมดโดยใช้สไตล์เดิมของหน้าโปรไฟล์ ไม่มีคนแก้บรรทัดใด · ทางเลือก (ใช้ stats-service ผ่าน gateway) อติชาติเป็นคนเลือก · ตรวจด้วยเทสต์, mutation และบน browser จริง (ดูแถว Log `2026-10-06, branch feature/web-stats-page`) · ยังไม่ผ่านการรีวิวโค้ดจากเพื่อนในทีม · **อัปเดต 2026-10-06:** ผ่านการรีวิวแล้ว: กฤตเมธ approve PR #95 (2026-10-06) |
 | `web/edit.html`, `edit.js`, `edit-utils.js`, `edit-utils.test.js` ทั้งไฟล์, ส่วนที่แก้ใน `web/note.html`/`note.js`/`upload.html`/`upload.js`/`Dockerfile`/`README.md`, step DK-08 ใน `.github/workflows/ci.yml`, หัวข้อ 2.19 และแถว DK-08 ใน `docs/testing/readme.md` (US-19, US-20, branch `feature/web-edit-token`) | Claude Code (2026-10-06) | generate ทั้งหมดโดยใช้ฟอร์มเดิมของหน้าโปรไฟล์ ไม่มีคนแก้บรรทัดใด · ทางเลือก (หน้าใหม่แทน dialog) อติชาติเป็นคนเลือก · ตรวจด้วยเทสต์, mutation และบน browser จริง (ดูแถว Log `2026-10-06, branch feature/web-edit-token`) · ยังไม่ผ่านการรีวิวโค้ดจากเพื่อนในทีม · **อัปเดต 2026-10-06:** ผ่านการรีวิวแล้ว: กฤตเมธ approve PR #96 (2026-10-06) |
-| การแก้ conflict ของ PR #90 (`2d2be5e`) พร้อมข้อความ merge commit และส่วนที่แก้ใน branch `docs/after-web-pages` (แถว Log, Prompt 26 และหมายเหตุผ่านรีวิวใน `AI_USAGE.md`, หัวข้อ 3 และ 5 ใน `docs/testing/readme.md`) | Claude Code (2026-10-06) | AI ทำการแก้ conflict และร่างข้อความทั้งหมด อติชาติเลือกให้ push/merge ทีละขั้นจากเมนู ไม่ได้แก้ถ้อยคำ · ผลการแก้ conflict ตรวจด้วยการเทียบบรรทัดและ CI (ดูแถว Log `2026-10-06, merge #90 #94 #95 #96, …`) · ตัวเลขในหัวข้อ 3 มาจากการรันบน `main` ที่ `65bd2bc` และการทดสอบบน compose จริงบนเครื่อง local · ยังไม่ผ่านการรีวิวจากเพื่อนในทีม |
+| การแก้ conflict ของ PR #90 (`2d2be5e`) พร้อมข้อความ merge commit และส่วนที่แก้ใน branch `docs/after-web-pages` (แถว Log, Prompt 26 และหมายเหตุผ่านรีวิวใน `AI_USAGE.md`, หัวข้อ 3 และ 5 ใน `docs/testing/readme.md`) | Claude Code (2026-10-06) | AI ทำการแก้ conflict และร่างข้อความทั้งหมด อติชาติเลือกให้ push/merge ทีละขั้นจากเมนู ไม่ได้แก้ถ้อยคำ · ผลการแก้ conflict ตรวจด้วยการเทียบบรรทัดและ CI (ดูแถว Log `2026-10-06, merge #90 #94 #95 #96, …`) · ตัวเลขในหัวข้อ 3 มาจากการรันบน `main` ที่ `65bd2bc` และการทดสอบบน compose จริงบนเครื่อง local · ยังไม่ผ่านการรีวิวจากเพื่อนในทีม · **อัปเดต 2026-10-10:** ผ่านการรีวิวแล้ว: กฤตเมธ approve PR #97 (2026-10-06) |
+| `vercel.json`, `.vercelignore`, `services/notes-service/storage.py` (ส่วน `BlobFileStorage`), ส่วนที่แก้ใน `services/notes-service/app.py`/`models.py`/`validation.py`/`requirements.txt`/`README.md`, `services/auth-service/auth_models.py`, `services/stats-service/stats_db.py`, `web/upload.html`/`upload-utils.js`/`upload-utils.test.js`/`nginx.conf`/`README.md`, `src/tests/test_vercel_deploy.py` ทั้งไฟล์, ADR-009 ทั้ง EN/TH, `docs/deploy/vercel.md` และหัวข้อ 2.20 ใน `docs/testing/readme.md` (Issue #98, branch `feature/vercel-deploy`) | Claude Code (2026-10-06) | generate ทั้งหมด ไม่มีคนแก้บรรทัดใด · การเลือกเพดาน 4 MB และชื่อ project อติชาติเป็นคนเลือก · ตรวจด้วยเทสต์, mutation และ preview จริง (ดูแถว Log `2026-10-06, branch feature/vercel-deploy …`) · ผ่านการรีวิวแล้ว: กฤตเมธ approve PR #99 (2026-10-06) |
+| `src/tests/conftest.py` (ส่วน `TEST_DATABASE_URL`), `src/e2e/` ทั้งโฟลเดอร์, `migrate.py`/`auth_migrate.py`/`alembic.ini`/`migrations/` ของ notes และ auth, `src/tests/test_migrations.py` ทั้งไฟล์, job `python-tests-postgres` และ `e2e-tests` ใน `.github/workflows/ci.yml`, ส่วนที่แก้ใน `services/notes-service/app.py` (`total`, `jpeg`), `web/app.js`/`search-utils.js`/`search-utils.test.js`, เทสต์ที่แก้ใน `src/tests/`, ADR-010 ทั้ง EN/TH และหัวข้อ 2.21, 2.22 ใน `docs/testing/readme.md` (Issues #100 #101 #102 #106, PR #103 #104 #105 #107) | Claude Code (2026-10-08 ~ 2026-10-09) | generate ทั้งหมด ไม่มีคนแก้บรรทัดใด · ตรวจด้วยเทสต์บน SQLite และ Postgres, mutation และ CI (ดูแถว Log `2026-10-08 ~ 2026-10-09, …`) · ผ่านการรีวิวแล้ว: กฤตเมธ approve PR #103 #104 #105 #107 (2026-10-09) |
+| โค้ด เทสต์ และเอกสารทั้งหมดใน PR #109 #111 #113 #115 #117 #119 (security scan, load test `src/perf/`, rate limit + ADR-011, gateway `gateway/` + ADR-014, อัปโหลดตรงเข้า Blob + ADR-012, เลิก edit token + ADR-013) พร้อมข้อความ issue #108 #110 #112 #114 #116 #118 และ body ของ PR | Claude Code (2026-10-09 ~ 2026-10-10) | generate ทั้งหมด ไม่มีคนแก้บรรทัดใด · ตัวเลือกดีไซน์ (rate limit เก็บใน Postgres, ทำทั้ง 3 feature ใหญ่) อติชาติเป็นคนเลือก · ตรวจด้วยเทสต์บน SQLite และ Postgres, mutation, CI และการทดสอบกับ Blob/preview จริง (ดูแถว Log `2026-10-09 ~ 2026-10-10, …`) · ยังไม่ผ่านการรีวิวโค้ดจากเพื่อนในทีม |
+| ส่วนที่แก้ใน branch `docs/after-quality-round` (แถว Log, Prompt 27, Prompt 28, ตารางนี้ และหมายเหตุผ่านรีวิวใน `AI_USAGE.md`, หัวข้อ 1, 2.6, 3 และ 5 ใน `docs/testing/readme.md`) | Claude Code (2026-10-10) | AI ร่างข้อความทั้งหมด ไม่มีคนแก้ถ้อยคำ · ข้อความ prompt คำต่อคำมาจากบันทึกระหว่างรอบ ตัวเลขในหัวข้อ 3 มาจากการรันบน `main` ที่ `ac195d0` · ยังไม่ผ่านการรีวิวจากเพื่อนในทีม |
 
 ส่วนที่เป็นงานที่คนแก้เองบางส่วน ไม่ใช่รับจาก AI ตรง ๆ: ฟังก์ชัน `esc()` กัน XSS และการ clamp ค่าใน `stars()` ของหน้าค้นหา ก่อน Lab 7 (เข้ามาในรอบที่ PR #37 ถูก CHANGES_REQUESTED โดยทีมรีวิวพบช่องโหว่ XSS แล้ววชิรวิทย์ใช้ Gemini ช่วยหาจุดและเสนอวิธีแก้ตาม Prompt 5 ก่อนนำไปแก้ใน commit `0ea55bd` จึงเป็นงานที่ AI ช่วย ไม่ใช่เขียนเองล้วน) แต่ใน Lab 7 ฟังก์ชันสองตัวนี้ถูกย้าย/เขียนใหม่เป็น `escapeHtml`/`formatStars` ใน `note-utils.js` โดย Claude Code แล้ว (แถวด้านบน) จึงไม่ใช่ "ไม่แก้จาก AI" อีกต่อไปสำหรับตำแหน่งใหม่นี้ ส่วนที่ยังเป็นของคนเขียนเองเหมือนเดิม: การตัดสินใจเรื่อง Tracer vs Prototype และเนื้อหา reflection รายบุคคลทั้งสามไฟล์

@@ -10,6 +10,7 @@
 | `test_auth_credentials.py` | ตรวจข้อมูลสมัครสมาชิกและ hash รหัสผ่านของ User & Auth Service (US-05) | อติชาติ |
 | `test_auth_tokens.py` | ออก/ตรวจ JWT ของ User & Auth Service (US-06) | อติชาติ |
 | `test_auth_api.py` | endpoint `/auth/register`, `/auth/login`, `/auth/logout`, `/auth/me` (US-05, US-06) | อติชาติ |
+| `test_auth_rate_limit.py` | rate limit ของ login และสมัครสมาชิก (ADR-011, test plan 2.23) | อติชาติ |
 | `test_email_error.py` | `email_error()` ของ auth-service โดยตรง (Lab 12B) | อติชาติ |
 | `test_notes_validation.py` | ตรวจ metadata และไฟล์ตอนอัปโหลด (US-08) | อติชาติ |
 | `test_notes_validation_boundary.py` | boundary/equivalence ของการตรวจ metadata (Lab 9) | อติชาติ |
@@ -30,6 +31,7 @@
 | `test_gateway_rules.py` | ตาราง route ที่ gateway ต้องตรวจ login: map ใน `web/nginx.conf`, `proxy.matcher` ใน `vercel.json` และทุก route ของ Flask อยู่ใน `gateway/cases.json` (ADR-014) | อติชาติ |
 | `../../gateway/rules.test.js` | middleware ฝั่ง Vercel (`gateway/rules.js`): ตาราง route, header `X-Note-Token` เดิมไม่มีผล และคำตอบ 401/503 (ADR-014) | อติชาติ |
 | `../e2e/test_web_flows.py` | E2E ผ่าน browser: สมัคร อัปโหลด ค้นหา ใช้โน้ตจากอีกบัญชี แก้/ลบด้วยรหัส และความกว้างมือถือ (test plan 2.21) | อติชาติ |
+| `../perf/load_test.py` | load test: เวลาตอบสนองของ API เทียบ NFR-001/002 ที่ 1, 10 และ 25 คนพร้อมกัน (test plan 2.24) — ไม่ใช่ pytest และไม่อยู่ใน CI | อติชาติ |
 | `../../prototypes/sprint1/note-utils.test.js` | `escapeHtml`, `formatStars`, `compareNotes` | อติชาติ (Lab 7) |
 | `../../web/*.test.js` | pure function ของหน้าเว็บ: `search-utils`, `session-utils`, `upload-utils`, `note-utils`, `profile-utils`, `admin-utils`, `stats-utils`, `edit-utils` | อติชาติ |
 
@@ -77,6 +79,15 @@ pytest src/e2e -v --base-url http://localhost:8080
 
 ทุกเทสต์สมัครบัญชีใหม่และสุ่มรหัสวิชาเอง จึงรันซ้ำบน DB เดิมได้ แต่จะทิ้งบัญชีและโน้ตทดสอบไว้ใน DB นั้น
 ใช้กับ stack ทดสอบเท่านั้น (ล้างด้วย `docker compose down -v`) ห้ามชี้ `--base-url` ไปที่เว็บจริงบน Vercel
+
+**Load test** — สคริปต์ธรรมดาที่ [`src/perf/`](../perf/) (ไม่ใช่ pytest) seed โน้ตหลายร้อยไฟล์แล้ววัด p50/p95/p99
+เทียบ NFR-001/002 กับ stack ที่ยกไว้ ยอมรันกับ `localhost` เท่านั้น วิธีรันและเหตุผลที่ไม่อยู่ใน CI ดู [`src/perf/README.md`](../perf/README.md)
+
+```bash
+docker compose up -d --build
+pip install -r src/perf/requirements.txt
+python src/perf/load_test.py --base-url http://localhost:8080
+```
 
 **เทสต์ JavaScript (prototypes และ web)** — ใช้ test runner ที่มากับ Node 18+ ไม่ต้อง npm install
 

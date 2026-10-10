@@ -64,6 +64,7 @@ Per-layer rationale and the alternatives we weighed are in [tech_stack.md](./tec
 - [ADR-008 — Let the Logged-In Uploader Edit and Delete Their Notes, Alongside the Edit Token](./adr/0008-owner-login-for-note-changes.md)
 - [ADR-009 — Deploy on Vercel with Services, Neon Postgres and Private Vercel Blob](./adr/0009-deploy-on-vercel-services.md)
 - [ADR-010 — Alembic Migrations Run at Service Startup](./adr/0010-alembic-migrations-at-startup.md)
+- [ADR-011 — Rate Limit Login and Registration with Counters in Postgres](./adr/0011-rate-limit-login-and-register.md)
 - [ADR-012 — Upload Note Files Directly to Vercel Blob](./adr/0012-direct-upload-to-vercel-blob.md)
 - [ADR-013 — Retire the Per-Note Edit Token](./adr/0013-retire-per-note-edit-token.md)
 - [ADR-014 — The Gateway Checks the Login Before Forwarding](./adr/0014-gateway-checks-login.md)

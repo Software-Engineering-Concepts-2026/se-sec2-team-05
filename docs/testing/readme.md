@@ -16,7 +16,7 @@
 | E2E (browser) | เส้นทางหลักของผู้ใช้ผ่านหน้าเว็บจริงบน stack ของ compose: สมัคร → อัปโหลด → ค้นหา → อีกบัญชีใช้โน้ต → แก้/ลบด้วยรหัส + ความกว้างมือถือ | Playwright (Python) + `pytest` บน Chromium | กดหน้าเว็บแบบเดียวกับผู้ใช้ จับปัญหาที่ unit test ของ `*-utils.js` มองไม่เห็น เช่นปุ่มไม่ขึ้น ลิงก์ผิด หรือ CSS ล้นจอ · ใช้ Python เหมือนเทสต์ฝั่ง service ไม่ต้องเพิ่ม `package.json` |
 | Smoke (container) | ทั้ง stack (`docker compose up`) ตอบ health และวิ่งครบเส้น upload → filter → download | `docker compose` + `curl` ใน CI | จับปัญหาที่ unit test มองไม่เห็น เช่น gunicorn/CMD พัง, service ต่อ Postgres ไม่ติด, volume ไม่ mount |
 
-**ยังไม่ทำในรอบนี้:** load/performance test, security scan · E2E ผ่านเบราว์เซอร์เพิ่มแล้ว 2026-10-08 (หัวข้อ 2.21)
+**ยังไม่มีบน `main`:** load/performance test และ security scan — ทั้งสองอยู่ใน PR ที่รอ merge (#111 load test เทียบ NFR-001/002, #109 pip-audit + bandit ใน CI) · E2E ผ่านเบราว์เซอร์เพิ่มแล้ว 2026-10-08 (หัวข้อ 2.21)
 
 ## 2. Test Cases
 
@@ -238,7 +238,7 @@ edit token ต่อโน้ตของ ADR-004 เลิกใช้แล้
 
 ### 2.6 Container smoke test (CI เท่านั้น)
 
-> **หมายเหตุ:** `view_count` เป็นคอลัมน์ใหม่ในตาราง `notes` และโปรเจกต์ยังไม่มี migration สำหรับ schema นี้ หากมี PostgreSQL volume เก่าอยู่ ให้รัน `docker compose down -v` ก่อน `docker compose up` เพื่อสร้าง database schema ใหม่
+> **หมายเหตุ:** ตั้งแต่ ADR-010 (PR #107, 2026-10-09) service รัน migration ของ Alembic ตอนสตาร์ต DB เดิมที่สร้างด้วย `create_all` (เช่น volume ของ compose รุ่นก่อน) ถูก stamp เป็น revision `0001` ให้อัตโนมัติโดยข้อมูลไม่หาย (MG-02) จึงไม่ต้อง `docker compose down -v` เมื่อ schema เปลี่ยน · หมายเหตุเดิมที่ให้ล้าง volume เพราะคอลัมน์ `view_count` ใช้กับรุ่นก่อนมี migration เท่านั้น
 
 | # | Test case | ขั้นตอน | ผลที่คาดหวัง |
 | --- | --- | --- | --- |
@@ -346,6 +346,7 @@ edit token ต่อโน้ตของ ADR-004 เลิกใช้แล้
 | NI-06 | ต่อ auth-service ไม่ติด | พอร์ตที่ไม่มีใครฟัง | `IdentityUnavailable` |
 | NI-07 | อ่านที่อยู่จาก env | `AUTH_SERVICE_URL=http://auth-service:5002/` | เรียก `http://auth-service:5002/auth/me` |
 | NI-08 | ต่อครบสอง service | สมัคร → login → อัปโหลด (แนบ `uploader_name` ปลอม) → logout → อัปโหลดซ้ำ | `201` ด้วยชื่อจากบัญชี แล้ว `401` · มีโน้ตใบเดียว |
+| NI-09 | `AUTH_SERVICE_URL` ต้องเป็น http/https (bandit B310, หัวข้อ 4) | `file:///etc/passwd`, `ftp://auth-service`, `auth-service:5002`, `""` | `ValueError` ตั้งแต่สร้าง `HttpIdentity` · `https://…` ยังใช้ได้ |
 
 **ตรวจว่าเทสต์จับบั๊กได้จริง (2026-09-27):** ลองแก้ `POST /notes` ให้ปล่อยผ่านเมื่อ token ใช้ไม่ได้
 (ใส่บัญชี anonymous แทนการตอบ 401) มี 5 เทสต์ fail — NA-20 ทั้งสามแบบ, NA-21 และ NI-08 — จากนั้น revert แล้วผ่านครบ
@@ -691,7 +692,7 @@ mutation 5 แบบถูกจับครบ (แก้ไฟล์ใน con
 | # | Test case | Input | ผลที่คาดหวัง |
 | --- | --- | --- | --- |
 | MG-01 | upgrade จาก DB ว่างได้ schema ตรงกับ models | สตาร์ตทั้งสอง service บน DB เดียวกัน แล้วรัน `alembic check` ผ่าน `env.py` ตัวจริง | ไม่มีความต่างทั้งคอลัมน์ index และ constraint · ตาราง version อยู่ที่ head · ไม่เสนอให้ลบตารางของอีก service |
-| MG-02 | DB เดิมที่สร้างด้วย `create_all` ถูก stamp แล้วข้อมูลไม่หาย | `create_all` + ใส่ 1 แถว (`notes` / `users`) แล้วสตาร์ต service | ตาราง version อยู่ที่ head · แถวเดิมยังอยู่ 1 แถว |
+| MG-02 | DB เดิมที่สร้างด้วย `create_all` ถูก stamp แล้วข้อมูลไม่หาย | สร้างตารางตาม baseline `0001` แล้วลบตาราง version ทิ้ง (= DB จาก `create_all` ก่อน ADR-010 ซึ่งยังไม่มีตารางที่เพิ่มทีหลัง) + ใส่ 1 แถว (`notes` / `users`) แล้วสตาร์ต service | ตาราง version อยู่ที่ head · แถวเดิมยังอยู่ 1 แถว |
 | MG-03 | สตาร์ตซ้ำไม่เปลี่ยนอะไร | สตาร์ต service สองครั้ง | ไม่ error · ตาราง version มีแถวเดียวที่ head |
 | MG-04 | สอง service ใช้ DB เดียวกันโดยนับเวอร์ชันแยกกัน | สตาร์ต notes และ auth บน DB เดียวกัน | มี `alembic_version_notes` และ `alembic_version_auth` · ไม่มี `alembic_version` · ทั้งคู่อยู่ที่ head ของตัวเอง |
 | MG-05 | downgrade ของ baseline ลบเฉพาะตารางของ service นั้น | `alembic downgrade base` ของ service หนึ่ง แล้วสตาร์ตใหม่ | ตารางของ service นั้นหายหมด ของอีก service ยังอยู่ครบ · สตาร์ตใหม่แล้วตารางกลับมา |
@@ -702,6 +703,83 @@ mutation ที่ลองแล้ว (2026-10-09, เครื่อง local
 · ให้ `env.py` เทียบทุกตารางใน DB (MG-01 เจอ `remove_table` ของ `users`/`auth_sessions`) · เอา advisory lock ออกทีละ service (MG-06 ล้ม 12/12 รอบ
 บางรอบเป็น `DuplicateTable`/`UndefinedTable` บางรอบ thread ค้างอยู่ใน `CREATE TABLE` จนครบ 30 วินาที) · รอบแรกที่ยังไม่มีเส้นตาย เทสต์ค้างไม่จบเอง
 จึงให้ thread เป็น daemon และรอรวมกันแค่ 30 วินาที
+
+### 2.23 Auth Service — rate limit ของ login และสมัครสมาชิก (`pytest` + `node --test`, ADR-011)
+
+ไฟล์ [`src/tests/test_auth_rate_limit.py`](../../src/tests/test_auth_rate_limit.py) · รันได้ทั้ง SQLite และ Postgres (`make_db_url`)
+ใช้นาฬิกาปลอมที่เลื่อนเองได้ และเพดานเล็ก (login 3 ต่ออีเมล / 5 ต่อ IP ใน 15 นาที · สมัคร 3 ต่อ IP ใน 1 ชั่วโมง) · IP ส่งผ่าน `X-Forwarded-For` เหมือนหลัง nginx/Vercel
+
+| # | Test case | Input | ผลที่คาดหวัง |
+| --- | --- | --- | --- |
+| RL-01 | login ผิดครบเพดานต่ออีเมลแล้วถูกล็อก | ผิด 3 ครั้ง แล้ว login ด้วยรหัสที่ถูก | `429` `rate_limited` · ข้อความมี `15 นาที` · `Retry-After` = `retry_after` = 900 · ไม่มี `access_token` |
+| RL-02 | อีเมลที่ไม่มีบัญชีถูกล็อกแบบเดียวกัน | ผิด 3 ครั้งกับอีเมลที่มีบัญชีและที่ไม่มี (คนละ IP) | ทั้งคู่ได้ `429` body เหมือนกันทุกช่อง |
+| RL-03 | ล็อกหมดเมื่อครั้งที่ทำให้ครบเพดานหลุดหน้าต่าง | ผิดนาทีที่ 0, 4, 4 แล้วลองที่นาทีที่ 9 → นาทีที่ 15:01 | นาทีที่ 9 ได้ `429` `Retry-After: 360` · นาทีที่ 15:01 login ได้ `200` |
+| RL-04 | login สำเร็จล้างตัวนับของอีเมล | ผิด 2 → ถูก → ผิด 2 → ถูก | `200` ทั้งสองครั้ง |
+| RL-05 | IP เดียวไล่เดาหลายบัญชีถูกจำกัด | ผิด 5 อีเมลต่างกันจาก IP เดียว | IP นั้นได้ `429` แม้รหัสถูก · IP อื่นยัง `200` |
+| RL-06 | client หลบ limit ต่อ IP ด้วย `X-Forwarded-For` ของตัวเองไม่ได้ | ใส่ค่าซ้ายสุดสุ่มทุกครั้ง ค่าขวาสุด (ที่ proxy เติม) เท่าเดิม · ไม่มี header | ยังถูกนับเป็น IP เดียวจน `429` · ไม่มี header ใช้ที่อยู่ของ connection ได้ `200` |
+| RL-07 | สมัครนับต่อ IP รวมครั้งที่อีเมลซ้ำ ไม่นับ `400` | `201`, `409`, `400` (อีเมลนอกโดเมน), `201` แล้วสมัครอีกครั้ง | `429` + `Retry-After: 3600` + ข้อความ `60 นาที` · IP อื่นสมัครได้ `201` |
+| RL-08 | ครบชั่วโมงแล้วสมัครจาก IP เดิมได้อีก | สมัคร 3 ครั้ง → `429` → เลื่อน 1 ชั่วโมง 1 วินาที | `201` |
+| RL-09 | แถวที่เก่ากว่าหน้าต่างที่ยาวที่สุดถูกลบ | ผิด 2 + สมัคร 1 แล้วเลื่อน 2 ชั่วโมง ผิดอีก 1 | `auth_attempts` เหลือแค่ 2 แถวของครั้งล่าสุด (อีเมล + IP) |
+| RL-10 | รหัสผ่านยาวเกินเพดานนับเป็นครั้งที่ผิด | รหัสยาว 1000 ตัว 3 ครั้ง | `401` ทั้ง 3 ครั้ง แล้วรหัสที่ถูกได้ `429` |
+| RL-11 | ค่า default และอ่านค่าจาก environment | ไม่ตั้งอะไร · ตั้งทั้ง 5 ตัว | 5/30 ต่อ 15 นาที และ 20 ต่อชั่วโมง · ได้ค่าที่ตั้งครบ |
+| RL-12 | ค่าเพดานผิดรูปทำให้ไม่ยอมสตาร์ต | `AUTH_LOGIN_MAX_FAILS_PER_EMAIL` = `abc`, `0`, `-3` | `RuntimeError` ที่บอกชื่อตัวแปร |
+| RL-13 | หน้าเว็บแสดงข้อความของ `429` (`session-utils.test.js`) | `authErrorMessage(429, {error: 'rate_limited', message})` · ไม่มี `message` | ได้ข้อความของ service ตรง ๆ · ไม่มีข้อความก็บอกให้รอสักครู่ ไม่ใช่ `HTTP 429` |
+
+revision `0002` สร้างตาราง `auth_attempts` · MG-01 ยืนยันว่า revision ตรงกับ models และ MG-02 ปรับให้จำลอง DB เดิมจาก baseline `0001`
+(ไม่ใช่ `create_all` ของ models ปัจจุบันที่มี `auth_attempts` แล้ว) ไม่อย่างนั้น upgrade จาก `0001` จะชนตารางที่มีอยู่
+
+mutation 10 แบบถูกจับครบ (2026-10-09, SQLite): ไม่ตรวจเพดานต่อ IP ตอน login (2 ข้อล้ม), ยอมให้เกินเพดาน 1 ครั้ง (8), เชื่อค่าซ้ายสุดของ
+`X-Forwarded-For` (1), login สำเร็จไม่ล้างตัวนับ (1), สมัครนับเฉพาะบัญชีใหม่ไม่นับ `409` (1), ไม่ลบแถวเก่า (1), รหัสยาวเกินไม่นับ (1),
+คิด `Retry-After` จากครั้งล่าสุดแทนครั้งที่ทำให้ครบเพดาน (1), นับย้อนหลังไม่จำกัดเวลา (2) · หน้าเว็บไม่มีกรณี `rate_limited` (RL-13 ล้ม)
+
+### 2.24 Load test — เวลาตอบสนองเทียบ NFR
+
+สคริปต์ [`src/perf/load_test.py`](../../src/perf/load_test.py) (วิธีรันใน [`src/perf/README.md`](../../src/perf/README.md)) · seed ผ่าน API จริง
+10 บัญชี 300 โน้ต (PNG 75 ไฟล์ให้ preview ย่อรูปจริง) แล้วแต่ละบัญชีดาวน์โหลดและให้คะแนน 10 โน้ต · ทุก scenario อุ่นเครื่อง 20 request
+แล้วยิง 200 request · **ผ่าน = p95 ไม่เกินงบของ NFR และ error 0%** · เวลาที่วัดเป็นฝั่ง server + network ในเครื่อง ไม่รวมเวลาวาดหน้าจอ
+จึงใช้งบเต็มของ NFR เป็นเพดานบนสุด · NFR-014 ไม่ตั้งเป้าผู้ใช้พร้อมกันจำนวนมาก ระดับ 10 และ 25 thread ใช้ดูว่าเริ่มช้าตรงไหน
+
+| # | Scenario | Request | NFR (งบ) |
+| --- | --- | --- | --- |
+| PF-01 | หน้าเว็บ | `GET /` (HTML จาก nginx) | NFR-001 (2 s) |
+| PF-02 | ค้นด้วยคำ | `GET /notes?q=` สุ่มจาก `data`, `cs201`, `matrix`, `บทนำ`, `algorithms`, `Big-O` | NFR-002 (3 s) |
+| PF-03 | กรอง | `GET /notes?faculty=&year_level=&file_type=` สุ่มค่า | NFR-002 (3 s) |
+| PF-04 | เรียงตามคะแนน | `GET /notes?sort=rating&offset=` 0/20/40 | NFR-002 (3 s) |
+| PF-05 | รายละเอียดโน้ต | `GET /notes/<id>` สุ่มโน้ต | NFR-001 (2 s) |
+| PF-06 | รูปตัวอย่าง | `GET /notes/<id>/preview` โน้ต PNG | NFR-001 (2 s) |
+| PF-07 | ดาวน์โหลด | `GET /notes/<id>/download` พร้อม token | ไม่มี |
+| PF-08 | สถิติภาพรวม | `GET /stats` | ไม่มี |
+| PF-09 | เข้าสู่ระบบ | `POST /auth/login` บัญชีเดียวซ้ำ ๆ | ไม่มี |
+
+ผลรัน 2026-10-09 บนเครื่อง local (AMD Ryzen 5 7500F 6 คอร์ / 12 thread, RAM 16 GB, Windows 11 + Docker Desktop ให้ VM 12 CPU 8 GB)
+กับ compose stack ใหม่ที่ build จาก `main` `ac195d0` (Postgres 16 + nginx, ทุก service รัน gunicorn ค่าเริ่มต้น 1 worker แบบ sync) · ค่าเป็น p95 ms (p50 ในวงเล็บ)
+
+| # | 1 thread | 10 thread | 25 thread | req/s ที่ 10 thread | ผล |
+| --- | --- | --- | --- | --- | --- |
+| PF-01 | 1.2 (1.0) | 11.6 (7.1) | 28.7 (14.3) | 1248 | ผ่าน |
+| PF-02 | 10.9 (8.3) | 80.7 (60.5) | 193.8 (170.2) | 155 | ผ่าน |
+| PF-03 | 8.4 (6.1) | 51.3 (35.6) | 159.8 (124.9) | 263 | ผ่าน |
+| PF-04 | 11.7 (8.8) | 66.8 (58.6) | 253.2 (187.2) | 160 | ผ่าน |
+| PF-05 | 12.7 (10.6) | 69.7 (64.3) | 240.9 (202.5) | 152 | ผ่าน |
+| PF-06 | 7.6 (5.7) | 30.2 (28.1) | 126.2 (105.0) | 348 | ผ่าน |
+| PF-07 | 16.2 (13.9) | 102.7 (98.6) | 317.5 (279.6) | 101 | ไม่มีเป้า |
+| PF-08 | 8.8 (5.5) | 55.7 (31.4) | 159.2 (126.9) | 296 | ไม่มีเป้า |
+| PF-09 | 487.1 (387.3) | 4,416 (4,054) | 11,592 (10,089) | 2.5 | ไม่มีเป้า |
+
+ทุก scenario error 0% ทุกระดับ · ข้อที่มี NFR ผ่านทั้งหมด แม้ที่ 25 thread p95 แย่สุดยังไม่ถึง 0.3 วินาที (PF-04)
+· เพิ่มโน้ตเป็น 2,020 แล้วรัน PF-02 ถึง PF-05 ที่ 10 thread อีกรอบ: p95 = 166.4 / 41.9 / 84.9 / 85.5 ms ยังผ่าน · PF-02 ช้าลงตามจำนวนโน้ต
+เพราะ `ilike '%คำ%'` ทั้ง 5 ฟิลด์ใช้ index ไม่ได้ แต่ฝั่ง DB ยังเร็ว (`EXPLAIN ANALYZE` ของการนับ `total` = seq scan 2,020 แถว 2.5 ms)
+เวลาส่วนใหญ่จึงอยู่ที่ฝั่ง Python ที่มี worker เดียว
+
+**คอขวดที่เจอ (บันทึกไว้ ยังไม่แก้ เพราะไม่มีข้อไหนผิด NFR):**
+- **login ทำได้ ~2.5 ครั้ง/วินาทีไม่ว่าจะยิงพร้อมกันกี่คน** (PF-09: req/s 2.5 / 2.5 / 2.4 ที่ 1 / 10 / 25 thread) — `scrypt` N=2^17 ใช้ CPU
+  ~0.4 วินาทีต่อครั้งตามที่ตั้งใจ (ค่าขั้นต่ำของ OWASP, `credentials.py`) และ auth-service รัน gunicorn 1 worker แบบ sync
+  request จึงต่อคิวกัน 25 คนกด login พร้อมกันคนสุดท้ายรอ ~11.6 วินาที · ทางแก้ถ้าต้องการ: เพิ่ม worker
+  (gunicorn อ่าน `WEB_CONCURRENCY` เอง) ไม่ใช่ลดค่า scrypt · บน Vercel แต่ละ request ได้ instance ของตัวเองจึงไม่ต่อคิวแบบนี้
+- **throughput ของ notes-service คงที่ราว 100–260 req/s** ไม่ว่าจะเพิ่ม thread เวลาที่เพิ่มขึ้นเป็นเวลาต่อคิว (p50 โตตามจำนวน thread
+  เกือบเป็นเส้นตรง) จากเหตุเดียวกันคือ gunicorn 1 worker · ยังห่างงบของ NFR มาก
+- PF-07 ดาวน์โหลดเป็นข้อที่ช้าสุดใน notes-service เพราะแต่ละครั้งที่แนบ token ต้องถาม auth-service (`GET /auth/me`) อีกทอดหนึ่ง
+  แล้วเขียนตัวนับ `download_count` และเช็ค/เพิ่มแถว `note_accesses` ลง DB
 
 ### 2.25 อัปโหลดตรงเข้า Vercel Blob — ไฟล์ถึง 10 MB บน Vercel (`pytest` + `node --test`, ADR-012)
 
@@ -778,15 +856,17 @@ auth-service ตอบ 5xx แล้วปล่อยผ่าน, ไม่ส
 
 ## 3. Test Report
 
-**รันล่าสุด:** 2026-10-06 (เครื่อง local, Windows 11, `main` ที่ `65bd2bc` หลัง merge #90 #94 #95 #96) · ผล Python เท่ากับรอบ `3cbc4f2` เพราะรอบนี้ไม่ได้แก้โค้ดของ service · แถว smoke แบบไม่ใช้ Docker ยังเป็นผลวันที่ 2026-09-27
+**รันล่าสุด:** 2026-10-10 (เครื่อง local, Windows 11, `main` ที่ `ac195d0` หลัง merge #97 #99 #103 #104 #105 #107) · Python บน SQLite และ JS รันบนเครื่อง ผลตรงกับ CI ของ `main` ([run #37956653197](https://github.com/Software-Engineering-Concepts-2026/se-sec2-team-05/actions/runs/37956653197), 2026-10-09) ส่วน Postgres และ E2E ใช้ผลจาก run เดียวกัน · แถว smoke แบบไม่ใช้ Docker และแถวทดสอบด้วยมือบน compose ยังเป็นผลของรอบก่อน
 
 | ชุด | คำสั่ง | ผล |
 | --- | --- | --- |
 | JS unit | `cd prototypes/sprint1 && node --test` | ✅ 7 passed / 0 failed |
-| Python unit + integration | `pytest src/tests -v --cov=services/notes-service --cov=services/auth-service --cov=src` (คำสั่งเดียวกับ CI) | ✅ 376 passed / 0 failed / 1 xfailed — notes API 59, notes reports 34, notes favorites 32, auth API 30, auth credentials 29, notes preview 27, notes ratings 21, notes thanks 20, notes validation 18 + boundary 19, notes owner 18, auth tokens 14, notes identity 13, stats 11, notes comments 9, auth email_error 9 (AE-09 เป็น xfail), notes sort rating 7, fizzbuzz 5, edit-token property 2 · coverage รวม 98% (`notes-service/app.py` 91%, `identity.py`/`models.py`/`validation.py`/`credentials.py` 100%) · stats-service ไม่อยู่ใน `--cov` ของ CI |
+| Python unit + integration | `pytest src/tests -v --cov=services/notes-service --cov=services/auth-service --cov=src` (คำสั่งเดียวกับ CI) | ✅ 425 passed / 0 failed / 2 skipped / 1 xfailed — notes API 63, notes reports 34, vercel deploy 33, notes favorites 32, auth API 30, auth credentials 29, notes preview 27, notes ratings 21, notes thanks 20, notes validation 18 + boundary 19, notes owner 18, auth tokens 14, notes identity 13, migrations 13 (2 ข้อที่ใช้ advisory lock ข้ามบน SQLite), stats 11, notes comments 9, auth email_error 9 (AE-09 เป็น xfail), notes sort rating 8, fizzbuzz 5, edit-token property 2 · coverage รวม 97% (`notes-service/app.py` 91%, `identity.py`/`models.py`/`validation.py`/`credentials.py` 100%) · stats-service ไม่อยู่ใน `--cov` ของ CI · บนเครื่องต้องมี SDK `vercel` ใน path ไม่อย่างนั้นข้ามเพิ่มอีก 1 ข้อ (VC ที่ใช้ `vercel.blob`) |
+| Python บน PostgreSQL 16 | `TEST_DATABASE_URL=postgresql+psycopg://… pytest src/tests` (job `Unit tests (PostgreSQL)`) | ✅ 427 passed / 0 failed / 1 xfailed บน CI ของ `main` ที่ `ac195d0` ([run #37956653197](https://github.com/Software-Engineering-Concepts-2026/se-sec2-team-05/actions/runs/37956653197)) · มากกว่าบน SQLite 2 ข้อเพราะเทสต์ advisory lock ของ migration รันได้เฉพาะ Postgres · ไม่ได้รันบนเครื่องรอบนี้ |
+| E2E (browser) | `pytest src/e2e` + Playwright บน stack ของ compose (job `E2E tests (browser)`) | ✅ 6 passed (E2E-01 ถึง E2E-06) บน CI ของ `main` ที่ `ac195d0` ([run #37956653197](https://github.com/Software-Engineering-Concepts-2026/se-sec2-team-05/actions/runs/37956653197)) · ไม่ได้รันบนเครื่องรอบนี้ |
 | Smoke DK-03 ถึง DK-06 แบบไม่ใช้ Docker | รัน `auth-service` กับ `notes-service` ตัวจริงบน SQLite (notes ชี้ `AUTH_SERVICE_URL` ไปที่ auth) แล้วรันสคริปต์ `run:` ของแต่ละ step ที่ดึงออกมาจาก `ci.yml` ตรง ๆ | ✅ ผ่านครบ 6 step (`upload auth OK`, `end-to-end OK`, `edit/delete OK`, `auth OK`, validation `400`) · บน Postgres + compose จริงรอผลจาก CI เพราะ Docker daemon ไม่ได้เปิดบนเครื่องที่ใช้เขียน · ตอนรันบน Windows ต้องแทน `/tmp/` เป็น path ของ Windows เพราะ curl ของ Windows อ่าน `/tmp` ของ Git Bash ไม่ได้ (ไม่ได้แก้ใน `ci.yml` เพราะ CI รันบน Linux) |
-| Container smoke (compose e2e) | `docker compose up` + `curl` | ✅ ผ่านบน CI ([run #33351842320](https://github.com/Software-Engineering-Concepts-2026/se-sec2-team-05/actions/runs/33351842320), 1m6s) — log ยืนยัน `created note #1` และ `end-to-end OK` · ไม่ได้รัน local เพราะ Docker daemon ไม่ได้เปิดบนเครื่องที่ใช้เขียน · ล่าสุดผ่านบน CI ของ `main` ที่ `3cbc4f2` ([run #37326768845](https://github.com/Software-Engineering-Concepts-2026/se-sec2-team-05/actions/runs/37326768845), 2026-10-05) · ล่าสุดผ่านบน CI ของ `main` ที่ `65bd2bc` ([run #37457730164](https://github.com/Software-Engineering-Concepts-2026/se-sec2-team-05/actions/runs/37457730164), 2026-10-06) · 2026-10-06 รันบนเครื่อง local ได้แล้ว (ดูแถว "ทดสอบด้วยมือบน compose จริง") |
-| JS unit (web) | `cd web && node --test` | ✅ 89 passed / 0 failed — search-utils 19, note-utils 14, session-utils 13, upload-utils 12, profile-utils 9, stats-utils 9, admin-utils 8, edit-utils 5 |
+| Container smoke (compose e2e) | `docker compose up` + `curl` | ✅ ผ่านบน CI ([run #33351842320](https://github.com/Software-Engineering-Concepts-2026/se-sec2-team-05/actions/runs/33351842320), 1m6s) — log ยืนยัน `created note #1` และ `end-to-end OK` · ไม่ได้รัน local เพราะ Docker daemon ไม่ได้เปิดบนเครื่องที่ใช้เขียน · ล่าสุดผ่านบน CI ของ `main` ที่ `3cbc4f2` ([run #37326768845](https://github.com/Software-Engineering-Concepts-2026/se-sec2-team-05/actions/runs/37326768845), 2026-10-05) · ล่าสุดผ่านบน CI ของ `main` ที่ `65bd2bc` ([run #37457730164](https://github.com/Software-Engineering-Concepts-2026/se-sec2-team-05/actions/runs/37457730164), 2026-10-06) · 2026-10-06 รันบนเครื่อง local ได้แล้ว (ดูแถว "ทดสอบด้วยมือบน compose จริง") · ล่าสุดผ่านบน CI ของ `main` ที่ `ac195d0` ([run #37956653197](https://github.com/Software-Engineering-Concepts-2026/se-sec2-team-05/actions/runs/37956653197), 2026-10-09) |
+| JS unit (web) | `cd web && node --test` | ✅ 91 passed / 0 failed — search-utils 21, note-utils 14, session-utils 13, upload-utils 12, profile-utils 9, stats-utils 9, admin-utils 8, edit-utils 5 |
 | ทดสอบด้วยมือบน compose จริง (Postgres 16 + nginx) | `ADMIN_USER_IDS=1 docker compose -p noteshare-e2e up -d --build` (ชื่อ project แยกเพื่อให้ได้ฐานข้อมูลว่าง) แล้วกดผ่าน Chrome ที่ `http://localhost:8080` ด้วยบัญชีทดสอบ 2 บัญชี | ✅ 2026-10-06 บน `65bd2bc`: สมัคร + login อัตโนมัติ · อัปโหลด PDF ได้รหัสแก้ไข · ค้นหาเจอ · หน้าโน้ต: รายการโปรด, ความคิดเห็น (เวลาตรงกับเวลาเครื่อง), เจ้าของขอบคุณ/รายงานโน้ตตัวเองไม่ได้ · บัญชีที่สอง: ดาวน์โหลด (ยอดเพิ่ม, ปุ่มขอบคุณขึ้นหลังดาวน์โหลด) → ให้ 4 ดาว (เฉลี่ย 4.0) → ขอบคุณ → รายงาน · โปรไฟล์ขึ้นปุ่มผู้ดูแลเฉพาะบัญชีเลข 1 · หน้าผู้ดูแลกันสมาชิกทั่วไป ผู้ดูแลเห็นรายงานพร้อมเหตุผลและยกเลิกได้ · สถิติตรงกับที่ทำ (เปิดดู 3, ดาวน์โหลด 1, ขอบคุณ 1) · หน้าแก้ด้วยรหัส: รหัสผิดถูกปฏิเสธ, บัญชีที่ไม่ใช่เจ้าของแก้ชื่อได้ด้วยรหัส, ลบผ่านกล่องยืนยันแล้ว `GET /notes/1` ได้ `404` · `?next=` พากลับหน้าผู้ดูแล · Postgres: มี 9 ตาราง, การลบโน้ตลบ ratings/thanks/comments/reports/favorites ของโน้ตนั้นครบ, ข้อมูลอยู่ครบหลัง `docker compose restart`, `?topic=%` และ `?topic=_` เจอเฉพาะโน้ตที่มีตัวอักษรนั้นจริง (มีโน้ตที่ไม่มีไว้เทียบ) · log ไม่มี `5xx` มีแค่ `/favicon.ico` `404` · ข้อจำกัด: ตอนดาวน์โหลดปิดการบันทึกไฟล์ลงดิสก์ไว้ในหน้า (request และการนับยังจริง), ไฟล์ทดสอบเป็น PDF เปล่าจึงไม่มีภาพตัวอย่าง, ไม่ได้ตรวจความกว้างมือถือรอบนี้ |
 
 **ผลรันบน CI (PR #56):** ทั้ง 3 job ผ่านหมด — `js-tests` 13s, `python-tests` 13s, `docker-build` 1m6s
@@ -801,7 +881,7 @@ CI จับของจริงไปแล้ว 2 ครั้งตั้�
 ## 4. CI
 
 [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) รันทุก push เข้า `main` และทุก PR ที่ยิงเข้า `main`
-โดยแบ่ง job เพื่อให้อ่านผลได้ว่าอะไรพัง (`lint` รันแยกอิสระ ไม่มี job ไหนรอ)
+โดยแบ่ง job เพื่อให้อ่านผลได้ว่าอะไรพัง (`lint` และ `security-scan` รันแยกอิสระ ไม่มี job ไหนรอ)
 
 ```
 js-tests ──────────────┐    ┌──> docker-build (build image + smoke ด้วย curl)
@@ -827,11 +907,28 @@ job นี้ตั้ง `timeout-minutes: 15` ไว้ (ปกติจบใ
 ครบ 5 ฟิลด์ (title, subject_name, subject_code, lesson, topic) — NA-135 ผ่านบน SQLite ทั้ง 5 แบบ และล้มบน Postgres ทั้ง 5 แบบ · ก่อนเพิ่ม NA-135
 ทั้งชุดผ่านทั้งสองฐานข้อมูลแม้มี mutation นี้ แปลว่าการค้นแบบไม่สนตัวพิมพ์ไม่เคยถูกทดสอบเลย
 
+`security-scan` (ชื่อใน GitHub: **Security scan**) ตรวจ 2 อย่าง: `pip-audit` เช็คว่า package ที่ pin ไว้ใน `requirements.txt` ทุกไฟล์
+(notes, auth, stats, `src/tests`, `src/e2e` รวม dependency ที่ติดมา) มีช่องโหว่ที่ประกาศแล้วหรือไม่ และ `bandit` หาโค้ดที่เสี่ยงใน `services/`
+เครื่องมือ pin เวอร์ชันไว้เหมือน ruff แต่ฐานข้อมูลช่องโหว่อัปเดตทุกวัน job นี้จึงแดงเองได้แม้ไม่มีใครแก้โค้ด ถ้าแดงให้อัปเกรด package ตัวนั้นเป็นเวอร์ชันที่แก้แล้ว
+
+รอบแรกที่รัน (2026-10-09) เจอและจัดการแบบนี้:
+
+| เครื่องมือ | เจอ | จัดการ |
+| --- | --- | --- |
+| pip-audit | Flask 3.0.3 — CVE-2026-27205 ไม่ใส่ `Vary: Cookie` เมื่อเข้าถึง session บางแบบ (cache กลางอาจเก็บ response ของผู้ใช้คนหนึ่งไว้) | อัปเกรดเป็น 3.1.3 ทั้ง 3 service |
+| pip-audit | requests 2.32.5 — CVE-2026-25645 `extract_zipped_paths()` ใช้ชื่อไฟล์ใน temp ที่เดาได้ (โค้ดเราไม่ได้เรียกฟังก์ชันนี้) | อัปเกรดเป็น 2.33.0 (stats-service, E2E) |
+| pip-audit | pytest 8.3.3 — CVE-2025-71176 ใช้โฟลเดอร์ `/tmp/pytest-of-{user}` ที่คนอื่นบนเครื่องเดียวกันสร้างดักไว้ได้ | อัปเกรดเป็น 9.0.3 (`src/tests`, E2E) |
+| bandit B310 | `urlopen` ใน `identity.py` เปิดได้ทุก scheme ถ้า `AUTH_SERVICE_URL` ตั้งเป็น `file://` จะไปอ่านไฟล์บนเครื่อง | `HttpIdentity` รับแค่ `http`/`https` ตั้งแต่ตอนสร้าง (NI-09) แล้วปิดคำเตือนที่บรรทัด `urlopen` |
+| bandit B104 ×3 | `app.run(host="0.0.0.0")` ของ notes, auth, stats | ใช้แค่ตอนรันตรงเพื่อ dev ใน container · compose/Docker ใช้ gunicorn และ Vercel ไม่ผ่านบรรทัดนี้ → `# nosec B104` พร้อมเหตุผล |
+| bandit B105/B106 ×5 | "รหัสผ่านฝังในโค้ด" ที่จริงคือ `password == ""`, ข้อความ error ของช่อง password, `token_type="Bearer"`, ชื่ออัลกอริทึม `scrypt:131072:8:1` | เขียน `password == ""` เป็น `not password` (ผลเหมือนเดิม) ส่วนที่เหลือ `# nosec` รายบรรทัดพร้อมเหตุผล |
+
+หลังแก้ ทั้งสองเครื่องมือไม่เจออะไร · เทสต์ทั้งชุดผ่านกับ Flask 3.1.3, requests 2.33.0 และ pytest 9.0.3 ทั้งบน SQLite และ Postgres
+
 ## 5. งานที่ยังค้าง
 
 - [x] **วชิรวิทย์** — เขียน unit test ของตัวเอง (เสนอ: logic filter คณะ/ปี/ประเภทไฟล์ และประวัติการค้นหาใน `wachirawit_search_note_prototype.html` ต้องแยก pure function ออกมาก่อนแบบเดียวกับ Lab 7) · ทำแล้วเป็นเทสต์ของ Notes Service แทน prototype: `test_notes_preview.py`, `test_notes_favorites.py`, `test_notes_thanks.py` และเทสต์ download/topic/date ใน `test_notes_api.py`
 - [x] **กฤตเมธ** — เขียน unit test ของตัวเอง (เสนอ: การคำนวณคะแนนเฉลี่ยหลังส่ง rating ใน `kittamet_note_rating_prototype.html`) · ทำแล้วเป็นเทสต์ของ service แทน prototype: `test_notes_comments.py`, `test_notes_reports.py`, `test_notes_ratings.py` (รวมค่าเฉลี่ย rating) และเทสต์ stats ใน `test_stats_service.py`
 - [x] เขียนเทสต์ของ `POST /notes` ที่ commit ไม่ผ่าน แล้วต้องไม่ทิ้งไฟล์กำพร้าไว้ใน storage — NA-12
 - [x] เทสต์ที่รันกับ PostgreSQL จริง — ตอนนี้เทสต์ Python ใช้ SQLite ส่วน compose ใช้ Postgres จึงมีช่องว่างเรื่องความต่างของ dialect (`ilike`, การเทียบวันที่) ที่จับได้แค่ตอน smoke test · 2026-10-06 ตรวจด้วยมือบน Postgres 16 ของ compose แล้ว (`?topic=` กับ `%`/`_`, การลบแถวลูก, ข้อมูลหลัง restart — ดูหัวข้อ 3) แต่ยังไม่มีเทสต์อัตโนมัติ · **2026-10-08 ทำแล้ว:** job `Unit tests (PostgreSQL)` ใน CI รันเทสต์ Python ทั้งชุดบน Postgres 16 (หัวข้อ 4) และเพิ่ม NA-135 ที่จับได้เฉพาะบน Postgres
-- [ ] เพิ่ม branch protection ให้ `main` ต้องผ่าน CI ก่อน merge (ตั้งใน GitHub Settings ไม่ใช่ในโค้ด)
+- [ ] เพิ่ม branch protection ให้ `main` ต้องผ่าน CI ก่อน merge (ตั้งใน GitHub Settings ไม่ใช่ในโค้ด) · ต้องใช้สิทธิ์ Admin ของ repo ซึ่งสมาชิกทีมมีแค่ Maintain จึงต้องให้เจ้าของ org ตั้งให้
 - [x] E2E test อัตโนมัติผ่าน browser — มีหน้าเว็บจริงแล้ว (`web/`) แต่ยังตรวจด้วยมือ (ดูท้าย 2.13) ยังไม่มีเครื่องมืออย่าง Playwright ใน CI · 2026-10-06 กดครบทุกหน้าบน compose จริงแล้ว (ดูหัวข้อ 3) แต่ยังเป็นการตรวจด้วยมือ · **2026-10-08 ทำแล้ว:** job `E2E tests (browser)` ใน CI รัน Playwright 6 เส้นทาง (หัวข้อ 2.21)

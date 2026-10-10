@@ -161,3 +161,10 @@ test('authErrorMessage covers each auth-service error', () => {
   assert.match(authErrorMessage(0, null), /เชื่อมต่อเซิร์ฟเวอร์ไม่ได้/);
   assert.match(authErrorMessage(502, null), /HTTP 502/);
 });
+
+test('authErrorMessage shows the wait time from a rate-limited response', () => {
+  const message = 'เข้าสู่ระบบไม่สำเร็จหลายครั้งเกินไป กรุณาลองใหม่ในอีก 15 นาที';
+  assert.equal(authErrorMessage(429, { error: 'rate_limited', message, retry_after: 900 }), message);
+  // Without a message it still says to wait, not "HTTP 429".
+  assert.match(authErrorMessage(429, { error: 'rate_limited' }), /รอสักครู่/);
+});

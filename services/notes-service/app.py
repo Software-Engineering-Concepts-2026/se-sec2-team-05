@@ -1339,4 +1339,6 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
 app = create_app()
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5001)
+    # ใช้แค่ตอนรันตรงเพื่อ dev ใน container ซึ่งต้องรับ request จากนอก container (bandit B104)
+    # ใน compose และ Docker image รันผ่าน gunicorn ส่วนบน Vercel ไม่ผ่านบรรทัดนี้
+    app.run(host="0.0.0.0", port=5001)  # nosec B104
