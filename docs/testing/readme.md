@@ -345,6 +345,7 @@ NA-136 ถึง NA-139 (`total` และ `file_type`, 2026-10-08) จับ mu
 | NI-06 | ต่อ auth-service ไม่ติด | พอร์ตที่ไม่มีใครฟัง | `IdentityUnavailable` |
 | NI-07 | อ่านที่อยู่จาก env | `AUTH_SERVICE_URL=http://auth-service:5002/` | เรียก `http://auth-service:5002/auth/me` |
 | NI-08 | ต่อครบสอง service | สมัคร → login → อัปโหลด (แนบ `uploader_name` ปลอม) → logout → อัปโหลดซ้ำ | `201` ด้วยชื่อจากบัญชี แล้ว `401` · มีโน้ตใบเดียว |
+| NI-09 | `AUTH_SERVICE_URL` ต้องเป็น http/https (bandit B310, หัวข้อ 4) | `file:///etc/passwd`, `ftp://auth-service`, `auth-service:5002`, `""` | `ValueError` ตั้งแต่สร้าง `HttpIdentity` · `https://…` ยังใช้ได้ |
 
 **ตรวจว่าเทสต์จับบั๊กได้จริง (2026-09-27):** ลองแก้ `POST /notes` ให้ปล่อยผ่านเมื่อ token ใช้ไม่ได้
 (ใส่บัญชี anonymous แทนการตอบ 401) มี 5 เทสต์ fail — NA-20 ทั้งสามแบบ, NA-21 และ NI-08 — จากนั้น revert แล้วผ่านครบ
@@ -752,6 +753,55 @@ mutation 10 แบบถูกจับครบ (2026-10-09, SQLite): ไม่
 `X-Forwarded-For` (1), login สำเร็จไม่ล้างตัวนับ (1), สมัครนับเฉพาะบัญชีใหม่ไม่นับ `409` (1), ไม่ลบแถวเก่า (1), รหัสยาวเกินไม่นับ (1),
 คิด `Retry-After` จากครั้งล่าสุดแทนครั้งที่ทำให้ครบเพดาน (1), นับย้อนหลังไม่จำกัดเวลา (2) · หน้าเว็บไม่มีกรณี `rate_limited` (RL-13 ล้ม)
 
+### 2.24 Load test — เวลาตอบสนองเทียบ NFR
+
+สคริปต์ [`src/perf/load_test.py`](../../src/perf/load_test.py) (วิธีรันใน [`src/perf/README.md`](../../src/perf/README.md)) · seed ผ่าน API จริง
+10 บัญชี 300 โน้ต (PNG 75 ไฟล์ให้ preview ย่อรูปจริง) แล้วแต่ละบัญชีดาวน์โหลดและให้คะแนน 10 โน้ต · ทุก scenario อุ่นเครื่อง 20 request
+แล้วยิง 200 request · **ผ่าน = p95 ไม่เกินงบของ NFR และ error 0%** · เวลาที่วัดเป็นฝั่ง server + network ในเครื่อง ไม่รวมเวลาวาดหน้าจอ
+จึงใช้งบเต็มของ NFR เป็นเพดานบนสุด · NFR-014 ไม่ตั้งเป้าผู้ใช้พร้อมกันจำนวนมาก ระดับ 10 และ 25 thread ใช้ดูว่าเริ่มช้าตรงไหน
+
+| # | Scenario | Request | NFR (งบ) |
+| --- | --- | --- | --- |
+| PF-01 | หน้าเว็บ | `GET /` (HTML จาก nginx) | NFR-001 (2 s) |
+| PF-02 | ค้นด้วยคำ | `GET /notes?q=` สุ่มจาก `data`, `cs201`, `matrix`, `บทนำ`, `algorithms`, `Big-O` | NFR-002 (3 s) |
+| PF-03 | กรอง | `GET /notes?faculty=&year_level=&file_type=` สุ่มค่า | NFR-002 (3 s) |
+| PF-04 | เรียงตามคะแนน | `GET /notes?sort=rating&offset=` 0/20/40 | NFR-002 (3 s) |
+| PF-05 | รายละเอียดโน้ต | `GET /notes/<id>` สุ่มโน้ต | NFR-001 (2 s) |
+| PF-06 | รูปตัวอย่าง | `GET /notes/<id>/preview` โน้ต PNG | NFR-001 (2 s) |
+| PF-07 | ดาวน์โหลด | `GET /notes/<id>/download` พร้อม token | ไม่มี |
+| PF-08 | สถิติภาพรวม | `GET /stats` | ไม่มี |
+| PF-09 | เข้าสู่ระบบ | `POST /auth/login` บัญชีเดียวซ้ำ ๆ | ไม่มี |
+
+ผลรัน 2026-10-09 บนเครื่อง local (AMD Ryzen 5 7500F 6 คอร์ / 12 thread, RAM 16 GB, Windows 11 + Docker Desktop ให้ VM 12 CPU 8 GB)
+กับ compose stack ใหม่ที่ build จาก `main` `ac195d0` (Postgres 16 + nginx, ทุก service รัน gunicorn ค่าเริ่มต้น 1 worker แบบ sync) · ค่าเป็น p95 ms (p50 ในวงเล็บ)
+
+| # | 1 thread | 10 thread | 25 thread | req/s ที่ 10 thread | ผล |
+| --- | --- | --- | --- | --- | --- |
+| PF-01 | 1.2 (1.0) | 11.6 (7.1) | 28.7 (14.3) | 1248 | ผ่าน |
+| PF-02 | 10.9 (8.3) | 80.7 (60.5) | 193.8 (170.2) | 155 | ผ่าน |
+| PF-03 | 8.4 (6.1) | 51.3 (35.6) | 159.8 (124.9) | 263 | ผ่าน |
+| PF-04 | 11.7 (8.8) | 66.8 (58.6) | 253.2 (187.2) | 160 | ผ่าน |
+| PF-05 | 12.7 (10.6) | 69.7 (64.3) | 240.9 (202.5) | 152 | ผ่าน |
+| PF-06 | 7.6 (5.7) | 30.2 (28.1) | 126.2 (105.0) | 348 | ผ่าน |
+| PF-07 | 16.2 (13.9) | 102.7 (98.6) | 317.5 (279.6) | 101 | ไม่มีเป้า |
+| PF-08 | 8.8 (5.5) | 55.7 (31.4) | 159.2 (126.9) | 296 | ไม่มีเป้า |
+| PF-09 | 487.1 (387.3) | 4,416 (4,054) | 11,592 (10,089) | 2.5 | ไม่มีเป้า |
+
+ทุก scenario error 0% ทุกระดับ · ข้อที่มี NFR ผ่านทั้งหมด แม้ที่ 25 thread p95 แย่สุดยังไม่ถึง 0.3 วินาที (PF-04)
+· เพิ่มโน้ตเป็น 2,020 แล้วรัน PF-02 ถึง PF-05 ที่ 10 thread อีกรอบ: p95 = 166.4 / 41.9 / 84.9 / 85.5 ms ยังผ่าน · PF-02 ช้าลงตามจำนวนโน้ต
+เพราะ `ilike '%คำ%'` ทั้ง 5 ฟิลด์ใช้ index ไม่ได้ แต่ฝั่ง DB ยังเร็ว (`EXPLAIN ANALYZE` ของการนับ `total` = seq scan 2,020 แถว 2.5 ms)
+เวลาส่วนใหญ่จึงอยู่ที่ฝั่ง Python ที่มี worker เดียว
+
+**คอขวดที่เจอ (บันทึกไว้ ยังไม่แก้ เพราะไม่มีข้อไหนผิด NFR):**
+- **login ทำได้ ~2.5 ครั้ง/วินาทีไม่ว่าจะยิงพร้อมกันกี่คน** (PF-09: req/s 2.5 / 2.5 / 2.4 ที่ 1 / 10 / 25 thread) — `scrypt` N=2^17 ใช้ CPU
+  ~0.4 วินาทีต่อครั้งตามที่ตั้งใจ (ค่าขั้นต่ำของ OWASP, `credentials.py`) และ auth-service รัน gunicorn 1 worker แบบ sync
+  request จึงต่อคิวกัน 25 คนกด login พร้อมกันคนสุดท้ายรอ ~11.6 วินาที · ทางแก้ถ้าต้องการ: เพิ่ม worker
+  (gunicorn อ่าน `WEB_CONCURRENCY` เอง) ไม่ใช่ลดค่า scrypt · บน Vercel แต่ละ request ได้ instance ของตัวเองจึงไม่ต่อคิวแบบนี้
+- **throughput ของ notes-service คงที่ราว 100–260 req/s** ไม่ว่าจะเพิ่ม thread เวลาที่เพิ่มขึ้นเป็นเวลาต่อคิว (p50 โตตามจำนวน thread
+  เกือบเป็นเส้นตรง) จากเหตุเดียวกันคือ gunicorn 1 worker · ยังห่างงบของ NFR มาก
+- PF-07 ดาวน์โหลดเป็นข้อที่ช้าสุดใน notes-service เพราะแต่ละครั้งที่แนบ token ต้องถาม auth-service (`GET /auth/me`) อีกทอดหนึ่ง
+  แล้วเขียนตัวนับ `download_count` และเช็ค/เพิ่มแถว `note_accesses` ลง DB
+
 ## 3. Test Report
 
 **รันล่าสุด:** 2026-10-06 (เครื่อง local, Windows 11, `main` ที่ `65bd2bc` หลัง merge #90 #94 #95 #96) · ผล Python เท่ากับรอบ `3cbc4f2` เพราะรอบนี้ไม่ได้แก้โค้ดของ service · แถว smoke แบบไม่ใช้ Docker ยังเป็นผลวันที่ 2026-09-27
@@ -777,7 +827,7 @@ CI จับของจริงไปแล้ว 2 ครั้งตั้�
 ## 4. CI
 
 [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) รันทุก push เข้า `main` และทุก PR ที่ยิงเข้า `main`
-โดยแบ่ง job เพื่อให้อ่านผลได้ว่าอะไรพัง (`lint` รันแยกอิสระ ไม่มี job ไหนรอ)
+โดยแบ่ง job เพื่อให้อ่านผลได้ว่าอะไรพัง (`lint` และ `security-scan` รันแยกอิสระ ไม่มี job ไหนรอ)
 
 ```
 js-tests ──────────────┐    ┌──> docker-build (build image + smoke ด้วย curl)
@@ -799,6 +849,23 @@ job นี้ตั้ง `timeout-minutes: 15` ไว้ (ปกติจบใ
 ตรวจว่า job นี้จับของที่ SQLite ปล่อยผ่านได้จริง (2026-10-08, เครื่อง local + Postgres 16 ใน Docker): เปลี่ยน `ilike` เป็น `like` ทีละฟิลด์ใน `GET /notes?q=`
 ครบ 5 ฟิลด์ (title, subject_name, subject_code, lesson, topic) — NA-135 ผ่านบน SQLite ทั้ง 5 แบบ และล้มบน Postgres ทั้ง 5 แบบ · ก่อนเพิ่ม NA-135
 ทั้งชุดผ่านทั้งสองฐานข้อมูลแม้มี mutation นี้ แปลว่าการค้นแบบไม่สนตัวพิมพ์ไม่เคยถูกทดสอบเลย
+
+`security-scan` (ชื่อใน GitHub: **Security scan**) ตรวจ 2 อย่าง: `pip-audit` เช็คว่า package ที่ pin ไว้ใน `requirements.txt` ทุกไฟล์
+(notes, auth, stats, `src/tests`, `src/e2e` รวม dependency ที่ติดมา) มีช่องโหว่ที่ประกาศแล้วหรือไม่ และ `bandit` หาโค้ดที่เสี่ยงใน `services/`
+เครื่องมือ pin เวอร์ชันไว้เหมือน ruff แต่ฐานข้อมูลช่องโหว่อัปเดตทุกวัน job นี้จึงแดงเองได้แม้ไม่มีใครแก้โค้ด ถ้าแดงให้อัปเกรด package ตัวนั้นเป็นเวอร์ชันที่แก้แล้ว
+
+รอบแรกที่รัน (2026-10-09) เจอและจัดการแบบนี้:
+
+| เครื่องมือ | เจอ | จัดการ |
+| --- | --- | --- |
+| pip-audit | Flask 3.0.3 — CVE-2026-27205 ไม่ใส่ `Vary: Cookie` เมื่อเข้าถึง session บางแบบ (cache กลางอาจเก็บ response ของผู้ใช้คนหนึ่งไว้) | อัปเกรดเป็น 3.1.3 ทั้ง 3 service |
+| pip-audit | requests 2.32.5 — CVE-2026-25645 `extract_zipped_paths()` ใช้ชื่อไฟล์ใน temp ที่เดาได้ (โค้ดเราไม่ได้เรียกฟังก์ชันนี้) | อัปเกรดเป็น 2.33.0 (stats-service, E2E) |
+| pip-audit | pytest 8.3.3 — CVE-2025-71176 ใช้โฟลเดอร์ `/tmp/pytest-of-{user}` ที่คนอื่นบนเครื่องเดียวกันสร้างดักไว้ได้ | อัปเกรดเป็น 9.0.3 (`src/tests`, E2E) |
+| bandit B310 | `urlopen` ใน `identity.py` เปิดได้ทุก scheme ถ้า `AUTH_SERVICE_URL` ตั้งเป็น `file://` จะไปอ่านไฟล์บนเครื่อง | `HttpIdentity` รับแค่ `http`/`https` ตั้งแต่ตอนสร้าง (NI-09) แล้วปิดคำเตือนที่บรรทัด `urlopen` |
+| bandit B104 ×3 | `app.run(host="0.0.0.0")` ของ notes, auth, stats | ใช้แค่ตอนรันตรงเพื่อ dev ใน container · compose/Docker ใช้ gunicorn และ Vercel ไม่ผ่านบรรทัดนี้ → `# nosec B104` พร้อมเหตุผล |
+| bandit B105/B106 ×5 | "รหัสผ่านฝังในโค้ด" ที่จริงคือ `password == ""`, ข้อความ error ของช่อง password, `token_type="Bearer"`, ชื่ออัลกอริทึม `scrypt:131072:8:1` | เขียน `password == ""` เป็น `not password` (ผลเหมือนเดิม) ส่วนที่เหลือ `# nosec` รายบรรทัดพร้อมเหตุผล |
+
+หลังแก้ ทั้งสองเครื่องมือไม่เจออะไร · เทสต์ทั้งชุดผ่านกับ Flask 3.1.3, requests 2.33.0 และ pytest 9.0.3 ทั้งบน SQLite และ Postgres
 
 ## 5. งานที่ยังค้าง
 

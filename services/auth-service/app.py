@@ -193,8 +193,9 @@ def create_app(
         missing = {}
         if not email:
             missing["email"] = "จำเป็นต้องกรอก"
-        if not isinstance(password, str) or password == "":
-            missing["password"] = "จำเป็นต้องกรอก"
+        if not isinstance(password, str) or not password:
+            # bandit B105 เข้าใจว่าข้อความแจ้ง error ของช่อง password คือรหัสผ่านที่ฝังไว้
+            missing["password"] = "จำเป็นต้องกรอก"  # nosec B105
         if missing:
             return jsonify(error="validation_failed", fields=missing), 400
 
@@ -232,7 +233,8 @@ def create_app(
                 )
             )
             session.commit()
-            return jsonify(
+            # bandit B106 เข้าใจว่า token_type="Bearer" คือรหัสผ่าน — เป็นแค่ชนิดของ token ตาม RFC 6750
+            return jsonify(  # nosec B106
                 access_token=token,
                 token_type="Bearer",
                 expires_at=expires_at.isoformat(),
@@ -265,4 +267,6 @@ def create_app(
 app = create_app()
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5002)
+    # ใช้แค่ตอนรันตรงเพื่อ dev ใน container ซึ่งต้องรับ request จากนอก container (bandit B104)
+    # ใน compose และ Docker image รันผ่าน gunicorn ส่วนบน Vercel ไม่ผ่านบรรทัดนี้
+    app.run(host="0.0.0.0", port=5002)  # nosec B104

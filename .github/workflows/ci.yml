@@ -1,5 +1,5 @@
 # CI สำหรับ NoteShare — รันทุก push และทุก PR ที่ยิงเข้า main
-# job แยกกันเพื่อให้เห็นชัดว่าอะไรพัง: lint, เทสต์ JS, เทสต์ Python (SQLite / PostgreSQL), image build + smoke หรือ E2E ผ่าน browser
+# job แยกกันเพื่อให้เห็นชัดว่าอะไรพัง: lint, security scan, เทสต์ JS, เทสต์ Python (SQLite / PostgreSQL), image build + smoke หรือ E2E ผ่าน browser
 name: CI
 
 on:
@@ -28,6 +28,39 @@ jobs:
 
       - name: Run ruff
         run: ruff check .
+
+  # หาช่องโหว่ 2 ทาง แยกจาก lint และไม่รอ job ไหน:
+  # - pip-audit: package ที่ pin ไว้ใน requirements ทุกไฟล์ (รวม dependency ที่ติดมา) มีช่องโหว่ที่ประกาศแล้วหรือไม่
+  # - bandit: รูปแบบโค้ดที่เสี่ยงใน services/ (เทสต์อยู่ใน src/ จึงไม่ถูกตรวจ)
+  # จุดที่ bandit เตือนผิดปิดเป็นรายบรรทัดด้วย `# nosec <รหัส>` พร้อมเหตุผลในคอมเมนต์ ไม่ปิดทั้งกฎ
+  # ล็อกเวอร์ชันเครื่องมือไว้เหมือน ruff · ฐานข้อมูลช่องโหว่ของ pip-audit อัปเดตทุกวัน
+  # job นี้จึงแดงได้เองโดยไม่มีใครแก้โค้ด ถ้าแดงให้อัปเกรด package ตัวนั้นเป็นเวอร์ชันที่แก้แล้ว
+  security-scan:
+    name: Security scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install scanners
+        run: pip install pip-audit==2.9.0 bandit==1.8.6
+
+      - name: Audit pinned dependencies (pip-audit)
+        run: |
+          pip-audit --progress-spinner off \
+            -r services/notes-service/requirements.txt \
+            -r services/auth-service/requirements.txt \
+            -r services/stats-service/requirements.txt \
+            -r src/tests/requirements-dev.txt \
+            -r src/e2e/requirements.txt
+
+      - name: Scan service code (bandit)
+        run: bandit -r services
 
   js-tests:
     name: Unit tests (JS prototypes)
