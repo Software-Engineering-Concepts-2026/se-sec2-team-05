@@ -65,6 +65,10 @@ vercel blob create-store noteshare-files --access private --region iad1
 
 `AUTH_SERVICE_URL` **ไม่ต้องตั้ง** · Vercel ใส่ให้ notes และ stats ผ่าน service binding ใน `vercel.json`
 
+เพดานของ rate limit ที่ login และสมัครสมาชิก (`AUTH_LOGIN_MAX_FAILS_PER_EMAIL`, `AUTH_LOGIN_MAX_FAILS_PER_IP`,
+`AUTH_REGISTER_MAX_PER_IP` และหน้าต่างเวลา, ADR-011) ไม่ต้องตั้ง ใช้ค่า default ได้เลย · ตัวนับอยู่ในตาราง `auth_attempts`
+ของ Neon จึงใช้ร่วมกันทุก instance · ดูค่า default ใน [`services/auth-service/README.md`](../../services/auth-service/README.md)
+
 ## 5. Deploy
 
 ```bash
