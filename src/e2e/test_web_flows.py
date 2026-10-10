@@ -1,4 +1,4 @@
-"""E2E-01 ถึง E2E-06 — เส้นทางหลักของผู้ใช้ผ่านหน้าเว็บจริง (test plan หัวข้อ 2.21)
+"""E2E-01 ถึง E2E-07 — เส้นทางหลักของผู้ใช้ผ่านหน้าเว็บจริง (test plan หัวข้อ 2.21)
 
 ก่อนหน้านี้ตรวจด้วยมือบน compose ทุกครั้งที่แก้หน้าเว็บ (test plan หัวข้อ 3) ชุดนี้ทำซ้ำเส้นทางเดิม
 อัตโนมัติ: สมัคร → อัปโหลด → ค้นหา → อีกบัญชีดาวน์โหลด/ให้คะแนน/ขอบคุณ/แสดงความคิดเห็น
@@ -159,3 +159,32 @@ def test_search_page_fits_a_phone_screen(page, api):
     assert search_box is not None
     assert search_box["y"] + search_box["height"] <= 740
     expect(page.get_by_role("button", name="ค้นหา", exact=True)).to_be_in_viewport()
+
+
+def test_a_6_mb_note_uploads_and_downloads_whole(page, api, log_in, tmp_path):
+    """E2E-07: ไฟล์ 6 MB (ใหญ่กว่าเพดาน body 4.5 MB ของ Vercel) อัปโหลดผ่านหน้าเว็บได้ (NFR-006, ADR-012)
+
+    บน compose ไฟล์ไปทางฟอร์ม (nginx รับถึง 11m) · กับ stack ที่เก็บใน Blob ไฟล์ไปตรงเข้า Blob
+    ทั้งสองทางต้องได้โน้ตที่ดาวน์โหลดกลับมาได้ไบต์เดิมครบ
+    """
+    owner = api.register("เจ้าของไฟล์ใหญ่ E2E")
+    code = unique("BIG")
+    data = b"%PDF-1.4\n" + bytes(range(256)) * (6 * 1024 * 1024 // 256)
+    pdf = tmp_path / "big.pdf"
+    pdf.write_bytes(data)
+
+    log_in(owner)
+    page.goto("/upload.html")
+    page.locator('[name="file"]').set_input_files(pdf)
+    page.locator('[name="title"]').fill(f"ไฟล์ใหญ่ {code}")
+    page.locator('[name="subject_code"]').fill(code)
+    page.locator('[name="subject_name"]').fill("Big Files")
+    page.locator('[name="faculty"]').fill("ICT")
+    page.locator('[name="year_level"]').select_option("3")
+    page.locator('[name="lesson"]').fill("บทที่ 6")
+    page.get_by_role("button", name="อัปโหลด ✓").click()
+
+    expect(page.locator("#uploadDone")).to_be_visible(timeout=60_000)
+    [note] = api.search(code)
+    assert note["size_bytes"] == len(data)
+    assert api.download(note["id"]) == data

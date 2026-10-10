@@ -99,7 +99,7 @@ notes-service ส่ง header นี้ต่อไปตรวจที่ `GE
 
 | ฟิลด์ | บังคับ | หมายเหตุ |
 | --- | --- | --- |
-| `file` | ✅ | PDF / PNG / JPEG เท่านั้น ไม่เกิน 4 MB |
+| `file` | ✅ | PDF / PNG / JPEG เท่านั้น ไม่เกิน 10 MB (บน Vercel ไม่เกิน 4 MB — ไฟล์ใหญ่กว่านั้นใช้การอัปโหลดตรงด้านล่าง) |
 | `title` | ✅ | ชื่อโน้ต |
 | `subject_name`, `subject_code`, `faculty`, `lesson` | ✅ | ข้อความ |
 | `year_level` | ✅ | ตัวเลข 1–8 |
@@ -120,8 +120,25 @@ notes-service ส่ง header นี้ต่อไปตรวจที่ `GE
 { "error": "validation_failed", "fields": { "subject_code": "จำเป็นต้องกรอก", "year_level": "ต้องเป็นตัวเลข" } }
 ```
 
-request ที่ใหญ่เกิน 4 MB + 256 KB (ไฟล์ 4 MB + ที่เผื่อให้ multipart/metadata) จะถูกตัดตั้งแต่ชั้น Werkzeug
-และได้ `413` ที่มีรูปร่าง JSON เดียวกัน — ไม่ต้องรอให้อ่าน body เข้ามาครบก่อนถึงจะปฏิเสธ
+request ที่ใหญ่เกินเพดานไฟล์ของฟอร์ม + 256 KB (เผื่อให้ multipart/metadata) จะถูกตัดตั้งแต่ชั้น Werkzeug
+และได้ `413` ที่มีรูปร่าง JSON เดียวกัน — ไม่ต้องรอให้อ่าน body เข้ามาครบก่อนถึงจะปฏิเสธ · เพดานไฟล์ของฟอร์มคือ 10 MB
+เมื่อเก็บบนดิสก์ (compose) และ 4 MB เมื่อเก็บใน Blob เพราะ Vercel รับ body ได้ไม่เกิน 4.5 MB (ADR-009)
+
+### อัปโหลดตรงเข้า Vercel Blob (ADR-012)
+
+บน Vercel ไฟล์ไม่ผ่าน notes-service แต่ browser ส่งตรงเข้า Blob แล้วค่อยสร้างโน้ต (หน้า `web/upload.js` ทำให้เอง):
+
+1. `POST /notes/uploads` (ต้อง login) body JSON `{"file_name", "content_type", "size_bytes"}`
+   - เก็บใน Blob: ตอบ `{"mode": "direct", "pathname", "upload_url", "client_token", "store_id", "api_version", "expires_at", "max_file_bytes"}`
+     token ใช้ได้กับ `pathname` เดียวใต้ `uploads/<user id>/` ชนิดที่ประกาศ ไม่เกิน 10 MB ห้ามเขียนทับ อายุ 10 นาที
+     ชนิด/ขนาดไม่ผ่านได้ `400 validation_failed` เหมือนฟอร์ม · ตอนขอ token จะลบไฟล์เก่ากว่า 10 นาทีของผู้ใช้คนนั้นที่ไม่มีโน้ต
+   - เก็บบนดิสก์ (compose): ตอบ `{"mode": "form", "max_file_bytes": 10485760}` ให้ส่งฟอร์ม multipart ตามด้านบน
+2. `PUT upload_url` ด้วย header `authorization: Bearer <client_token>`, `x-api-version`, `x-vercel-blob-access: private`,
+   `x-vercel-blob-store-id`, `x-content-type`, `x-content-length` (ชุดเดียวกับ `put` ของ `@vercel/blob/client`)
+3. `POST /notes` body JSON = ฟิลด์เดียวกับฟอร์ม + `file_name` + `upload_pathname`
+   - ขนาดและชนิดอ่านจาก Blob เอง ไม่เชื่อค่าจาก client · pathname ที่ไม่ได้ออกให้ผู้เรียก หรือไฟล์ไม่อยู่ใน Blob → `400`
+   - ไฟล์ผิดชนิด/ใหญ่เกิน (ไม่ควรเกิดเพราะ token กันไว้) → `400` และลบไฟล์นั้นทิ้ง
+   - ไฟล์นี้เป็นของโน้ตอื่นไปแล้ว (ส่งซ้ำ) → `409` `{"error": "upload_already_used"}`
 
 ### `GET /notes` — query parameters
 

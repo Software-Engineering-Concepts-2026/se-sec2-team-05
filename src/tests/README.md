@@ -27,6 +27,7 @@
 | `test_notes_owner.py` | โน้ตของฉัน `GET /notes/mine` และการแก้/ลบด้วยบัญชีเจ้าของ (Issue #82, ADR-008) | อติชาติ |
 | `test_notes_sort_rating.py` | `GET /notes?sort=rating` เรียงตามคะแนนเฉลี่ย (Issue #83) | อติชาติ |
 | `test_vercel_deploy.py` | deploy บน Vercel: `BlobFileStorage`, URL ของ Neon ทั้ง 3 service, เพดาน body 4.5 MB และ route ใน `vercel.json` (ADR-009) | อติชาติ |
+| `test_notes_direct_upload.py` | อัปโหลดตรงเข้า Vercel Blob: client token, `POST /notes/uploads`, สร้างโน้ตแบบ JSON และล้างไฟล์ที่ค้าง (ADR-012) | อติชาติ |
 | `../e2e/test_web_flows.py` | E2E ผ่าน browser: สมัคร อัปโหลด ค้นหา ใช้โน้ตจากอีกบัญชี แก้/ลบด้วยรหัส และความกว้างมือถือ (test plan 2.21) | อติชาติ |
 | `../perf/load_test.py` | load test: เวลาตอบสนองของ API เทียบ NFR-001/002 ที่ 1, 10 และ 25 คนพร้อมกัน (test plan 2.24) — ไม่ใช่ pytest และไม่อยู่ใน CI | อติชาติ |
 | `../../prototypes/sprint1/note-utils.test.js` | `escapeHtml`, `formatStars`, `compareNotes` | อติชาติ (Lab 7) |

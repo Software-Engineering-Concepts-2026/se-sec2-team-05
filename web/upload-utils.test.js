@@ -8,6 +8,10 @@ const {
   uploadFields,
   uploadErrorMessage,
   uploadProgress,
+  uploadTicketRequest,
+  blobUploadHeaders,
+  directNoteBody,
+  blobUploadErrorMessage,
   searchUrlFor,
 } = require('./upload-utils.js');
 
@@ -68,9 +72,10 @@ test('validateUpload takes PDF, PNG and JPG only', () => {
   }
 });
 
-test('validateUpload rejects an empty file and one over 4 MB', () => {
+test('validateUpload rejects an empty file and one over 10 MB (NFR-006, ADR-012)', () => {
+  assert.equal(MAX_FILE_BYTES, 10 * 1024 * 1024);
   assert.equal(validateUpload(goodFields, { ...pdf, size: 0 }).file, 'ไฟล์ว่าง');
-  assert.equal(validateUpload(goodFields, { ...pdf, size: MAX_FILE_BYTES + 1 }).file, 'ไฟล์ใหญ่เกิน 4 MB');
+  assert.equal(validateUpload(goodFields, { ...pdf, size: MAX_FILE_BYTES + 1 }).file, 'ไฟล์ใหญ่เกิน 10 MB');
   assert.deepEqual(validateUpload(goodFields, { ...pdf, size: MAX_FILE_BYTES }), {});
 });
 
@@ -90,7 +95,8 @@ test('uploadErrorMessage covers notes-service errors and the gateway size limit'
   assert.match(uploadErrorMessage(400, { error: 'validation_failed', fields: { file: 'x' } }), /ช่องที่มีข้อความสีแดง/);
   assert.match(uploadErrorMessage(401, { error: 'unauthorized' }), /เข้าสู่ระบบใหม่/);
   assert.match(uploadErrorMessage(503, { error: 'auth_unavailable' }), /ไม่พร้อมใช้งาน/);
-  assert.equal(uploadErrorMessage(413, null), 'ไฟล์ใหญ่เกิน 4 MB');
+  assert.equal(uploadErrorMessage(413, null), 'ไฟล์ใหญ่เกิน 10 MB');
+  assert.match(uploadErrorMessage(409, { error: 'upload_already_used' }), /ถูกใช้สร้างโน้ตไปแล้ว/);
   assert.match(uploadErrorMessage(0, null), /เชื่อมต่อเซิร์ฟเวอร์ไม่ได้/);
   assert.match(uploadErrorMessage(500, null), /HTTP 500/);
 });
@@ -115,4 +121,50 @@ test('uploadProgress turns upload events into a percent and a Thai line (Issue #
   assert.deepEqual(uploadProgress(10 * mb, 10 * mb), { percent: 100, text: 'ส่งไฟล์ครบแล้ว รอเซิร์ฟเวอร์บันทึกโน้ต…' });
   // size unknown (lengthComputable = false): no percent
   assert.deepEqual(uploadProgress(500, 0), { percent: null, text: 'กำลังส่งไฟล์…' });
+});
+
+// ADR-012: direct upload to Vercel Blob
+const ticket = {
+  mode: 'direct',
+  pathname: 'uploads/7/0123456789abcdef0123456789abcdef.pdf',
+  upload_url: 'https://vercel.com/api/blob/?pathname=uploads%2F7%2F0123456789abcdef0123456789abcdef.pdf',
+  client_token: 'vercel_blob_client_store1_abc',
+  store_id: 'store1',
+  api_version: '12',
+};
+const bigPdf = { name: 'Week 3.PDF', size: 9 * 1024 * 1024, type: 'Application/PDF' };
+
+test('uploadTicketRequest sends the name, type and size the service checks', () => {
+  assert.deepEqual(uploadTicketRequest(bigPdf), {
+    file_name: 'Week 3.PDF',
+    content_type: 'application/pdf',
+    size_bytes: 9 * 1024 * 1024,
+  });
+});
+
+test('blobUploadHeaders match what @vercel/blob/client put sends with a client token', () => {
+  assert.deepEqual(blobUploadHeaders(ticket, bigPdf), {
+    authorization: 'Bearer vercel_blob_client_store1_abc',
+    'x-api-version': '12',
+    'x-vercel-blob-access': 'private',
+    'x-vercel-blob-store-id': 'store1',
+    'x-content-type': 'application/pdf',
+    'x-content-length': String(9 * 1024 * 1024),
+  });
+});
+
+test('directNoteBody is the form fields plus where the file went, nothing from the ticket token', () => {
+  const body = directNoteBody({ ...goodFields, topic: ' ' }, ticket, bigPdf);
+  assert.deepEqual(body, {
+    ...uploadFields(goodFields),
+    file_name: 'Week 3.PDF',
+    upload_pathname: 'uploads/7/0123456789abcdef0123456789abcdef.pdf',
+  });
+  assert.equal(JSON.stringify(body).includes('vercel_blob_client'), false);
+});
+
+test('blobUploadErrorMessage explains a failed PUT to Blob', () => {
+  assert.match(blobUploadErrorMessage(0), /ตรวจการเชื่อมต่อ/);
+  assert.match(blobUploadErrorMessage(403), /หมดอายุ/);
+  assert.match(blobUploadErrorMessage(500), /HTTP 500/);
 });
