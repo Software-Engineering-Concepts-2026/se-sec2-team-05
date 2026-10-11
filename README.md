@@ -6,6 +6,8 @@ _สร้างพื้นที่ให้นักศึกษาแบ่�
 - วชิรวิทย์ ศรีทอง (67021219), GitHub: `@Washi-cloud`
 - กฤตเมธ ป้องตัน (67020746), GitHub: `@KITTAMETPONGTAN`
 
+📖 **วิธีใช้งานเว็บ:** ดู [คู่มือการใช้งาน (USER_GUIDE.md)](./USER_GUIDE.md) · เว็บจริง https://noteshare-sooty.vercel.app
+
 ---
 
 ## 🚀 Getting Started
@@ -30,21 +32,24 @@ This section explains how to get a local copy of the project up and running for 
     ```bash
     docker compose up --build
     ```
-    ยกขึ้นมาสี่ตัว: PostgreSQL, [Notes Service](./services/notes-service/README.md) ที่ `localhost:5001`,
-    [User & Auth Service](./services/auth-service/README.md) ที่ `localhost:5002`
-    และ Stats Service ที่ `localhost:5000` — ตรวจว่าขึ้นแล้วด้วย `curl localhost:5001/health`
+    ยกขึ้นมาห้าตัว: PostgreSQL, [Notes Service](./services/notes-service/README.md) ที่ `localhost:5001`,
+    [User & Auth Service](./services/auth-service/README.md) ที่ `localhost:5002`,
+    Stats Service ที่ `localhost:5000` และหน้าเว็บพร้อม gateway (nginx) ที่ **http://localhost:8080**
+    — ตรวจว่าขึ้นแล้วด้วย `curl localhost:5001/health` แล้วเปิดเว็บที่ `localhost:8080`
 
     ```bash
-    docker compose down -v   # ลบ volume ด้วย จำเป็นเมื่อ schema เปลี่ยน (ยังไม่มี migration)
+    docker compose down -v   # ลบ volume ด้วย = ล้างข้อมูลทั้งหมด (schema อัปเกรดเองด้วย Alembic ตอน service เริ่ม, ADR-010)
     ```
 
-    > ℹ️ ตอนนี้ยังยกไม่ครบตาม C4 Container diagram — ยังไม่มี API Gateway · การอัปโหลดโน้ตต้อง login
-    > แล้ว (Notes Service ตรวจ token ผ่าน `GET /auth/me` ของ User & Auth Service) แต่การอ่านยังเปิดหมด
-    > และการแก้/ลบต้อง login เป็นเจ้าของโน้ต เหตุผลอยู่ใน
-    > [ADR-003](./docs/architecture/adr/0003-tracer-bullet-scope.th.md), [ADR-005](./docs/architecture/adr/0005-auth-jwt-with-server-side-sessions.th.md)
-    > และ [ADR-013](./docs/architecture/adr/0013-retire-per-note-edit-token.th.md)
+    > ℹ️ gateway (nginx ใน `web/`) ตรวจ login กับ `GET /auth/me` ของ User & Auth Service ก่อนส่งต่อ
+    > route ที่ต้อง login เช่น อัปโหลด ให้คะแนน ความคิดเห็น รายการโปรด และรายงาน ส่วนการอ่าน (ค้นหา หน้าโน้ต
+    > ดาวน์โหลด ภาพรวมสถิติ) เปิดให้ทุกคน และการแก้/ลบต้อง login เป็นเจ้าของโน้ต เหตุผลอยู่ใน
+    > [ADR-005](./docs/architecture/adr/0005-auth-jwt-with-server-side-sessions.th.md),
+    > [ADR-006](./docs/architecture/adr/0006-nginx-web-gateway.th.md),
+    > [ADR-013](./docs/architecture/adr/0013-retire-per-note-edit-token.th.md)
+    > และ [ADR-014](./docs/architecture/adr/0014-gateway-checks-login.th.md)
 
-3.  **Deploy บน Vercel (ไม่บังคับ):** ทำตาม [docs/deploy/vercel.md](./docs/deploy/vercel.md) — หน้าเว็บและ 3 service เป็น Vercel Services, ฐานข้อมูล Neon, ไฟล์ใน Vercel Blob ([ADR-009](./docs/architecture/adr/0009-deploy-on-vercel-services.th.md)) · ไฟล์อัปโหลดไม่เกิน 4 MB
+3.  **Deploy บน Vercel (ไม่บังคับ):** ทำตาม [docs/deploy/vercel.md](./docs/deploy/vercel.md) — หน้าเว็บและ 3 service เป็น Vercel Services, ฐานข้อมูล Neon, ไฟล์ใน Vercel Blob ([ADR-009](./docs/architecture/adr/0009-deploy-on-vercel-services.th.md)) · ไฟล์อัปโหลดได้ถึง 10 MB เพราะหน้าเว็บส่งไฟล์ตรงเข้า Blob ([ADR-012](./docs/architecture/adr/0012-direct-upload-to-vercel-blob.th.md))
 
 ---
 
