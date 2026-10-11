@@ -10,7 +10,7 @@ const {
   statsErrorMessage,
 } = require('./stats-utils.js');
 
-// GET /stats of stats-service: contributors sorted by downloads, owner_id only
+// GET /stats of stats-service: contributors sorted by downloads (body without owner_name)
 const siteStats = {
   total_downloads: 21,
   total_notes: 9,
@@ -49,6 +49,16 @@ test('leaderboard lists the first places without other people\'s account numbers
   // logged out: nobody is "you"
   assert.ok(leaderboard(siteStats, null).every((r) => r.label === 'สมาชิก'));
   assert.deepEqual(leaderboard({}, session), []);
+});
+
+test('leaderboard shows owner_name when GET /stats sends it', () => {
+  const named = { top_contributors: [
+    { owner_id: 4, owner_name: 'Mind', total_downloads: 12 },
+    { owner_id: 2, owner_name: 'Somchai', total_downloads: 6 },
+    { owner_id: 7, owner_name: '  ', total_downloads: 2 },
+  ] };
+  assert.deepEqual(leaderboard(named, session).map((r) => r.label), ['Mind', 'คุณ', 'สมาชิก']);
+  assert.deepEqual(leaderboard(named, null).map((r) => r.label), ['Mind', 'Somchai', 'สมาชิก']);
 });
 
 test('myRank says where the viewer stands, or null when they have not shared', () => {

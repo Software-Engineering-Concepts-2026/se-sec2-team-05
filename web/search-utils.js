@@ -138,8 +138,8 @@
     <span class="note-rating-summary">${escapeHtml(ratingSummary(note))}</span></p>
   <div class="note-tags">${tags}</div>
   <div class="note-card-foot">
-    <span>ดาวน์โหลด ${escapeHtml(Number(note.download_count) || 0)} ครั้ง</span>
-    ${classDate}
+    <div class="note-card-meta"><span>ดาวน์โหลด ${escapeHtml(Number(note.download_count) || 0)} ครั้ง</span>
+    ${classDate}</div>
     <button type="button" class="preview-link" data-preview-id="${escapeHtml(note.id)}">ดูตัวอย่าง</button>
   </div>
 </article>`;

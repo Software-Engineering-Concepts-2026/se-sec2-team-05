@@ -60,14 +60,18 @@ def stats():
         total_notes = len(notes)
 
         contributors = {}
-        for note in notes:
+        # ชื่อที่แสดงของเจ้าของ = uploader_name ของโน้ตล่าสุด (id มากสุด) ซึ่งเปิดให้ทุกคนเห็นอยู่แล้วที่ตัวโน้ต
+        names = {}
+        for note in sorted(notes, key=lambda n: n.id):
             contributors[note.uploader_id] = contributors.get(
                 note.uploader_id, 0
             ) + note.download_count
+            names[note.uploader_id] = note.uploader_name
 
         top_contributors = [
             {
                 "owner_id": owner_id,
+                "owner_name": names[owner_id],
                 "total_downloads": downloads,
             }
             for owner_id, downloads in sorted(

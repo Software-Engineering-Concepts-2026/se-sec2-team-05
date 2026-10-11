@@ -21,7 +21,7 @@
 | `test_notes_preview.py` | preview รูปและหน้าแรกของ PDF (US-11) | วชิรวิทย์ |
 | `test_notes_favorites.py` | favorites และ `is_favorited` (US-15) | วชิรวิทย์ |
 | `test_notes_thanks.py` | ขอบคุณเจ้าของโน้ตและ `thank_status` (US-28) | วชิรวิทย์ |
-| `test_notes_comments.py` | ความคิดเห็นบนโน้ต (US-14) | กฤตเมธ |
+| `test_notes_comments.py` | ความคิดเห็นบนโน้ต (US-14) และชื่อผู้เขียน (NM-01, NM-02) | กฤตเมธ, อติชาติ |
 | `test_notes_reports.py` | รายงานเนื้อหาและ workflow ตรวจ/ปฏิเสธ/ลบโน้ตของ admin (Issues #17, #18) | กฤตเมธ |
 | `test_notes_ratings.py` | Notes Service rating: eligibility, การสร้าง/แก้ไข Rating, ค่าเฉลี่ย, authorization และ cleanup (Issue #13) | กฤตเมธ |
 | `test_notes_owner.py` | โน้ตของฉัน `GET /notes/mine` และการแก้/ลบด้วยบัญชีเจ้าของ (Issue #82, ADR-008) | อติชาติ |

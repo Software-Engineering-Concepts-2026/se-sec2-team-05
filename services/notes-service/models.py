@@ -184,6 +184,10 @@ class Comment(Base):
         index=True,
     )
 
+    # ชื่อที่แสดงของผู้เขียน ณ ตอนโพสต์ (จาก auth-service เหมือน Note.uploader_name)
+    # ว่างได้: ความคิดเห็นที่โพสต์ก่อน revision 0003 ไม่มีชื่อ หน้าเว็บแสดงเป็น "สมาชิก"
+    author_name: Mapped[str | None] = mapped_column(String(120))
+
     # เนื้อหาความคิดเห็น
     content: Mapped[str] = mapped_column(
         Text,
@@ -202,6 +206,7 @@ class Comment(Base):
             "id": self.id,
             "note_id": self.note_id,
             "user_id": self.user_id,
+            "author_name": self.author_name,
             "content": self.content,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }

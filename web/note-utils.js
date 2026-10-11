@@ -72,20 +72,23 @@
     return Boolean(session && session.user && comment && session.user.id === comment.user_id);
   }
 
-  // Comments carry only user_id (no name), so the page says "คุณ" for the viewer's own
-  // comments and "สมาชิก" for everyone else's.
+  // "คุณ" for the viewer's own comments, else the author's display name. Comments posted
+  // before the API kept author_name have none, so they still say "สมาชิก".
   function commentAuthor(comment, session) {
-    return isOwnComment(comment, session) ? 'คุณ' : 'สมาชิก';
+    if (isOwnComment(comment, session)) return 'คุณ';
+    const name = comment && typeof comment.author_name === 'string' ? comment.author_name.trim() : '';
+    return name || 'สมาชิก';
   }
 
-  // One comment. The text is typed in by other users, so it goes through escapeHtml.
+  // One comment. The text and the author's name are typed in by other users, so both go
+  // through escapeHtml.
   function renderComment(comment, session) {
     const own = isOwnComment(comment, session);
     const remove = own
       ? `<button type="button" class="link-btn" data-delete-comment="${escapeHtml(comment.id)}">ลบ</button>`
       : '';
     return `<li class="comment-item${own ? ' own' : ''}">
-  <p class="comment-head"><strong>${commentAuthor(comment, session)}</strong>
+  <p class="comment-head"><strong>${escapeHtml(commentAuthor(comment, session))}</strong>
     <span class="comment-time">${escapeHtml(formatThaiDateTime(comment.created_at))}</span>${remove}</p>
   <p class="comment-text">${escapeHtml(comment.content)}</p>
 </li>`;

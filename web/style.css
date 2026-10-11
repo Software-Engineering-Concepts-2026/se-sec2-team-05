@@ -71,6 +71,7 @@ a:hover { color: var(--ink); }
 }
 .nav-links,
 .nav-user { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.nav-links { flex: 1; }
 .nav-user { gap: 8px 12px; }
 .nav-links a {
   color: var(--muted-2);
@@ -81,7 +82,7 @@ a:hover { color: var(--ink); }
 }
 .nav-links a:hover { color: var(--ink); background: var(--chip-bg); }
 .nav-links a[aria-current="page"] { color: var(--ink); background: var(--chip-bg); }
-.nav-links .nav-brand {
+.nav-brand {
   display: inline-flex;
   align-items: center;
   gap: 9px;
@@ -89,12 +90,12 @@ a:hover { color: var(--ink); }
   font-size: 22px;
   font-weight: 600;
   color: var(--ink);
+  text-decoration: none;
   padding: 0 12px 0 0;
   margin-right: 8px;
 }
-.nav-links .nav-brand:hover { background: none; }
 /* the mockup's logo, drawn without an image file: a tilted dark square with an amber tick */
-.nav-links .nav-brand { position: relative; }
+.nav-brand { position: relative; }
 .nav-brand::before {
   content: "";
   width: 30px;
@@ -331,14 +332,17 @@ a:hover { color: var(--ink); }
   padding-top: 12px;
   border-top: 1.5px solid var(--line);
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
+  align-items: flex-end;
   gap: 4px 14px;
   font-size: 12.5px;
   color: var(--muted);
 }
+/* the counts may wrap onto two lines; "ดูตัวอย่าง" stays on the right of the last line */
+.note-card-meta { display: flex; flex-wrap: wrap; gap: 2px 14px; min-width: 0; }
+.note-card-meta span { white-space: nowrap; }
 .preview-link {
   margin-left: auto;
+  white-space: nowrap;
   background: none;
   border: none;
   padding: 4px 0;
@@ -684,7 +688,18 @@ textarea.text-input { min-height: 84px; resize: vertical; }
 
 @media (max-width: 480px) {
   .site-nav { font-size: 14px; }
-  .nav-links .nav-brand { font-size: 19px; }
+  .nav-brand { font-size: 19px; }
+  /* row 1: brand + login/user · row 2: the links in one line that scrolls sideways if it must */
+  .nav-user { order: 1; margin-left: auto; }
+  .nav-links {
+    order: 2;
+    flex: 1 0 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0 -6px;
+  }
+  .nav-links a { padding: 6px 10px; white-space: nowrap; }
   .search-bar { padding-left: 12px; }
   .search-icon { display: none; }
   .comment-form { flex-direction: column; align-items: stretch; }

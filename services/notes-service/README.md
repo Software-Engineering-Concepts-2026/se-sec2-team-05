@@ -368,6 +368,10 @@ Request body เป็น JSON:
 
 ข้อความจะถูก `strip` ช่องว่างหัวและท้ายก่อนบันทึก และต้องมีความยาว 1–1000 ตัวอักษร
 
+object ของ comment มี `id`, `note_id`, `user_id`, `author_name`, `content`, `created_at` ·
+`author_name` คือชื่อที่แสดงของผู้เขียน ณ ตอนโพสต์ ได้มาจาก `GET /auth/me` (ค่าใน body ที่ client ส่งมาถูกเมิน) แบบเดียวกับ `uploader_name` ของโน้ต ·
+ความคิดเห็นที่โพสต์ก่อน migration `0003` มีค่าเป็น `null`
+
 | กรณี | Response |
 | --- | --- |
 | สร้างความคิดเห็นสำเร็จ | `201` + object ของ comment |

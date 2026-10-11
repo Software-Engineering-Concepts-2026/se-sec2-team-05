@@ -1142,6 +1142,7 @@ def create_app(database_url: str | None = None, storage=None, identity=None) -> 
             comment = Comment(
                 note_id=note_id,
                 user_id=user["id"],
+                author_name=user["display_name"],
                 content=content,
             )
 
