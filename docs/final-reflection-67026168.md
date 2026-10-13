@@ -22,9 +22,9 @@ NoteShare เว็บสำหรับนักศึกษาแบ่งป�
 
 ตัวเลขของงาน ณ วันที่ 2026-10-13:
 
-- PR ที่ merge แล้ว 79 PR · issue ทั้งหมด 45 ใบ
-- เทสต์ Python 531 ข้อผ่าน (รันได้ทั้งบน SQLite และ PostgreSQL) · coverage รวม 97% ตาม [Test Report](./testing/readme.md#3-test-report)
-- เทสต์ JavaScript ของหน้าเว็บ 94 ข้อ · E2E ผ่าน browser จริงด้วย Playwright
+- PR ที่ merge แล้ว 79 PR · issue ทั้งหมด 45 ใบ (ณ 2026-10-13)
+- เทสต์ Python 532 ข้อผ่านบน SQLite และ 534 ข้อบน PostgreSQL · coverage รวม 97% ตาม [Test Report](./testing/readme.md#3-test-report)
+- เทสต์ JavaScript ของหน้าเว็บ 94 ข้อ · E2E ผ่าน browser จริงด้วย Playwright 7 เส้นทาง
 - CI บน GitHub Actions มี 7 job · ตั้งแต่ 2026-10-13 `main` บังคับให้ผ่าน 6 job ก่อน merge
 
 ส่วนที่ผมรับผิดชอบเอง:
