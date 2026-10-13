@@ -12,8 +12,9 @@
 - บัญชี Vercel (แพ็กเกจ Hobby ใช้ได้ Services เปิดให้ทุกแพ็กเกจในช่วง beta)
 - Node.js สำหรับติดตั้ง Vercel CLI (`npm i -g vercel`) แล้ว `vercel login`
 - clone repo นี้ไว้ในเครื่อง · deploy จากเครื่องด้วย CLI ไม่ต้องให้สิทธิ์ Vercel กับ GitHub organization
-  (เจ้าของ organization ติดตั้ง Vercel GitHub App ให้ repo นี้แล้ว ถ้าเชื่อม project กับ GitHub ใน Vercel dashboard
-  จะ deploy อัตโนมัติเฉพาะตอน push เข้า `main` เพราะ `git.deploymentEnabled` ใน [`vercel.json`](../../vercel.json) ปิด branch อื่นไว้)
+  (เจ้าของ organization ติดตั้ง Vercel GitHub App ให้ repo นี้แล้ว และ project `noteshare` เชื่อมกับ repo แล้วตั้งแต่ 2026-10-13
+  ด้วย `vercel git connect` โดย production branch = `main` จึง deploy production อัตโนมัติทุกครั้งที่ merge เข้า `main`
+  ส่วน branch อื่นไม่ deploy เพราะ `git.deploymentEnabled` ใน [`vercel.json`](../../vercel.json) ปิดไว้)
 
 ## 1. สร้างและเชื่อม project
 
@@ -76,6 +77,9 @@ vercel blob create-store noteshare-files --access private --region iad1
 vercel deploy --target preview   # preview — ได้ URL ทดสอบ (ปกติต้อง login Vercel ก่อนเปิด)
 vercel deploy --prod             # production — URL สาธารณะ
 ```
+
+ปกติไม่ต้องรัน `vercel deploy --prod` เองแล้ว เพราะ merge เข้า `main` จะ deploy production ให้อัตโนมัติ ใช้คำสั่งนี้เมื่อต้อง deploy ซ้ำ
+เช่น หลังเปลี่ยน environment variable
 
 ## 6. ตั้งผู้ดูแล
 
