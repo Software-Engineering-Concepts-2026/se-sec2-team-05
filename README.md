@@ -6,7 +6,31 @@ _สร้างพื้นที่ให้นักศึกษาแบ่�
 - วชิรวิทย์ ศรีทอง (67021219), GitHub: `@Washi-cloud`
 - กฤตเมธ ป้องตัน (67020746), GitHub: `@KITTAMETPONGTAN`
 
-📖 **วิธีใช้งานเว็บ:** ดู [คู่มือการใช้งาน (USER_GUIDE.md)](./USER_GUIDE.md) · เว็บจริง https://noteshare-sooty.vercel.app
+---
+
+## 🌐 วิธีใช้งานเว็บ
+
+**เปิดเว็บ:** https://noteshare-sooty.vercel.app · คู่มือฉบับเต็มพร้อมภาพหน้าจอ: [USER_GUIDE.md](./USER_GUIDE.md)
+
+| อยากทำอะไร | ไปที่ | ต้องเข้าสู่ระบบ |
+| --- | --- | --- |
+| ค้นหาโน้ต กรองตามคณะ ชั้นปี ชนิดไฟล์ วันที่ และเรียงตามคะแนน | [หน้าแรก](https://noteshare-sooty.vercel.app/) | — |
+| ดูตัวอย่าง ดาวน์โหลด อ่านคะแนนและความคิดเห็น | กดการ์ดโน้ตในหน้าแรก | — |
+| ดูภาพรวมสถิติและอันดับผู้แบ่งปัน | [สถิติ](https://noteshare-sooty.vercel.app/stats.html) | — |
+| สมัครสมาชิก / เข้าสู่ระบบ | [เข้าสู่ระบบ](https://noteshare-sooty.vercel.app/login.html) | — |
+| อัปโหลดโน้ต (PDF, PNG, JPG ไม่เกิน 10 MB) | [อัปโหลดโน้ต](https://noteshare-sooty.vercel.app/upload.html) | ✅ |
+| ให้คะแนน แสดงความคิดเห็น ขอบคุณ รายการโปรด รายงานโน้ต | หน้าโน้ต | ✅ |
+| แก้ไขหรือลบโน้ตของตัวเอง ดูรายการโปรด | [โปรไฟล์](https://noteshare-sooty.vercel.app/profile.html) | ✅ |
+| ตรวจรายงานโน้ต (เฉพาะผู้ดูแล) | [ผู้ดูแล](https://noteshare-sooty.vercel.app/admin.html) | ✅ ผู้ดูแล |
+
+เริ่มใช้งานใน 3 ขั้น:
+
+1. **สมัครสมาชิก** ที่หน้าเข้าสู่ระบบ แท็บ "สมัครสมาชิก" ด้วยอีเมลที่ลงท้าย `@up.ac.th` และรหัสผ่าน 8–128 ตัวอักษร ระบบเข้าสู่ระบบให้ทันที
+2. **ค้นหาโน้ต** ที่หน้าแรก พิมพ์ชื่อวิชา รหัสวิชา บทเรียน หรือหัวข้อ แล้วกดการ์ดเพื่อดูตัวอย่างและดาวน์โหลด
+3. **แบ่งปันโน้ต** ที่หน้าอัปโหลด เลือกไฟล์แล้วกรอกช่องที่มี * ให้ครบ ชื่อผู้อัปโหลดมาจากบัญชีที่เข้าสู่ระบบอยู่
+
+> ℹ️ เข้าสู่ระบบอยู่ได้ 8 ชั่วโมงต่อแท็บ · กรอกรหัสผิด 5 ครั้งใน 15 นาทีจะถูกล็อกชั่วคราว · โน้ตบนเว็บตอนนี้มีโน้ตตัวอย่างสำหรับทดลองระบบ (คำอธิบายลงท้ายว่า "โน้ตตัวอย่างสำหรับทดลองระบบ")
+> ปัญหาที่พบบ่อยและความหมายของข้อความแจ้งเตือนดูที่ [USER_GUIDE.md หัวข้อ 9](./USER_GUIDE.md#9-คำถามที่พบบ่อยและข้อความแจ้งเตือน)
 
 ---
 
@@ -49,7 +73,7 @@ This section explains how to get a local copy of the project up and running for 
     > [ADR-013](./docs/architecture/adr/0013-retire-per-note-edit-token.th.md)
     > และ [ADR-014](./docs/architecture/adr/0014-gateway-checks-login.th.md)
 
-3.  **Deploy บน Vercel:** merge เข้า `main` แล้ว Vercel deploy เว็บจริงให้อัตโนมัติ (branch อื่นไม่ deploy) · ถ้าจะตั้ง project เองทำตาม [docs/deploy/vercel.md](./docs/deploy/vercel.md) — หน้าเว็บและ 3 service เป็น Vercel Services, ฐานข้อมูล Neon, ไฟล์ใน Vercel Blob ([ADR-009](./docs/architecture/adr/0009-deploy-on-vercel-services.th.md)) · ไฟล์อัปโหลดได้ถึง 10 MB เพราะหน้าเว็บส่งไฟล์ตรงเข้า Blob ([ADR-012](./docs/architecture/adr/0012-direct-upload-to-vercel-blob.th.md))
+3.  **Deploy บน Vercel:** merge เข้า `main` แล้ว Vercel deploy เว็บจริงให้อัตโนมัติ (branch อื่นไม่ deploy) · project อยู่บนแพ็กเกจ Hobby ซึ่ง deploy เฉพาะ commit ของเจ้าของบัญชี Vercel จึงให้ `@Felsau` เป็นคนกด merge ทุกครั้ง ([รายละเอียด](./docs/deploy/vercel.md#5-deploy)) · ถ้าจะตั้ง project เองทำตาม [docs/deploy/vercel.md](./docs/deploy/vercel.md) — หน้าเว็บและ 3 service เป็น Vercel Services, ฐานข้อมูล Neon, ไฟล์ใน Vercel Blob ([ADR-009](./docs/architecture/adr/0009-deploy-on-vercel-services.th.md)) · ไฟล์อัปโหลดได้ถึง 10 MB เพราะหน้าเว็บส่งไฟล์ตรงเข้า Blob ([ADR-012](./docs/architecture/adr/0012-direct-upload-to-vercel-blob.th.md))
 
 ---
 

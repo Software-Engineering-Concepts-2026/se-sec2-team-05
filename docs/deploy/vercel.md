@@ -81,6 +81,11 @@ vercel deploy --prod             # production — URL สาธารณะ
 ปกติไม่ต้องรัน `vercel deploy --prod` เองแล้ว เพราะ merge เข้า `main` จะ deploy production ให้อัตโนมัติ ใช้คำสั่งนี้เมื่อต้อง deploy ซ้ำ
 เช่น หลังเปลี่ยน environment variable
 
+> ⚠️ project อยู่บนแพ็กเกจ **Hobby** ซึ่ง Vercel สร้าง deployment จาก Git ให้เฉพาะ commit ของเจ้าของบัญชีเท่านั้น
+> merge commit มีผู้เขียนเป็นคนที่กด merge จึงให้ `@Felsau` (เจ้าของบัญชี Vercel) เป็นคน merge PR เข้า `main`
+> ถ้าคนอื่นกด merge แล้ว Vercel ไม่ deploy ให้ `@Felsau` รัน `vercel deploy --prod` จาก `main` แทน
+> ตรวจผลได้ที่แท็บ Deployments ของ Vercel หรือ `vercel ls --prod`
+
 ## 6. ตั้งผู้ดูแล
 
 สมัครบัญชีของผู้ดูแลผ่านหน้าเว็บ แล้วดู id ของบัญชีนั้น (เช่นใน Neon console: `select id, email from users;`)
