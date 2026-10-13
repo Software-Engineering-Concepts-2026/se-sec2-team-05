@@ -12,7 +12,8 @@
 - บัญชี Vercel (แพ็กเกจ Hobby ใช้ได้ Services เปิดให้ทุกแพ็กเกจในช่วง beta)
 - Node.js สำหรับติดตั้ง Vercel CLI (`npm i -g vercel`) แล้ว `vercel login`
 - clone repo นี้ไว้ในเครื่อง · deploy จากเครื่องด้วย CLI ไม่ต้องให้สิทธิ์ Vercel กับ GitHub organization
-  (ถ้าจะให้ deploy อัตโนมัติทุกครั้งที่ push ต้องให้เจ้าของ organization ติดตั้ง Vercel GitHub App ก่อน)
+  (เจ้าของ organization ติดตั้ง Vercel GitHub App ให้ repo นี้แล้ว ถ้าเชื่อม project กับ GitHub ใน Vercel dashboard
+  จะ deploy อัตโนมัติเฉพาะตอน push เข้า `main` เพราะ `git.deploymentEnabled` ใน [`vercel.json`](../../vercel.json) ปิด branch อื่นไว้)
 
 ## 1. สร้างและเชื่อม project
 
